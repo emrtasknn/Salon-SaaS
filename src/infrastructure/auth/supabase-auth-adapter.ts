@@ -1,4 +1,7 @@
-import type { ServerAuthAdapter, ServerAuthSnapshot } from "../../application/auth-request-boundary";
+import type {
+  ServerAuthAdapter,
+  ServerAuthSnapshot,
+} from "../../application/auth-request-boundary";
 
 export type SupabaseAuthUser = Readonly<{ id: unknown }>;
 
@@ -11,11 +14,8 @@ export interface SupabaseAuthClient {
   auth: { getUser(): Promise<SupabaseAuthResponse> };
 }
 
-export type SupabaseProfileIdResolver = (subjectId: string) => Promise<unknown>;
-
 export type SupabaseAuthAdapterDependencies = Readonly<{
   client: SupabaseAuthClient;
-  resolveProfileId: SupabaseProfileIdResolver;
 }>;
 
 export function createSupabaseAuthAdapter(
@@ -35,8 +35,7 @@ export function createSupabaseAuthAdapter(
           return { state: "unauthenticated" };
         }
 
-        const profileId = await dependencies.resolveProfileId(subjectId);
-        return { state: "authenticated", subjectId, profileId };
+        return { state: "authenticated", subjectId };
       } catch {
         return { state: "unauthenticated" };
       }
