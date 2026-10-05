@@ -15,12 +15,12 @@ describe("Prisma MembershipReader tenant context", () => {
   it("sets tenant context before the membership query", async () => {
     const findUnique = vi.fn().mockResolvedValue({ tenantId:"tenant-a", subjectId:"subject-1", profileId:"profile-1", role:"STAFF" });
     const executeRaw = vi.fn().mockResolvedValue(1);
-    const transaction = vi.fn(async <T>(operation: (tx: { $executeRawUnsafe: typeof executeRaw; tenantMembership: { findUnique: typeof findUnique } }) => Promise<T>) => operation({ $executeRawUnsafe: executeRaw, tenantMembership: { findUnique } }));
+    const transaction = vi.fn(async <T>(operation: (tx: { $executeRaw: typeof executeRaw; tenantMembership: { findUnique: typeof findUnique } }) => Promise<T>) => operation({ $executeRaw: executeRaw, tenantMembership: { findUnique } }));
     const prisma = { $transaction: transaction } as unknown as import("./prisma-tenant-context").PrismaTenantClient;
     const reader = createPrismaMembershipReader({ prisma });
     const result = await reader.readMembership({ tenantContext: tenantContext("tenant-a"), identity: createAuthenticatedSubjectIdentity("subject-1") });
     expect(result.status).toBe("found");
-    expect(executeRaw).toHaveBeenCalledWith(expect.anything());
+    expect(executeRaw).toHaveBeenCalledTimes(1);
     expect(executeRaw.mock.invocationCallOrder[0]).toBeLessThan(findUnique.mock.invocationCallOrder[0]);
     expect(findUnique).toHaveBeenCalledWith({ where: { tenantId_subjectId: { tenantId:"tenant-a", subjectId:"subject-1" } } });
   });
