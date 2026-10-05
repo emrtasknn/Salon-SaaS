@@ -1,4 +1,9 @@
-import { createTenantContext, createTenantId, type TenantContext, type TenantId } from "./tenant-context";
+import {
+  createTenantContext,
+  type DomainResult,
+  type TenantContext,
+  type TenantId,
+} from "./tenant-context";
 
 export type TenantResolutionResult =
   | Readonly<{ status: "resolved"; context: TenantContext }>
@@ -11,7 +16,7 @@ export type TenantResolutionSource = Readonly<{
 
 export function resolveTenantContext(
   source: unknown,
-  resolveTenantId: (slug: string) => TenantId | null,
+  resolveTenantId: (slug: string) => DomainResult<TenantId> | null,
 ): TenantResolutionResult {
   if (
     typeof source !== "object" ||
@@ -24,15 +29,26 @@ export function resolveTenantContext(
     return { status: "invalid_input", reason: "Tenant slug is invalid" };
   }
 
-  const slug = source.slug;
-  const tenantId = resolveTenantId(slug);
+  const tenantIdResult = resolveTenantId(source.slug);
 
-  if (tenantId === null) {
+  if (tenantIdResult === null) {
     return { status: "not_found" };
+  }
+
+  if (!tenantIdResult.ok) {
+    return { status: "invalid_input", reason: tenantIdResult.error.message };
+  }
+
+  const contextResult = createTenantContext({
+    tenantId: tenantIdResult.value,
+  });
+
+  if (!contextResult.ok) {
+    return { status: "invalid_input", reason: contextResult.error.message };
   }
 
   return {
     status: "resolved",
-    context: createTenantContext(createTenantId(tenantId)),
+    context: contextResult.value,
   };
 }
