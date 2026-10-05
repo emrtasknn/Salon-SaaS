@@ -1,15 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-import { createTenantId, createTenantContext } from "../domain/tenant-context";
+import { createTenantContext, createTenantId } from "../domain/tenant-context";
 import {
   withTenantDatabaseContext,
   type TenantDatabaseClient,
 } from "./tenant-db-context";
 
 function tenantContext(raw: string) {
+  const tenantIdResult = createTenantId(raw);
+  if (!tenantIdResult.ok) throw new Error("test setup failed");
+
   const result = createTenantContext({
-    tenantId: createTenantId(raw).ok
-      ? createTenantId(raw).value
-      : undefined,
+    tenantId: tenantIdResult.value,
   });
 
   if (!result.ok) throw new Error("test setup failed");
