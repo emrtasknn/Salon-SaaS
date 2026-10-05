@@ -34,6 +34,7 @@ model Profile {
   staff        Staff?
   appointments Appointment[] @relation("AppointmentCustomer")
 
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@unique([tenantId, email])
 }
@@ -46,9 +47,10 @@ model Staff {
   updatedAt DateTime @updatedAt
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  profile      Profile       @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  profile      Profile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   appointments Appointment[]
 
+  @@unique([tenantId, id])
   @@index([tenantId])
 }
 
@@ -65,6 +67,7 @@ model Service {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   appointments Appointment[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, name])
   @@index([tenantId])
 }
@@ -81,9 +84,9 @@ model Appointment {
   updatedAt         DateTime @updatedAt
 
   tenant          Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  staff           Staff   @relation(fields: [staffId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  service         Service @relation(fields: [serviceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  customerProfile Profile @relation("AppointmentCustomer", fields: [customerProfileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff           Staff   @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  service         Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([tenantId, startAt])
   @@index([tenantId, staffId, startAt])
