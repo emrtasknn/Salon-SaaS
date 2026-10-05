@@ -51,6 +51,7 @@ model Staff {
   appointments Appointment[]
 
   @@unique([tenantId, id])
+  @@unique([tenantId, profileId])
   @@index([tenantId])
 }
 
