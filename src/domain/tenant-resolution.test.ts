@@ -5,12 +5,15 @@ import { resolveTenantContext } from "./tenant-resolution";
 
 describe("tenant resolution foundation", () => {
   it("resolves a valid slug through the trusted resolver boundary", () => {
+    const tenantIdResult = createTenantId("tenant-abc");
+    expect(tenantIdResult.ok).toBe(true);
+    if (!tenantIdResult.ok) {
+      return;
+    }
+
     const result = resolveTenantContext(
       { slug: "salon-abc" },
-      (slug) =>
-        slug === "salon-abc"
-          ? { ok: true, value: createTenantId("tenant-abc").value! }
-          : null,
+      (slug) => (slug === "salon-abc" ? tenantIdResult : null),
     );
 
     expect(result).toEqual({
