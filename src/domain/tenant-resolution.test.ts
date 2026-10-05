@@ -7,7 +7,10 @@ describe("tenant resolution foundation", () => {
   it("resolves a valid slug through the trusted resolver boundary", () => {
     const result = resolveTenantContext(
       { slug: "salon-abc" },
-      (slug) => (slug === "salon-abc" ? createTenantId("tenant-abc") : null),
+      (slug) =>
+        slug === "salon-abc"
+          ? { ok: true, value: createTenantId("tenant-abc").value! }
+          : null,
     );
 
     expect(result).toEqual({
@@ -31,9 +34,15 @@ describe("tenant resolution foundation", () => {
   });
 
   it("keeps tenant resolution independent from auth identity", () => {
+    const tenantIdResult = createTenantId("tenant-abc");
+    expect(tenantIdResult.ok).toBe(true);
+    if (!tenantIdResult.ok) {
+      return;
+    }
+
     const result = resolveTenantContext(
       { slug: "salon-abc" },
-      () => createTenantId("tenant-abc"),
+      () => tenantIdResult,
     );
 
     expect(result.status).toBe("resolved");
@@ -46,7 +55,10 @@ describe("tenant resolution foundation", () => {
   it("does not accept arbitrary tenantId as the request source", () => {
     const result = resolveTenantContext(
       { tenantId: "attacker-selected-tenant" },
-      () => createTenantId("safe-tenant"),
+      () => {
+        const tenantIdResult = createTenantId("safe-tenant");
+        return tenantIdResult;
+      },
     );
 
     expect(result.status).toBe("invalid_input");
