@@ -8,7 +8,12 @@ import {
 } from "./membership";
 
 function tenantContext(raw: string) {
-  const result = createTenantContext({ tenantId: createTenantId(raw).ok ? createTenantId(raw).value : "" });
+  const tenantIdResult = createTenantId(raw);
+  if (!tenantIdResult.ok) {
+    throw new Error("Test fixture tenant ID must be valid");
+  }
+
+  const result = createTenantContext({ tenantId: tenantIdResult.value });
   if (!result.ok) {
     throw new Error("Test fixture tenant context must be valid");
   }
