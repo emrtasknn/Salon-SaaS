@@ -59,6 +59,7 @@ CREATE UNIQUE INDEX "Profile_tenantId_id_key" ON "Profile"("tenantId", "id");
 CREATE INDEX "Profile_tenantId_idx" ON "Profile"("tenantId");
 CREATE UNIQUE INDEX "Profile_tenantId_email_key" ON "Profile"("tenantId", "email");
 CREATE UNIQUE INDEX "Staff_profileId_key" ON "Staff"("profileId");
+CREATE UNIQUE INDEX "Staff_tenantId_profileId_key" ON "Staff"("tenantId", "profileId");
 CREATE UNIQUE INDEX "Staff_tenantId_id_key" ON "Staff"("tenantId", "id");
 CREATE INDEX "Staff_tenantId_idx" ON "Staff"("tenantId");
 CREATE UNIQUE INDEX "Service_tenantId_id_key" ON "Service"("tenantId", "id");
