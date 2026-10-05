@@ -73,11 +73,14 @@ describe("createTenantContext", () => {
     const result = createTenantContext({ tenantId: "tenant-a" });
     expect(result.ok).toBe(true);
     if (result.ok) {
+      const replacement = createTenantId("tenant-b");
+      const replacementTenantId = replacement.ok
+        ? replacement.value
+        : result.value.tenantId;
+
       expect(() => {
         (result.value as { tenantId: TenantId }).tenantId =
-          createTenantId("tenant-b").ok
-            ? createTenantId("tenant-b").value
-            : result.value.tenantId;
+          replacementTenantId;
       }).toThrow(TypeError);
       expect(result.value.tenantId).toBe("tenant-a");
     }
