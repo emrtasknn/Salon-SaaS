@@ -28,8 +28,8 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
     );
 
     await pool.query(
-      `INSERT INTO "Profile" ("id", "tenantId", "displayName")
-       VALUES ($1, $2, $3)`,
+      `INSERT INTO "Profile" ("id", "tenantId", "displayName", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, now(), now())`,
       [profileA, tenantA, "RLS Test Profile"],
     );
 
