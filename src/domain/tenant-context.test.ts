@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createTenantContext,
@@ -79,6 +81,19 @@ describe("createTenantContext", () => {
       }).toThrow(TypeError);
       expect(result.value.tenantId).toBe("tenant-a");
     }
+  });
+});
+
+describe("tenant context module boundaries", () => {
+  it("has no infrastructure imports", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/domain/tenant-context.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toMatch(
+      /^\s*import\s+.*from\s+["'](?:.*(?:supabase|prisma|next|react)|@\/)/m,
+    );
   });
 });
 
