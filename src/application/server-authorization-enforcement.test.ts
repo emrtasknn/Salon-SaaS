@@ -7,9 +7,15 @@ import { createTenantContext, createTenantId } from "../domain/tenant-context";
 import type { MembershipReader } from "../persistence/membership";
 import { enforceServerAuthorization } from "./server-authorization-enforcement";
 
+function tenantId(raw: string) {
+  const result = createTenantId(raw);
+  if (!result.ok) throw new Error("test setup failed");
+  return result.value;
+}
+
 function tenantContext() {
   const result = createTenantContext({
-    tenantId: createTenantId("tenant-1").value,
+    tenantId: tenantId("tenant-1"),
   });
   if (!result.ok) throw new Error("test setup failed");
   return result.value;
@@ -104,7 +110,7 @@ describe("enforceServerAuthorization", () => {
   it("preserves tenant mismatch denial", async () => {
     const identity = createAuthenticatedIdentity("subject-1", "profile-1");
     const tenant = tenantContext();
-    const otherTenant = createTenantId("tenant-2");
+    const otherTenant = tenantId("tenant-2");
 
     const result = await enforceServerAuthorization(
       {
