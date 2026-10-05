@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id        String   @id
+  slug      String   @unique
+  name      String
+  timezone  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profiles     Profile[]
+  staff        Staff[]
+  services     Service[]
+  appointments Appointment[]
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  tenantId    String
+  displayName String
+  email       String?
+  phone       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff        Staff?
+  appointments Appointment[] @relation("AppointmentCustomer")
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@unique([tenantId, email])
+}
+
+model Staff {
+  id        String   @id @default(cuid())
+  tenantId  String
+  profileId String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  profile      Profile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  appointments Appointment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, profileId])
+  @@index([tenantId])
+}
+
+model Service {
+  id             String   @id @default(cuid())
+  tenantId       String
+  name           String
+  durationMinutes Int
+  bufferMinutes  Int      @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointments Appointment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Appointment {
+  id                String   @id @default(cuid())
+  tenantId          String
+  staffId           String
+  serviceId         String
+  customerProfileId String
+  startAt           DateTime
+  endAt             DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant          Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff           Staff   @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  service         Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([tenantId, startAt])
+  @@index([tenantId, staffId, startAt])
+  @@index([tenantId, customerProfileId, startAt])
+}
