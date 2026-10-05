@@ -35,7 +35,7 @@ describe("membership persistence boundary", () => {
         expect(lookup.identity.profileId).toBe("profile-1");
 
         return { status: "not_found" };
-      }),
+      },
     };
 
     await expect(reader.readMembership(input)).resolves.toEqual({
