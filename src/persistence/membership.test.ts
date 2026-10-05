@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createAuthenticatedIdentity } from "../domain/auth-identity";
+import { createAuthenticatedSubjectIdentity } from "../domain/auth-identity";
 import { createTenantContext, createTenantId } from "../domain/tenant-context";
 import {
   createMembershipLookupInput,
@@ -21,8 +21,8 @@ function tenantContext(raw: string) {
 }
 
 describe("membership persistence boundary", () => {
-  it("uses trusted tenant context and authenticated identity as the lookup boundary", async () => {
-    const identity = createAuthenticatedIdentity("subject-1", "profile-1");
+  it("uses trusted tenant context and authenticated subject as the lookup boundary", async () => {
+    const identity = createAuthenticatedSubjectIdentity("subject-1");
     const input = createMembershipLookupInput(
       tenantContext("tenant-1"),
       identity,
@@ -32,7 +32,7 @@ describe("membership persistence boundary", () => {
       readMembership: async (lookup) => {
         expect(lookup.tenantContext.tenantId).toBe("tenant-1");
         expect(lookup.identity.subjectId).toBe(identity.subjectId);
-        expect(lookup.identity.profileId).toBe("profile-1");
+        expect(lookup.identity).not.toHaveProperty("profileId");
 
         return { status: "not_found" };
       },
@@ -44,7 +44,7 @@ describe("membership persistence boundary", () => {
   });
 
   it("returns a found authorization membership without changing its shape", async () => {
-    const identity = createAuthenticatedIdentity("subject-1", "profile-1");
+    const identity = createAuthenticatedSubjectIdentity("subject-1");
     const input = createMembershipLookupInput(
       tenantContext("tenant-1"),
       identity,
@@ -52,7 +52,7 @@ describe("membership persistence boundary", () => {
     const membership = {
       tenantId: input.tenantContext.tenantId,
       subjectId: identity.subjectId,
-      profileId: identity.profileId,
+      profileId: "profile-1",
       role: "STAFF" as const,
     };
 
@@ -70,7 +70,7 @@ describe("membership persistence boundary", () => {
   });
 
   it("keeps persistence failure distinct from membership absence", async () => {
-    const identity = createAuthenticatedIdentity("subject-1", "profile-1");
+    const identity = createAuthenticatedSubjectIdentity("subject-1");
     const input = createMembershipLookupInput(
       tenantContext("tenant-1"),
       identity,
@@ -93,7 +93,7 @@ describe("membership persistence boundary", () => {
   });
 
   it("does not expose a client tenantId as a lookup authority", () => {
-    const identity = createAuthenticatedIdentity("subject-1", "profile-1");
+    const identity = createAuthenticatedSubjectIdentity("subject-1");
     const input = createMembershipLookupInput(
       tenantContext("trusted-tenant"),
       identity,
