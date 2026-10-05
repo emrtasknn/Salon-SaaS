@@ -13,7 +13,7 @@ function tenantContext(value: string) {
 function mockTx() {
   const executeRaw = vi.fn().mockResolvedValue(1);
   return {
-    tx: { $executeRawUnsafe: executeRaw, tenantMembership: { findUnique: vi.fn() } } satisfies PrismaTenantTransactionClient,
+    tx: { $executeRaw: executeRaw, tenantMembership: { findUnique: vi.fn() } } satisfies PrismaTenantTransactionClient,
     executeRaw,
   };
 }
