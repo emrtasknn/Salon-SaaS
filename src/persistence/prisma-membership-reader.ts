@@ -1,4 +1,4 @@
-import type { AuthenticatedIdentity } from "../domain/auth-identity";
+import type { AuthenticatedSubjectIdentity } from "../domain/auth-identity";
 import type { AuthorizationMembership } from "../domain/authorization";
 import type {
   MembershipLookupInput,
@@ -31,7 +31,7 @@ export interface PrismaMembershipReaderDependencies {
 function toMembership(row: MembershipRow): AuthorizationMembership {
   return Object.freeze({
     tenantId: row.tenantId as AuthorizationMembership["tenantId"],
-    subjectId: row.subjectId as AuthenticatedIdentity["subjectId"],
+    subjectId: row.subjectId as AuthenticatedSubjectIdentity["subjectId"],
     profileId: row.profileId,
     role: row.role,
   });
