@@ -19,6 +19,7 @@ model Tenant {
   staff        Staff[]
   services     Service[]
   appointments Appointment[]
+  memberships  TenantMembership[]
 }
 
 model Profile {
@@ -37,6 +38,30 @@ model Profile {
   @@unique([tenantId, id])
   @@index([tenantId])
   @@unique([tenantId, email])
+}
+
+enum TenantRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  STAFF
+  CUSTOMER
+}
+
+model TenantMembership {
+  id        String     @id @default(cuid())
+  tenantId  String
+  subjectId String
+  profileId String
+  role      TenantRole
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  profile Profile @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, subjectId])
+  @@index([tenantId, profileId])
 }
 
 model Staff {
