@@ -11,3 +11,5 @@ PrismaMembershipReader runs its TenantMembership lookup inside this boundary and
 RLS remains defense-in-depth; application authorization remains mandatory. Normal tenant operations must not use PostgreSQL roles with BYPASSRLS or superuser privileges.
 
 This change does not alter roles, authorization semantics, authentication, middleware, booking, schema, or production deployment.
+
+CI also runs a PostgreSQL integration test that verifies matching tenant access, mismatched/absent tenant denial, and transaction-local context cleanup using a non-owner database role.
