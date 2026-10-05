@@ -6,7 +6,7 @@ const databaseUrl = process.env.DATABASE_URL;
 const describeRls = databaseUrl ? describe : describe.skip;
 
 describeRls("PostgreSQL RLS tenant isolation", () => {
-  const role = "rls_tenant_test_runner";
+  const role = `rls_tenant_test_runner_${randomUUID().replaceAll("-", "")}`;
   const tenantA = `rls-a-${randomUUID()}`;
   const tenantB = `rls-b-${randomUUID()}`;
   const profileA = `rls-profile-a-${randomUUID()}`;
@@ -16,14 +16,12 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
   beforeAll(async () => {
     pool = new Pool({ connectionString: databaseUrl });
 
-    await pool.query(`DROP OWNED BY "${role}"`);
-    await pool.query(`DROP ROLE IF EXISTS "${role}"`);
     await pool.query(`CREATE ROLE "${role}" NOLOGIN`);
     await pool.query(`GRANT USAGE ON SCHEMA public TO "${role}"`);
     await pool.query(`GRANT SELECT ON "TenantMembership" TO "${role}"`);
 
     await pool.query(
-      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone")
+      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, $4, now(), now()), ($5, $6, $7, $8, now(), now())`,
       [tenantA, `rls-a-${randomUUID()}`, "RLS Tenant A", "Europe/Istanbul",
        tenantB, `rls-b-${randomUUID()}`, "RLS Tenant B", "Europe/Istanbul"],
@@ -46,6 +44,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
     await pool.query('DELETE FROM "TenantMembership" WHERE "id" = $1', [membershipA]);
     await pool.query('DELETE FROM "Profile" WHERE "id" = $1', [profileA]);
     await pool.query('DELETE FROM "Tenant" WHERE "id" IN ($1, $2)', [tenantA, tenantB]);
+    await pool.query(`DROP OWNED BY "${role}"`);
     await pool.query(`DROP ROLE IF EXISTS "${role}"`);
     await pool.end();
   });
