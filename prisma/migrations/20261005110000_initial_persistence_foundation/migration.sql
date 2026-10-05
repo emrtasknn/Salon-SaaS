@@ -55,10 +55,13 @@ CREATE TABLE "Appointment" (
 );
 
 CREATE UNIQUE INDEX "Tenant_slug_key" ON "Tenant"("slug");
+CREATE UNIQUE INDEX "Profile_tenantId_id_key" ON "Profile"("tenantId", "id");
 CREATE INDEX "Profile_tenantId_idx" ON "Profile"("tenantId");
 CREATE UNIQUE INDEX "Profile_tenantId_email_key" ON "Profile"("tenantId", "email");
 CREATE UNIQUE INDEX "Staff_profileId_key" ON "Staff"("profileId");
+CREATE UNIQUE INDEX "Staff_tenantId_id_key" ON "Staff"("tenantId", "id");
 CREATE INDEX "Staff_tenantId_idx" ON "Staff"("tenantId");
+CREATE UNIQUE INDEX "Service_tenantId_id_key" ON "Service"("tenantId", "id");
 CREATE UNIQUE INDEX "Service_tenantId_name_key" ON "Service"("tenantId", "name");
 CREATE INDEX "Service_tenantId_idx" ON "Service"("tenantId");
 CREATE INDEX "Appointment_tenantId_startAt_idx" ON "Appointment"("tenantId", "startAt");
@@ -67,9 +70,9 @@ CREATE INDEX "Appointment_tenantId_customerProfileId_startAt_idx" ON "Appointmen
 
 ALTER TABLE "Profile" ADD CONSTRAINT "Profile_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "Staff" ADD CONSTRAINT "Staff_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "Staff" ADD CONSTRAINT "Staff_profileId_fkey" FOREIGN KEY ("profileId") REFERENCES "Profile"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Staff" ADD CONSTRAINT "Staff_profile_tenant_fkey" FOREIGN KEY ("tenantId", "profileId") REFERENCES "Profile"("tenantId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "Service" ADD CONSTRAINT "Service_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "Staff"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "Service"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_customerProfileId_fkey" FOREIGN KEY ("customerProfileId") REFERENCES "Profile"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_staff_tenant_fkey" FOREIGN KEY ("tenantId", "staffId") REFERENCES "Staff"("tenantId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_service_tenant_fkey" FOREIGN KEY ("tenantId", "serviceId") REFERENCES "Service"("tenantId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_customer_tenant_fkey" FOREIGN KEY ("tenantId", "customerProfileId") REFERENCES "Profile"("tenantId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
