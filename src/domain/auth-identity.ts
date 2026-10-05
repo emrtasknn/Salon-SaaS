@@ -1,5 +1,10 @@
 export type AuthSubjectId = string & { readonly __brand: "AuthSubjectId" };
 
+export type AuthenticatedSubjectIdentity = Readonly<{
+  state: "authenticated";
+  subjectId: AuthSubjectId;
+}>;
+
 export type AuthenticatedIdentity = Readonly<{
   state: "authenticated";
   subjectId: AuthSubjectId;
@@ -39,11 +44,24 @@ export function createUnauthenticatedIdentity(): UnauthenticatedIdentity {
   return Object.freeze({ state: "unauthenticated" });
 }
 
+export function createAuthenticatedSubjectIdentity(
+  subjectId: unknown,
+): AuthenticatedSubjectIdentity {
+  return Object.freeze({
+    state: "authenticated",
+    subjectId: createAuthSubjectId(subjectId),
+  });
+}
+
 export function createAuthenticatedIdentity(
   subjectId: unknown,
   profileId: unknown,
 ): AuthenticatedIdentity {
-  if (typeof profileId !== "string" || profileId.length === 0 || profileId.trim() !== profileId) {
+  if (
+    typeof profileId !== "string" ||
+    profileId.length === 0 ||
+    profileId.trim() !== profileId
+  ) {
     throw new TypeError("Profile ID is invalid");
   }
 
