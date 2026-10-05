@@ -35,10 +35,12 @@ describe("withPrismaTenantContext", () => {
     });
 
     expect(order).toEqual(["transaction", "context", "operation"]);
-    expect(executeRaw).toHaveBeenCalledWith(
-      "SELECT set_config('app.tenant_id', $1, true)",
-      "tenant-a",
-    );
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(executeRaw.mock.calls[0]?.[0]).toEqual([
+      "SELECT set_config('app.tenant_id', ",
+      ", true)",
+    ]);
+    expect(executeRaw.mock.calls[0]?.[1]).toBe("tenant-a");
   });
 
   it("propagates operation failures", async () => {
