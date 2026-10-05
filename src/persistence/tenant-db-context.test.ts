@@ -20,11 +20,12 @@ function tenantContext(raw: string) {
 describe("withTenantDatabaseContext", () => {
   it("sets tenant context transaction-locally before the operation", async () => {
     const calls: Array<{ text: string; values?: readonly unknown[] }> = [];
+    const query = vi.fn(async (text: string, values?: readonly unknown[]) => {
+      calls.push({ text, values });
+      return undefined;
+    });
     const client: TenantDatabaseClient = {
-      query: vi.fn(async (text: string, values?: readonly unknown[]) => {
-        calls.push({ text, values });
-        return undefined;
-      }),
+      query: query as TenantDatabaseClient["query"],
     };
 
     const result = await withTenantDatabaseContext(
@@ -45,11 +46,12 @@ describe("withTenantDatabaseContext", () => {
   });
 
   it("rolls back and preserves the operation error", async () => {
+    const query = vi.fn(async (text: string) => {
+      if (text === "ROLLBACK") return undefined;
+      return undefined;
+    });
     const client: TenantDatabaseClient = {
-      query: vi.fn(async (text: string) => {
-        if (text === "ROLLBACK") return undefined;
-        return undefined;
-      }),
+      query: query as TenantDatabaseClient["query"],
     };
     const error = new Error("db failure");
 
@@ -68,12 +70,13 @@ describe("withTenantDatabaseContext", () => {
 
   it("does not commit after a failed context setup", async () => {
     const calls: string[] = [];
+    const query = vi.fn(async (text: string) => {
+      calls.push(text);
+      if (text.includes("set_config")) throw new Error("context failure");
+      return undefined;
+    });
     const client: TenantDatabaseClient = {
-      query: vi.fn(async (text: string) => {
-        calls.push(text);
-        if (text.includes("set_config")) throw new Error("context failure");
-        return undefined;
-      }),
+      query: query as TenantDatabaseClient["query"],
     };
 
     await expect(
