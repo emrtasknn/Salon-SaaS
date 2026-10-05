@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { createAuthenticatedIdentity } from "../domain/auth-identity";
 import { createTenantContext, createTenantId } from "../domain/tenant-context";
@@ -29,7 +29,7 @@ describe("membership persistence boundary", () => {
     );
 
     const reader: MembershipReader = {
-      readMembership: vi.fn(async (lookup) => {
+      readMembership: async (lookup) => {
         expect(lookup.tenantContext.tenantId).toBe("tenant-1");
         expect(lookup.identity.subjectId).toBe(identity.subjectId);
         expect(lookup.identity.profileId).toBe("profile-1");
