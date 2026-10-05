@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAuthenticatedIdentity } from "../domain/auth-identity";
+import { createAuthenticatedSubjectIdentity } from "../domain/auth-identity";
 import { createTenantContext, createTenantId } from "../domain/tenant-context";
 import { createPrismaMembershipReader } from "./prisma-membership-reader";
-import type { TenantMembershipDelegate } from "./prisma-membership-reader";
 
 function tenantContext(value: string) {
   const id = createTenantId(value);
@@ -12,8 +11,8 @@ function tenantContext(value: string) {
   return context.value;
 }
 
-function authenticatedIdentity(subjectId: string, profileId: string) {
-  return createAuthenticatedIdentity(subjectId, profileId);
+function authenticatedIdentity(subjectId: string) {
+  return createAuthenticatedSubjectIdentity(subjectId);
 }
 
 describe("Prisma MembershipReader", () => {
@@ -30,7 +29,7 @@ describe("Prisma MembershipReader", () => {
 
     const result = await reader.readMembership({
       tenantContext: tenantContext("tenant-a"),
-      identity: authenticatedIdentity("subject-1", "profile-1"),
+      identity: authenticatedIdentity("subject-1"),
     });
 
     expect(result).toEqual({
@@ -61,7 +60,7 @@ describe("Prisma MembershipReader", () => {
     await expect(
       reader.readMembership({
         tenantContext: tenantContext("tenant-a"),
-        identity: authenticatedIdentity("subject-1", "profile-1"),
+        identity: authenticatedIdentity("subject-1"),
       }),
     ).resolves.toEqual({ status: "not_found" });
   });
@@ -74,7 +73,7 @@ describe("Prisma MembershipReader", () => {
 
     await reader.readMembership({
       tenantContext: tenantContext("tenant-b"),
-      identity: authenticatedIdentity("subject-2", "profile-2"),
+      identity: authenticatedIdentity("subject-2"),
     });
 
     expect(findUnique).toHaveBeenCalledWith({
@@ -96,7 +95,7 @@ describe("Prisma MembershipReader", () => {
     await expect(
       reader.readMembership({
         tenantContext: tenantContext("tenant-a"),
-        identity: authenticatedIdentity("subject-1", "profile-1"),
+        identity: authenticatedIdentity("subject-1"),
       }),
     ).resolves.toEqual({
       status: "error",
