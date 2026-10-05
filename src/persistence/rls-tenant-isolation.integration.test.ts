@@ -16,6 +16,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
   beforeAll(async () => {
     pool = new Pool({ connectionString: databaseUrl });
 
+    await pool.query(`DROP OWNED BY "${role}"`);
     await pool.query(`DROP ROLE IF EXISTS "${role}"`);
     await pool.query(`CREATE ROLE "${role}" NOLOGIN`);
     await pool.query(`GRANT USAGE ON SCHEMA public TO "${role}"`);
@@ -23,7 +24,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
 
     await pool.query(
       `INSERT INTO "Tenant" ("id", "slug", "name", "timezone")
-       VALUES ($1, $2, $3, $4), ($5, $6, $7, $8)`,
+       VALUES ($1, $2, $3, $4, now(), now()), ($5, $6, $7, $8, now(), now())`,
       [tenantA, `rls-a-${randomUUID()}`, "RLS Tenant A", "Europe/Istanbul",
        tenantB, `rls-b-${randomUUID()}`, "RLS Tenant B", "Europe/Istanbul"],
     );
