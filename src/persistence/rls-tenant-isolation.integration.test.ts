@@ -34,8 +34,8 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
     );
 
     await pool.query(
-      `INSERT INTO "TenantMembership" ("id", "tenantId", "subjectId", "profileId", "role")
-       VALUES ($1, $2, $3, $4, 'STAFF')`,
+      `INSERT INTO "TenantMembership" ("id", "tenantId", "subjectId", "profileId", "role", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, 'STAFF', now(), now())`,
       [membershipA, tenantA, "rls-subject-a", profileA],
     );
   });
