@@ -1,8 +1,9 @@
+import { Prisma } from "@prisma/client";
 import type { TenantContext } from "../domain/tenant-context";
 
 export interface PrismaTenantTransaction {
-  $executeRawUnsafe<T = unknown>(
-    query: string,
+  $executeRaw<T = unknown>(
+    query: TemplateStringsArray | Prisma.Sql,
     ...values: readonly unknown[]
   ): Promise<T>;
 }
@@ -37,9 +38,8 @@ export async function withPrismaTenantContext<T>(
   operation: (tx: PrismaTenantTransactionClient) => Promise<T>,
 ): Promise<T> {
   return prisma.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(
-      "SELECT set_config('app.tenant_id', $1, true)",
-      tenantContext.tenantId,
+    await tx.$executeRaw(
+      Prisma.sql`SELECT set_config('app.tenant_id', ${tenantContext.tenantId}, true)`,
     );
     return operation(tx);
   });
