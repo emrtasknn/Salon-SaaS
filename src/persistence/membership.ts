@@ -1,10 +1,10 @@
-import type { AuthenticatedIdentity } from "../domain/auth-identity";
+import type { AuthenticatedSubjectIdentity } from "../domain/auth-identity";
 import type { AuthorizationMembership } from "../domain/authorization";
 import type { TenantContext } from "../domain/tenant-context";
 
 export type MembershipLookupInput = Readonly<{
   tenantContext: TenantContext;
-  identity: AuthenticatedIdentity;
+  identity: AuthenticatedSubjectIdentity;
 }>;
 
 export type MembershipLookupResult =
@@ -28,7 +28,7 @@ export interface MembershipReader {
 
 export function createMembershipLookupInput(
   tenantContext: TenantContext,
-  identity: AuthenticatedIdentity,
+  identity: AuthenticatedSubjectIdentity,
 ): MembershipLookupInput {
   return Object.freeze({ tenantContext, identity });
 }
