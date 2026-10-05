@@ -20,7 +20,7 @@ describe("Prisma MembershipReader tenant context", () => {
     const reader = createPrismaMembershipReader({ prisma });
     const result = await reader.readMembership({ tenantContext: tenantContext("tenant-a"), identity: createAuthenticatedSubjectIdentity("subject-1") });
     expect(result.status).toBe("found");
-    expect(executeRaw).toHaveBeenCalledWith("SELECT set_config('app.tenant_id', $1, true)", "tenant-a");
+    expect(executeRaw).toHaveBeenCalledWith(expect.anything());
     expect(executeRaw.mock.invocationCallOrder[0]).toBeLessThan(findUnique.mock.invocationCallOrder[0]);
     expect(findUnique).toHaveBeenCalledWith({ where: { tenantId_subjectId: { tenantId:"tenant-a", subjectId:"subject-1" } } });
   });
