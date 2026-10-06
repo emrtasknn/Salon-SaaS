@@ -49,6 +49,7 @@ export type StaffManagementAuthorizer = Readonly<{
 
 export type StaffManagementResult =
   | Readonly<{ status: "created"; staff: StaffRecord }>
+  | Readonly<{ status: "updated" }>
   | Readonly<{
       status:
         | "UNAUTHORIZED"
@@ -117,7 +118,7 @@ export function createStaffManager(dependencies: Readonly<{
       let nextStatus: StaffStatus;
       try { nextStatus = createStaffStatus(status); } catch { return { status: "INVALID_INPUT" }; }
       const result = await dependencies.repository.setStatus(tenantContext, staffId, nextStatus);
-      return result === "updated" ? { status: "created", staff: { id: staffId, tenantId: tenantContext.tenantId, profileId: "", status: nextStatus } } : { status: "NOT_FOUND" };
+      return result === "updated" ? { status: "updated" } : { status: "NOT_FOUND" };
     },
 
     async updateProfile(
