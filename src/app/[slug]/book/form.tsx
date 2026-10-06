@@ -49,22 +49,20 @@ export function PublicBookingForm({
   const [dateIso, setDateIso] = useState(minDate);
   const [slots, setSlots] = useState<ReadonlyArray<Slot>>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
-  const [availabilityStatus, setAvailabilityStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">(() =>\n    initialServiceId && staff[0]?.id ? "loading" : "idle",\n  );
+  const [availabilityStatus, setAvailabilityStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">(() =>
+    initialServiceId && staff[0]?.id ? "loading" : "idle",
+  );
   const [status, setStatus] = useState("");
   const [busy, startTransition] = useTransition();
 
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
 
   useEffect(() => {
-    setSelectedSlot("");
     if (!serviceId || !staffId || !dateIso) {
-      setSlots([]);
-      setAvailabilityStatus("idle");
       return;
     }
 
     let active = true;
-    setAvailabilityStatus("loading");
     getPublicAvailability({ slug, serviceId, staffId, dateIso }).then((result) => {
       if (!active) return;
       if (result.status === "ok") {
@@ -148,7 +146,11 @@ export function PublicBookingForm({
             <span className="text-sm font-medium">Hizmet</span>
             <select
               value={serviceId}
-              onChange={(event) => {\n                setServiceId(event.target.value);\n                setSelectedSlot("");\n                setAvailabilityStatus(event.target.value && staffId && dateIso ? "loading" : "idle");\n              }}
+              onChange={(event) => {
+                setServiceId(event.target.value);
+                setSelectedSlot("");
+                setAvailabilityStatus(event.target.value && staffId && dateIso ? "loading" : "idle");
+              }}
               required
               className="w-full rounded-lg border px-3 py-2 text-sm"
             >
@@ -165,7 +167,11 @@ export function PublicBookingForm({
             <span className="text-sm font-medium">Personel</span>
             <select
               value={staffId}
-              onChange={(event) => {\n                setStaffId(event.target.value);\n                setSelectedSlot("");\n                setAvailabilityStatus(event.target.value && serviceId && dateIso ? "loading" : "idle");\n              }}
+              onChange={(event) => {
+                setStaffId(event.target.value);
+                setSelectedSlot("");
+                setAvailabilityStatus(event.target.value && serviceId && dateIso ? "loading" : "idle");
+              }}
               required
               disabled={!staff.length}
               className="w-full rounded-lg border px-3 py-2 text-sm"
@@ -186,7 +192,11 @@ export function PublicBookingForm({
               type="date"
               min={minDate}
               value={dateIso}
-              onChange={(event) => {\n                setDateIso(event.target.value);\n                setSelectedSlot("");\n                setAvailabilityStatus(event.target.value && serviceId && staffId ? "loading" : "idle");\n              }}
+              onChange={(event) => {
+                setDateIso(event.target.value);
+                setSelectedSlot("");
+                setAvailabilityStatus(event.target.value && serviceId && staffId ? "loading" : "idle");
+              }}
               required
               className="w-full rounded-lg border px-3 py-2 text-sm"
             />
