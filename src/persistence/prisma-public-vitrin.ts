@@ -1,13 +1,15 @@
 import type { PublicSalonRepository } from "../application/public-vitrin";
 import type { TenantContext } from "../domain/tenant-context";
+import type { ServiceRecord } from "../domain/service";
+import type { WorkingHoursRecord } from "../domain/working-hours";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
 type Tx = PrismaTenantTransactionClient & {
   tenant: { findUnique(args: { where: { slug: string } }): Promise<{ id: string; name: string; timezone: string } | null> };
-  service: { findMany(args: { where: { tenantId: string; active: boolean }; orderBy: { name: "asc" } }): Promise<any[]> };
+  service: { findMany(args: { where: { tenantId: string; active: boolean }; orderBy: { name: "asc" } }): Promise<ServiceRecord[]> };
   staff: { findMany(args: { where: { tenantId: string; status: "ACTIVE" }; orderBy: { id: "asc" } }): Promise<Array<{ id: string; profileId: string; status: "ACTIVE" }>> };
   profile: { findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; displayName: string }>> };
-  workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<any[]> };
+  workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
 };
 
 export function createPrismaPublicSalonRepository(prisma: PrismaTenantClient): PublicSalonRepository {
