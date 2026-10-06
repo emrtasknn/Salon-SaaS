@@ -26,6 +26,8 @@ CREATE UNIQUE INDEX "NotificationDelivery_idempotency_key"
 CREATE INDEX "NotificationDelivery_tenantId_status_createdAt_idx"
   ON "NotificationDelivery"("tenantId", "status", "createdAt");
 
+CREATE UNIQUE INDEX "Appointment_tenantId_id_key" ON "Appointment"("tenantId", "id");
+
 ALTER TABLE "NotificationDelivery" ADD CONSTRAINT "NotificationDelivery_tenantId_fkey"
   FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "NotificationDelivery" ADD CONSTRAINT "NotificationDelivery_tenantId_appointmentId_fkey"
