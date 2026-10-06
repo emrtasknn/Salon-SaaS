@@ -17,6 +17,7 @@ type Tx = PrismaTenantTransactionClient & {
 };
 
 export function createPrismaCalendarCrmRepository(prisma: PrismaTenantClient): CalendarRepository {
+  
   return {
     async listAppointments(tenantContext, range) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
