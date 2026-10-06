@@ -65,7 +65,7 @@ function optionalText(value: unknown): string | null | "INVALID" {
   if (value == null || value === "") return null;
   if (typeof value !== "string") return "INVALID";
   const normalized = value.trim();
-  if (!normalized || /[\\u0000-\\u001f\\u007f]/.test(normalized)) return normalized ? "INVALID" : null;
+  if (!normalized || /[\u0000-\u001f\u007f]/.test(normalized)) return normalized ? "INVALID" : null;
   return normalized;
 }
 
