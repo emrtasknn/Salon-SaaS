@@ -25,6 +25,7 @@ describe("staff management", () => {
     d.repository.create.mockResolvedValue({ status: "conflict" });
     const result = await createStaffManager(d).create({ identity, tenantContext, displayName: "Ada", email: "ada@example.com" });
     expect(result.status).toBe("CONFLICT");
+    expect(d.authProvisioner.provision).toHaveBeenCalledWith({ email: "ada@example.com", displayName: "Ada", tenantId: "tenant-1" });
     expect(d.repository.create).toHaveBeenCalledWith(expect.objectContaining({ subjectId: "subject-2" }));
     expect(d.authProvisioner.compensate).toHaveBeenCalledWith("subject-2");
   });
