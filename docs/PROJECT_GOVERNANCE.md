@@ -12,6 +12,8 @@ Build a multi-tenant SaaS platform for salons, barbers and beauty centers coveri
 - review/feedback funnel
 - WhatsApp communication
 - owner/admin dashboard
+- responsive web/PWA staff experience
+- Web Push notification channel
 
 Initial pilot: Levent Özlü Kuaför ve Güzellik Salonu.
 
@@ -59,7 +61,7 @@ Post-MVP unless explicitly approved:
 - inventory
 - payroll
 - accounting
-- native mobile apps
+- native iOS/Android apps as a conditional future expansion only
 - advanced AI
 - complex enterprise/multi-branch features
 
@@ -169,3 +171,40 @@ No silent scope expansion.
 ## 11. Decision Priority
 
 security → data integrity → approved architecture → approved requirements → reliability → UX → visual polish → convenience
+
+## 12. Mobile & Notification Distribution Strategy
+
+The approved mobile strategy is **PWA-first**, not native-first.
+
+Product distribution priority:
+1. Responsive Web
+2. PWA installability and app-like mobile UX
+3. Web Push for supported installed PWAs
+4. WhatsApp for customer-facing appointment communication
+5. Native iOS/Android only if a validated product requirement cannot be met reliably by the web/PWA strategy
+
+PWA is an official product/distribution strategy and must not be treated as a Phase 3 add-on.
+
+Notification architecture remains provider-neutral:
+
+```
+Appointment Event
+  → NotificationService
+      → WhatsAppProvider
+      → WebPushProvider
+```
+
+Any persistent push-subscription model, provider implementation, or notification-routing change requires architecture review before implementation. Tenant ownership, profile ownership, RLS, multiple devices, revoked subscriptions, inactive staff, and cleanup must be explicitly addressed.
+
+## 13. Production/Pilot Boundary
+
+The first physical-product milestone is a real salon operating the product with:
+- a real tenant
+- real staff using the mobile PWA
+- real customer public booking
+- staff receiving an actionable notification
+- staff confirming/rejecting the appointment
+- customer receiving the resulting WhatsApp notification
+- admin calendar and customer history reflecting the lifecycle
+
+CI-green status alone does not constitute pilot or production readiness.
