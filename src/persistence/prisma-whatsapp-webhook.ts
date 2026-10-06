@@ -1,16 +1,16 @@
 import { withPrismaTenantContext } from "./prisma-tenant-context";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
-import type { TenantContext } from "../domain/tenant-context";
+import { createTenantId, type TenantContext } from "../domain/tenant-context";
 
 type RawQueryClient = PrismaTenantClient & {
   $queryRaw<T>(query: TemplateStringsArray, ...values: readonly unknown[]): Promise<T>;
 };
 
-export async function resolveWhatsAppTenantId(prisma: RawQueryClient, phoneNumberId: string): Promise<string | null> {
+export async function resolveWhatsAppTenantId(prisma: RawQueryClient, phoneNumberId: string): Promise<import("../domain/tenant-context").TenantId | null> {
   const rows = await prisma.$queryRaw<ReadonlyArray<{ tenantId: string | null }>>`
     SELECT private.resolve_whatsapp_tenant_id(${phoneNumberId}) AS "tenantId"
   `;
-  return rows[0]?.tenantId ?? null;
+  const tenantId = rows[0]?.tenantId ?? null;\n  if (!tenantId) return null;\n\n  const tenantIdResult = createTenantId(tenantId);\n  return tenantIdResult.ok ? tenantIdResult.value : null;
 }
 
 export async function applyWhatsAppWebhookStatuses(
