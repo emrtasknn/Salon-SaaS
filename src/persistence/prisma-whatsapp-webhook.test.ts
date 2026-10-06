@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createTenantId } from "../domain/tenant-context";\nimport { applyWhatsAppWebhookStatuses, resolveWhatsAppTenantId } from "./prisma-whatsapp-webhook";
+import { createTenantId } from "../domain/tenant-context";
+import { applyWhatsAppWebhookStatuses, resolveWhatsAppTenantId } from "./prisma-whatsapp-webhook";
 
 function fakePrisma() {
   const executeRaw = vi.fn().mockResolvedValue(1);
@@ -17,7 +18,9 @@ describe("WhatsApp webhook tenant routing", () => {
 
   it("updates delivery status inside the resolved tenant context", async () => {
     const prisma = fakePrisma();
-    const tenantId = createTenantId("tenant-a");\n    if (!tenantId.ok) throw new Error("test tenant id must be valid");\n    const count = await applyWhatsAppWebhookStatuses(prisma as never, { tenantId: tenantId.value }, [
+    const tenantId = createTenantId("tenant-a");
+    if (!tenantId.ok) throw new Error("test tenant id must be valid");
+    const count = await applyWhatsAppWebhookStatuses(prisma as never, { tenantId: tenantId.value }, [
       { providerMessageId: "wamid.1", status: "delivered" },
     ]);
     expect(count).toBe(1);
@@ -27,7 +30,9 @@ describe("WhatsApp webhook tenant routing", () => {
 
   it("does not mutate the domain for read events", async () => {
     const prisma = fakePrisma();
-    const count = await applyWhatsAppWebhookStatuses(prisma as never, { tenantId: "tenant-a" }, [
+    const tenantId = createTenantId("tenant-a");
+    if (!tenantId.ok) throw new Error("test tenant id must be valid");
+    const count = await applyWhatsAppWebhookStatuses(prisma as never, { tenantId: tenantId.value }, [
       { providerMessageId: "wamid.1", status: "read" },
     ]);
     expect(count).toBe(0);
