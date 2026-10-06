@@ -47,6 +47,11 @@ enum TenantRole {
   CUSTOMER
 }
 
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model TenantMembership {
   id        String     @id @default(cuid())
   tenantId  String
@@ -65,11 +70,12 @@ model TenantMembership {
 }
 
 model Staff {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   tenantId  String
-  profileId String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  profileId String      @unique
+  status    StaffStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   profile      Profile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
@@ -77,7 +83,7 @@ model Staff {
 
   @@unique([tenantId, id])
   @@unique([tenantId, profileId])
-  @@index([tenantId])
+  @@index([tenantId, status])
 }
 
 model Service {
@@ -106,7 +112,7 @@ model Appointment {
   customerProfileId String
   startAt           DateTime
   endAt             DateTime
-  createdAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   tenant          Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
