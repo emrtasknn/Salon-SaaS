@@ -12,10 +12,10 @@ describe("Meta WhatsApp webhook", () => {
   });
 
   it("parses delivery statuses without trusting unrelated fields", () => {
-    const payload = { entry: [{ changes: [{ value: { statuses: [{ id: "wamid.1", status: "delivered" }, { id: "wamid.2", status: "failed", errors: [{ code: 131026 }] }, { id: 3, status: "delivered" }] } }] }] };
+    const payload = { entry: [{ changes: [{ value: { metadata: { phone_number_id: "phone-a" }, statuses: [{ id: "wamid.1", status: "delivered" }, { id: "wamid.2", status: "failed", errors: [{ code: 131026 }] }, { id: 3, status: "delivered" }] } }] }] };
     expect(parseMetaWebhookStatuses(payload)).toEqual([
-      { providerMessageId: "wamid.1", status: "delivered" },
-      { providerMessageId: "wamid.2", status: "failed", errorCode: "131026" },
+      { phoneNumberId: "phone-a", providerMessageId: "wamid.1", status: "delivered" },
+      { phoneNumberId: "phone-a", providerMessageId: "wamid.2", status: "failed", errorCode: "131026" },
     ]);
   });
 });
