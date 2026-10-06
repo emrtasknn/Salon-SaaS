@@ -60,6 +60,7 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
         return result.authorization.status === "allowed";
       },
       async authorizeStaffDecision(identity, tenantContext, appointment) {
+        if (identity.state !== "authenticated") return false;
         const membership = await reader.readMembership({ tenantContext, identity });
         if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
         const staff = await prisma.staff.findUnique({ where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId: membership.membership.profileId } } });
