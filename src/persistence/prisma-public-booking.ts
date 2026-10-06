@@ -1,5 +1,6 @@
 import type { PublicBookingRepository } from "../application/public-booking";
 import type { TenantContext } from "../domain/tenant-context";
+import type { WorkingHoursRecord } from "../domain/working-hours";
 import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma-tenant-context";
 import { withPrismaTenantContext } from "./prisma-tenant-context";
 import { calculateAvailability, utcToLocalDateAndMinute } from "../domain/availability";
@@ -8,7 +9,7 @@ type Tx = PrismaTenantTransactionClient & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string } | null> };
   service: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null> };
   staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
-  workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<any[]> };
+  workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
   profile: {
     findUnique(args: { where: { tenantId_email: { tenantId: string; email: string } } }): Promise<{ id: string } | null>;
     create(args: { data: { tenantId: string; displayName: string; email: string; phone: string | null } }): Promise<{ id: string }>;
