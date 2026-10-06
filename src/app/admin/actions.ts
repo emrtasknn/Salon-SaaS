@@ -1,6 +1,7 @@
 "use server";
 
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
+import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import { createServiceManager } from "../../application/service-management";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { createStaffManager } from "../../application/staff-management";
@@ -34,7 +35,7 @@ async function getAdminContext() {
     return null;
   }
 
-  return { prisma, tenantContext: request.tenantContext, identity: request.identity };
+  return { prisma, tenantContext: request.tenantContext, identity: createAuthenticatedIdentity(request.identity.subjectId, membership.membership.profileId) };
 }
 
 function services(prisma: ReturnType<typeof getPrisma>) {
