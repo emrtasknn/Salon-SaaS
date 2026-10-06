@@ -1,4 +1,6 @@
 import { createTenantId, type TenantContext } from "../domain/tenant-context";
+import type { AuthSubjectId } from "../domain/auth-identity";
+import type { TenantAdminAuthBinding } from "./tenant-admin-auth-binding";
 import {
   createTenantName,
   createTenantTimezone,
@@ -62,6 +64,8 @@ export type TenantProvisioningResult =
         | "UNAUTHORIZED"
         | "INVALID_INPUT"
         | "DUPLICATE_SLUG"
+        | "AUTH_BINDING_FAILED"
+        | "AUTH_BINDING_ROLLBACK_FAILED"
         | "PERSISTENCE_FAILURE";
     }>;
 
@@ -81,6 +85,7 @@ const INVALID = Symbol("INVALID");
 export function createTenantProvisioner(dependencies: Readonly<{
   authorizer: TenantProvisioningAuthorizer;
   repository: TenantProvisioningRepository;
+  authBinding: TenantAdminAuthBinding;
 }>) {
   return {
     async provision(
@@ -141,10 +146,28 @@ export function createTenantProvisioner(dependencies: Readonly<{
         },
       };
 
+      const subjectId = input.firstAdmin.subjectId as AuthSubjectId;
+      const binding = await dependencies.authBinding.bindTenant(
+        subjectId,
+        tenantId.value,
+      );
+      if (binding.status === "failed") {
+        return { status: "AUTH_BINDING_FAILED" };
+      }
+
       try {
         const result = await dependencies.repository.provision(repositoryInput);
 
         if (result.status === "duplicate_slug") {
+          if (binding.status === "bound") {
+            const rollback = await dependencies.authBinding.rollbackTenantBinding(
+              subjectId,
+              tenantId.value,
+            );
+            if (rollback.status === "failed") {
+              return { status: "AUTH_BINDING_ROLLBACK_FAILED" };
+            }
+          }
           return { status: "DUPLICATE_SLUG" };
         }
 
@@ -157,6 +180,15 @@ export function createTenantProvisioner(dependencies: Readonly<{
           profileId: result.profileId,
         };
       } catch {
+        if (binding.status === "bound") {
+          const rollback = await dependencies.authBinding.rollbackTenantBinding(
+            subjectId,
+            tenantId.value,
+          );
+          if (rollback.status === "failed") {
+            return { status: "AUTH_BINDING_ROLLBACK_FAILED" };
+          }
+        }
         return { status: "PERSISTENCE_FAILURE" };
       }
     },
