@@ -15,7 +15,7 @@ type Tx = PrismaTenantTransactionClient & {
 export function createPrismaPublicSalonRepository(prisma: PrismaTenantClient): PublicSalonRepository {
   return {
     async resolveBySlug(slug) {
-      const tenant = await prisma.$transaction(async (tx: Tx) => tx.tenant.findUnique({ where: { slug } }));
+      const tenant = await prisma.$transaction(async (tx) => (tx as Tx).tenant.findUnique({ where: { slug } }));
       if (!tenant) return null;
       return { tenantContext: { tenantId: tenant.id as never }, name: tenant.name, timezone: tenant.timezone };
     },
