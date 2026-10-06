@@ -21,7 +21,7 @@ describe("tenant domain", () => {
   });
 
   it("rejects an empty normalized slug", () => {
-    expect(normalizeTenantSlug("çğışöü")).toEqual({
+    expect(normalizeTenantSlug("§©™")).toEqual({
       ok: false,
       error: {
         code: "INVALID_TENANT_SLUG",
