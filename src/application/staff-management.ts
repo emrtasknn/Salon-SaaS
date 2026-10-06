@@ -141,7 +141,9 @@ export function createStaffManager(dependencies: Readonly<{
         }
       }
       const result = await dependencies.repository.updateProfile(tenantContext, staffId, normalized);
-      return result;
+      if (result === "updated") return { status: "updated" };
+      if (result === "not_found") return { status: "NOT_FOUND" };
+      return { status: "CONFLICT" };
     },
 
     async list(identity: ApplicationIdentity, tenantContext: TenantContext): Promise<Readonly<{ status: "listed" | "UNAUTHORIZED" | "PERSISTENCE_FAILURE"; staff?: ReadonlyArray<StaffRecord> }>> {
