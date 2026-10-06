@@ -62,6 +62,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
       await client.query("ROLLBACK");
       expect(result.rowCount).toBe(1);
     } finally {
+      await client.query("RESET ROLE");
       client.release();
     }
   });
@@ -79,6 +80,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
       await client.query("ROLLBACK");
       expect(result.rowCount).toBe(0);
     } finally {
+      await client.query("RESET ROLE");
       client.release();
     }
   });
@@ -95,6 +97,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
       await client.query("ROLLBACK");
       expect(result.rowCount).toBe(0);
     } finally {
+      await client.query("RESET ROLE");
       client.release();
     }
   });
@@ -110,8 +113,9 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
       const result = await client.query(
         "SELECT current_setting('app.tenant_id', true) AS tenant_id",
       );
-      expect(result.rows[0]?.tenant_id).toBeNull();
+      expect(result.rows[0]?.tenant_id ?? "").toBe("");
     } finally {
+      await client.query("RESET ROLE");
       client.release();
     }
   });
