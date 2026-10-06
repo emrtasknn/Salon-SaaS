@@ -36,7 +36,10 @@ async function readMetadata(
   fetcher: typeof fetch,
   config: SupabaseTenantAdminAuthBindingConfig,
   subjectId: AuthSubjectId,
-): Promise<{ status: "ok"; metadata: Record<string, unknown> } | { status: "failed"; reason: TenantAdminAuthBindingResult extends never ? never : "PROVIDER_REJECTED" | "NETWORK_FAILURE" }> {
+): Promise<
+  | { status: "ok"; metadata: Record<string, unknown> }
+  | { status: "failed"; reason: "PROVIDER_REJECTED" | "NETWORK_FAILURE" }
+> {
   try {
     const response = await fetcher(endpoint(config, subjectId), {
       method: "GET",
