@@ -89,6 +89,7 @@ export function createStaffManager(dependencies: Readonly<{
       const auth = await dependencies.authProvisioner.provision({
         email,
         displayName: input.displayName.trim(),
+        tenantId: input.tenantContext.tenantId,
       });
       if (auth.status === "failed") return { status: "AUTH_PROVISIONING_FAILED" };
 
