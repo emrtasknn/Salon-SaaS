@@ -22,14 +22,8 @@ export type SupabaseAuthAdapterDependencies = Readonly<{
 }>;
 
 function readTenantId(appMetadata: unknown): unknown {
-  if (typeof appMetadata !== "object" || appMetadata === null) {
-    return undefined;
-  }
-
-  if (!("tenant_id" in appMetadata)) {
-    return undefined;
-  }
-
+  if (typeof appMetadata !== "object" || appMetadata === null) return undefined;
+  if (!("tenant_id" in appMetadata)) return undefined;
   return appMetadata.tenant_id;
 }
 
@@ -50,10 +44,12 @@ export function createSupabaseAuthAdapter(
           return { state: "unauthenticated" };
         }
 
+        const tenantId = readTenantId(response.data.user.app_metadata);
+
         return {
           state: "authenticated",
           subjectId,
-          tenantId: readTenantId(response.data.user.app_metadata),
+          ...(tenantId === undefined ? {} : { tenantId }),
         };
       } catch {
         return { state: "unauthenticated" };
