@@ -4,7 +4,7 @@ import { createMockWhatsAppProvider } from "../infrastructure/notifications";
 
 describe("notification service", () => {
   it("sends created notifications to staff and customer", async () => {
-    const calls: Array<any> = [];
+    const calls: Array<Readonly<{ to: string; body: string; templateKey: string }>> = [];
     const repository = {
       recipients: vi.fn().mockResolvedValue([
         { profileId: "s", displayName: "Staff", phone: "+90555", templateKey: "staff", body: "pending" },
