@@ -1,18 +1,12 @@
 import type { WorkingHoursRecord } from "../domain/working-hours";
-import type { TenantContext } from "../domain/tenant-context";
 import type { WorkingHoursRepository } from "../application/working-hours-management";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
-type WorkingHoursRow = Readonly<{
-  id: string;
-  tenantId: string;
-  dayOfWeek: number;
-  openMinute: number;
-  closeMinute: number;
-}>;
+type WorkingHoursRow = Readonly<{ id: string; tenantId: string; dayOfWeek: number; openMinute: number; closeMinute: number }>;
 
 type WorkingHoursTransaction = PrismaTenantTransactionClient & {
   workingHours: {
+    findUnique(args: { where: { tenantId_dayOfWeek: { tenantId: string; dayOfWeek: number } } }): Promise<WorkingHoursRow | null>;
     upsert(args: {
       where: { tenantId_dayOfWeek: { tenantId: string; dayOfWeek: number } };
       create: { tenantId: string; dayOfWeek: number; openMinute: number; closeMinute: number };
@@ -27,14 +21,15 @@ export function createPrismaWorkingHoursRepository(prisma: PrismaTenantClient): 
   return {
     async upsert(tenantContext, input) {
       try {
-        const row = await withPrismaTenantContext(prisma, tenantContext, async (tx: WorkingHoursTransaction) =>
-          tx.workingHours.upsert({
+        return await withPrismaTenantContext(prisma, tenantContext, async (tx: WorkingHoursTransaction) => {
+          const existing = await tx.workingHours.findUnique({ where: { tenantId_dayOfWeek: { tenantId: tenantContext.tenantId, dayOfWeek: input.dayOfWeek } } });
+          await tx.workingHours.upsert({
             where: { tenantId_dayOfWeek: { tenantId: tenantContext.tenantId, dayOfWeek: input.dayOfWeek } },
             create: { tenantId: tenantContext.tenantId, ...input },
             update: { openMinute: input.openMinute, closeMinute: input.closeMinute },
-          }),
-        );
-        return row.id ? "updated" : "conflict";
+          });
+          return existing ? "updated" as const : "created" as const;
+        });
       } catch (error) {
         if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") return "conflict";
         throw error;
