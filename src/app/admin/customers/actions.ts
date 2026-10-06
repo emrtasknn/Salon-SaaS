@@ -1,6 +1,7 @@
 "use server";
 
 import { createCalendarCrm } from "../../../application/calendar-crm";
+import { enforceServerAuthorization } from "../../../application/server-authorization-enforcement";
 import { createAuthenticatedIdentity } from "../../../domain/auth-identity";
 import { createPrismaCalendarCrmRepository } from "../../../persistence/prisma-calendar-crm";
 import { createPrismaMembershipReader } from "../../../persistence/prisma-membership-reader";
@@ -56,15 +57,11 @@ function crm(context: AdminContext) {
     repository: createPrismaCalendarCrmRepository(context.prisma),
     authorizer: {
       async authorize(identity, tenantContext, role) {
-        const membership = await context.reader.readMembership({
-          tenantContext,
-          identity,
-        });
-        return (
-          membership.status === "found" &&
-          ["TENANT_ADMIN", "SUPER_ADMIN"].includes(membership.membership.role) &&
-          role === "TENANT_ADMIN"
+        const result = await enforceServerAuthorization(
+          { identity, tenantContext, requiredRole: role },
+          context.reader,
         );
+        return result.authorization.status === "allowed";
       },
     },
   });
