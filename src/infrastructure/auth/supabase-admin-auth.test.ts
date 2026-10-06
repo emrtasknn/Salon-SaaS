@@ -9,9 +9,9 @@ describe("supabase admin auth provisioning", () => {
   it("returns provider-derived subject on invite", async () => {
     const fetcher = vi.fn().mockResolvedValue(response(200, { id: "auth-1" }));
     const p = createSupabaseAdminAuthProvisioner({ url: "https://x.supabase.co", serviceRoleKey: "secret", fetcher });
-    const result = await p.provision({ email: "staff@example.com", displayName: "Staff" });
+    const result = await p.provision({ email: "staff@example.com", displayName: "Staff", tenantId: "tenant-1" });
     expect(result).toEqual({ status: "created", subjectId: "auth-1" });
-    expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("/auth/v1/invite"), expect.objectContaining({ method: "POST" }));
+    expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("/auth/v1/invite"), expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "staff@example.com", data: { display_name: "Staff" }, app_metadata: { tenant_id: "tenant-1" } }) }));
   });
   it("compensates only the created subject", async () => {
     const fetcher = vi.fn().mockResolvedValue(response(204, null));
@@ -22,6 +22,6 @@ describe("supabase admin auth provisioning", () => {
   });
   it("fails without credentials", async () => {
     const p = createSupabaseAdminAuthProvisioner({ url: "", serviceRoleKey: "" });
-    expect((await p.provision({ displayName: "Staff" })).status).toBe("failed");
+    expect((await p.provision({ displayName: "Staff", tenantId: "tenant-1" })).status).toBe("failed");
   });
 });
