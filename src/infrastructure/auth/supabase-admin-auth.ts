@@ -63,7 +63,7 @@ export function createSupabaseAdminAuthProvisioner(
         input.tenantId.trim() !== input.tenantId ||
         input.tenantId.length === 0 ||
         input.tenantId.length > 128 ||
-        /[\\u0000-\\u001f\\u007f]/.test(input.tenantId)
+        /[\u0000-\u001f\u007f]/.test(input.tenantId)
       ) {
         return { status: "failed", reason: "INVALID_INPUT" };
       }
