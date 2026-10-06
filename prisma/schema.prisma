@@ -36,6 +36,7 @@ model Profile {
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   staff        Staff?
+  memberships  TenantMembership[]
   appointments Appointment[] @relation("AppointmentCustomer")
   notes       CustomerNote[]
 
@@ -203,6 +204,7 @@ model Appointment {
   staff           Staff   @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   service         Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  notificationDeliveries NotificationDelivery[]
 
   @@unique([tenantId, id])
   @@index([tenantId, startAt])
