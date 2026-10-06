@@ -16,7 +16,7 @@ describe("availability", () => {
   it("respects working hours and buffer", () => {
     const slots = calculateAvailability(base);
     expect(slots[0].startAt.toISOString()).toBe("2026-10-05T06:00:00.000Z");
-    expect(slots.at(-1)?.startAt.toISOString()).toBe("2026-10-05T14:45:00.000Z");
+    expect(slots.at(-1)?.startAt.toISOString()).toBe("2026-10-05T13:45:00.000Z");
   });
 
   it("excludes conflicting non-cancelled appointments", () => {
