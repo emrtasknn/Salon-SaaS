@@ -1,7 +1,7 @@
 import type { PublicAvailabilityRepository } from "../application/public-availability";
 import type { TenantContext } from "../domain/tenant-context";
 import type { WorkingHoursRecord } from "../domain/working-hours";
-import type { AppointmentRecord, AppointmentStatus } from "../domain/appointment";
+import type { AppointmentRecord } from "../domain/appointment";
 import { localWallTimeToUtc } from "../domain/availability";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
