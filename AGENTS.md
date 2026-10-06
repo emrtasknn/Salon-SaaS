@@ -52,3 +52,9 @@ Stop and escalate for:
 - unresolved product ambiguity
 
 The source-of-truth documents in this repository take precedence over informal assumptions. Conflicts must be surfaced, not guessed through.
+
+## UI/UX Agent
+
+For product UI/UX work, use `.claude/agents/salon-saas-uiux.md` and `.claude/skills/salon-saas-uiux/SKILL.md`.
+
+The UI/UX Agent is a design/quality worker inside the governed workflow. It must not change auth, RLS, tenant isolation, authorization, booking semantics, or MVP scope without escalation and approval.
