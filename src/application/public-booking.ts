@@ -25,7 +25,7 @@ export function createPublicBooking(repository: PublicBookingRepository) {
       const displayName = normalizeText(input.displayName, true);
       const email = normalizeText(input.email, true);
       const phone = normalizeText(input.phone, false);
-      if (displayName === "INVALID" || email === "INVALID" || phone === "INVALID" ||
+      if (displayName === "INVALID" || email === "INVALID" || phone === "INVALID" || displayName === null || email === null ||
         !(input.startAt instanceof Date) || Number.isNaN(input.startAt.getTime())) return { status: "INVALID_INPUT" as const };
       const result = await repository.create(tenantContext, {
         serviceId: input.serviceId, staffId: input.staffId, startAt: input.startAt,
