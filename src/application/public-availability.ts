@@ -18,7 +18,7 @@ export type PublicAvailabilityRepository = Readonly<{
         serviceActive: boolean;
         staffActive: boolean;
       }
-    | { status: "invalid_resource" }
+    | { status: "invalid_resource" }\n    | { status: "persistence_failure" }
   >;
 }>;
 
@@ -43,7 +43,7 @@ export function createPublicAvailability(repository: PublicAvailabilityRepositor
         dateIso: input.dateIso,
       });
 
-      if (result.status === "invalid_resource" || !result.serviceActive || !result.staffActive) {
+      if (result.status === "persistence_failure") return { status: "PERSISTENCE_FAILURE" as const, slots: [] as const };\n      if (result.status === "invalid_resource" || !result.serviceActive || !result.staffActive) {
         return { status: "INVALID_RESOURCE" as const, slots: [] as const };
       }
 
