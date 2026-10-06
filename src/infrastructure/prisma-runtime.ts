@@ -5,13 +5,15 @@ import { PrismaClient } from "../generated/prisma/client";
 import type { PrismaTenantClient } from "../persistence/prisma-tenant-context";
 import { Pool } from "pg";
 
-let prisma: PrismaTenantClient | undefined;
+type RuntimePrismaClient = PrismaClient & PrismaTenantClient;
 
-export function getPrisma(): PrismaClient {
+let prisma: RuntimePrismaClient | undefined;
+
+export function getPrisma(): RuntimePrismaClient {
   if (prisma) return prisma;
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not configured");
   const pool = new Pool({ connectionString });
-  prisma = new PrismaClient({ adapter: new PrismaPg(pool) }) as unknown as PrismaTenantClient;
+  prisma = new PrismaClient({ adapter: new PrismaPg(pool) }) as unknown as RuntimePrismaClient;
   return prisma;
 }
