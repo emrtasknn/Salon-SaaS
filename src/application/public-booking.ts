@@ -7,7 +7,7 @@ export type PublicBookingRepository = Readonly<{
       serviceId: string; staffId: string; startAt: Date;
       displayName: string; email: string; phone: string | null;
     }>,
-  ): Promise<"created" | "slot_unavailable" | "invalid_resource" | "persistence_failure">;
+  ): Promise<{ status: "created"; appointmentId: string } | "slot_unavailable" | "invalid_resource" | "persistence_failure">;
 }>;
 
 function normalizeText(value: unknown, required: boolean): string | null | "INVALID" {
@@ -31,7 +31,7 @@ export function createPublicBooking(repository: PublicBookingRepository) {
         serviceId: input.serviceId, staffId: input.staffId, startAt: input.startAt,
         displayName, email, phone,
       });
-      if (result === "created") return { status: "created" as const };
+      if (typeof result === "object" && result.status === "created") return { status: "created" as const, appointmentId: result.appointmentId };
       if (result === "slot_unavailable") return { status: "SLOT_UNAVAILABLE" as const };
       if (result === "invalid_resource") return { status: "INVALID_RESOURCE" as const };
       return { status: "PERSISTENCE_FAILURE" as const };
