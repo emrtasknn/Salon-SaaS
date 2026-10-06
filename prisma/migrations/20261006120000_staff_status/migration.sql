@@ -1,0 +1,4 @@
+CREATE TYPE "StaffStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+
+ALTER TABLE "Staff"
+  ADD COLUMN "status" "StaffStatus" NOT NULL DEFAULT 'ACTIVE';
