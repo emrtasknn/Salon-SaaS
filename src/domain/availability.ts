@@ -22,6 +22,12 @@ function offsetMinutes(date: Date, timeZone: string): number {
   return Math.round((asUtc - date.getTime()) / 60000);
 }
 
+export function utcToLocalDateAndMinute(date: Date, timeZone: string): { dateIso: string; minute: number } {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) throw new TypeError("Date is invalid");
+  const p = partsInTimeZone(date, timeZone);
+  return { dateIso: `${p.year.toString().padStart(4,"0")}-${p.month.toString().padStart(2,"0")}-${p.day.toString().padStart(2,"0")}`, minute: p.hour * 60 + p.minute };
+}
+
 export function localWallTimeToUtc(dateIso: string, minute: number, timeZone: string): Date {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) throw new TypeError("Date is invalid");
   if (!Number.isInteger(minute) || minute < 0 || minute >= 1440) throw new TypeError("Minute is invalid");
