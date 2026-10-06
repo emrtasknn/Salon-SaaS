@@ -204,6 +204,7 @@ model Appointment {
   service         Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@unique([tenantId, id])
   @@index([tenantId, startAt])
   @@index([tenantId, staffId, startAt])
   @@index([tenantId, customerProfileId, startAt])
