@@ -53,6 +53,14 @@ enum StaffStatus {
   INACTIVE
 }
 
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
 model TenantMembership {
   id        String     @id @default(cuid())
   tenantId  String
@@ -127,6 +135,7 @@ model Appointment {
   staffId           String
   serviceId         String
   customerProfileId String
+  status            AppointmentStatus @default(PENDING)
   startAt           DateTime
   endAt             DateTime
   createdAt         DateTime @default(now())
@@ -140,4 +149,5 @@ model Appointment {
   @@index([tenantId, startAt])
   @@index([tenantId, staffId, startAt])
   @@index([tenantId, customerProfileId, startAt])
+  @@index([tenantId, staffId, status, startAt])
 }
