@@ -39,7 +39,7 @@ function makePrisma() {
 
   const prisma = {
     $transaction: vi.fn(async (operation: (value: typeof tx) => Promise<unknown>) => operation(tx)),
-  } as PrismaServiceClient;
+  } as unknown as PrismaServiceClient;
 
   return { tx, prisma };
 }
