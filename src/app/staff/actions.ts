@@ -11,7 +11,7 @@ import { createNextSupabaseServerClient } from "../../infrastructure/auth/supaba
 import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
-import type { ApplicationIdentity } from "../../domain/auth-identity";
+import { createAuthenticatedIdentity, type ApplicationIdentity } from "../../domain/auth-identity";
 import type { AppointmentRecord, AppointmentStatus } from "../../domain/appointment";
 
 async function getStaffContext() {
@@ -28,7 +28,7 @@ async function getStaffContext() {
   if (!staff || staff.status !== "ACTIVE") return null;
   return {
     prisma, reader, staffId: staff.id, tenantContext: request.tenantContext,
-    identity: { state: "authenticated" as const, subjectId: request.identity.subjectId, profileId: membership.membership.profileId } as ApplicationIdentity,
+    identity: createAuthenticatedIdentity(request.identity.subjectId, membership.membership.profileId),
   };
 }
 
