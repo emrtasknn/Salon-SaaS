@@ -10,7 +10,11 @@ export async function resolveWhatsAppTenantId(prisma: RawQueryClient, phoneNumbe
   const rows = await prisma.$queryRaw<ReadonlyArray<{ tenantId: string | null }>>`
     SELECT private.resolve_whatsapp_tenant_id(${phoneNumberId}) AS "tenantId"
   `;
-  const tenantId = rows[0]?.tenantId ?? null;\n  if (!tenantId) return null;\n\n  const tenantIdResult = createTenantId(tenantId);\n  return tenantIdResult.ok ? tenantIdResult.value : null;
+  const tenantId = rows[0]?.tenantId ?? null;
+  if (!tenantId) return null;
+
+  const tenantIdResult = createTenantId(tenantId);
+  return tenantIdResult.ok ? tenantIdResult.value : null;
 }
 
 export async function applyWhatsAppWebhookStatuses(
