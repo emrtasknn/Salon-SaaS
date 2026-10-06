@@ -8,7 +8,8 @@ import { createNextSupabaseServerClient } from "../../../infrastructure/auth/sup
 import { createSupabaseAuthAdapter } from "../../../infrastructure/auth/supabase-auth-adapter";
 import { readSupabaseServerClientConfig } from "../../../infrastructure/auth/supabase-server-env";
 import { readAuthenticatedTenantRequest } from "../../../application/auth-request-boundary";
-import { getPrisma } from "../../../infrastructure/prisma-runtime";\nimport type { TenantContext } from "../../../domain/tenant-context";
+import { getPrisma } from "../../../infrastructure/prisma-runtime";
+import type { TenantContext } from "../../../domain/tenant-context";
 
 async function context() {
   const supabase = await createNextSupabaseServerClient(
@@ -43,7 +44,14 @@ async function context() {
   };
 }
 
-type AdminContext = {\n  prisma: ReturnType<typeof getPrisma>;\n  reader: ReturnType<typeof createPrismaMembershipReader>;\n  tenantContext: TenantContext;\n  identity: ReturnType<typeof createAuthenticatedIdentity>;\n};\n\nfunction crm(context: AdminContext) {
+type AdminContext = {
+  prisma: ReturnType<typeof getPrisma>;
+  reader: ReturnType<typeof createPrismaMembershipReader>;
+  tenantContext: TenantContext;
+  identity: ReturnType<typeof createAuthenticatedIdentity>;
+};
+
+function crm(context: AdminContext) {
   return createCalendarCrm({
     repository: createPrismaCalendarCrmRepository(context.prisma),
     authorizer: {
