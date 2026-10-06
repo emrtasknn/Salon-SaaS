@@ -21,6 +21,7 @@ model Tenant {
   appointments Appointment[]
   memberships  TenantMembership[]
   workingHours WorkingHours[]
+  customerNotes CustomerNote[]
 }
 
 model Profile {
@@ -35,6 +36,7 @@ model Profile {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   staff        Staff?
   appointments Appointment[] @relation("AppointmentCustomer")
+  notes       CustomerNote[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -127,6 +129,21 @@ model WorkingHours {
   @@unique([tenantId, id])
   @@unique([tenantId, dayOfWeek])
   @@index([tenantId])
+}
+
+model CustomerNote {
+  id          String   @id @default(cuid())
+  tenantId    String
+  customerProfileId String
+  body        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  customer  Profile @relation(fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, customerProfileId, createdAt])
 }
 
 model Appointment {
