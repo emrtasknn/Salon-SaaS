@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBookingEngine } from "./booking-engine";
+import { createAuthenticatedIdentity } from "../domain/auth-identity";
 
-const identity = { state: "authenticated", subjectId: "u", profileId: "p" } as const;
+const identity = createAuthenticatedIdentity("u", "p");
 const tenant = { tenantId: "t" as never };
 const service = { id: "svc", tenantId: "t", name: "Cut", durationMinutes: 60, bufferMinutes: 15, active: true };
 const staff = { id: "staff", tenantId: "t", profileId: "p2", status: "ACTIVE" as const };
