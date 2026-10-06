@@ -2,6 +2,7 @@
 
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createServiceManager } from "../../application/service-management";
+import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { createStaffManager } from "../../application/staff-management";
 import { createWorkingHoursManager } from "../../application/working-hours-management";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
@@ -41,9 +42,11 @@ function services(prisma: ReturnType<typeof getPrisma>) {
     authorizer: {
       async authorize(identity, tenantContext, requiredRole) {
         const reader = createPrismaMembershipReader({ prisma });
-        const result = await reader.readMembership({ tenantContext, identity });
-        return result.status === "found" &&
-          (result.membership.role === requiredRole || result.membership.role === "SUPER_ADMIN");
+        const decision = await enforceServerAuthorization(
+          { identity, tenantContext, requiredRole },
+          reader,
+        );
+        return decision.authorization.status === "allowed";
       },
     },
     repository: createPrismaServiceRepository(prisma),
@@ -55,9 +58,11 @@ function workingHours(prisma: ReturnType<typeof getPrisma>) {
     authorizer: {
       async authorize(identity, tenantContext, requiredRole) {
         const reader = createPrismaMembershipReader({ prisma });
-        const result = await reader.readMembership({ tenantContext, identity });
-        return result.status === "found" &&
-          (result.membership.role === requiredRole || result.membership.role === "SUPER_ADMIN");
+        const decision = await enforceServerAuthorization(
+          { identity, tenantContext, requiredRole },
+          reader,
+        );
+        return decision.authorization.status === "allowed";
       },
     },
     repository: createPrismaWorkingHoursRepository(prisma),
@@ -72,9 +77,11 @@ function staff(prisma: ReturnType<typeof getPrisma>) {
     authorizer: {
       async authorize(identity, tenantContext, requiredRole) {
         const reader = createPrismaMembershipReader({ prisma });
-        const result = await reader.readMembership({ tenantContext, identity });
-        return result.status === "found" &&
-          (result.membership.role === requiredRole || result.membership.role === "SUPER_ADMIN");
+        const decision = await enforceServerAuthorization(
+          { identity, tenantContext, requiredRole },
+          reader,
+        );
+        return decision.authorization.status === "allowed";
       },
     },
     authProvisioner: createSupabaseAdminAuthProvisioner({ url, serviceRoleKey }),
