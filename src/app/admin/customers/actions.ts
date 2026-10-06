@@ -67,6 +67,16 @@ function crm(context: AdminContext) {
   });
 }
 
+export async function getCustomers(query: string) {
+  const contextResult = await context();
+  if (!contextResult) return { status: "UNAUTHORIZED" as const };
+  return crm(contextResult).customers(
+    contextResult.identity,
+    contextResult.tenantContext,
+    query,
+  );
+}
+
 export async function getCustomer(id: string) {
   const contextResult = await context();
   if (!contextResult) return { status: "UNAUTHORIZED" as const };

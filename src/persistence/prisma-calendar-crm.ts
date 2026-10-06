@@ -8,6 +8,7 @@ type Tx = PrismaTenantTransactionClient & {
     findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown> }): Promise<AppointmentRecord[]>;
   };
   profile: {
+    findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown>; take: number }): Promise<Array<{ id: string; displayName: string; email: string | null; phone: string | null }>>;
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; displayName: string; email: string | null; phone: string | null } | null>;
   };
   customerNote: {
@@ -17,7 +18,48 @@ type Tx = PrismaTenantTransactionClient & {
 };
 
 export function createPrismaCalendarCrmRepository(prisma: PrismaTenantClient): CalendarRepository {
+  
   return {
+    async listCustomers(tenantContext, query) {
+      return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
+        const normalized = query.trim();
+        const profiles = await tx.profile.findMany({
+          where: {
+            tenantId: tenantContext.tenantId,
+            ...(normalized
+              ? {
+                  OR: [
+                    { displayName: { contains: normalized, mode: "insensitive" } },
+                    { email: { contains: normalized, mode: "insensitive" } },
+                    { phone: { contains: normalized, mode: "insensitive" } },
+                  ],
+                }
+              : {}),
+          },
+          orderBy: { displayName: "asc" },
+          take: 100,
+        });
+        const ids = profiles.map((profile) => profile.id);
+        if (!ids.length) return [];
+        const appointments = await tx.appointment.findMany({
+          where: { tenantId: tenantContext.tenantId, customerProfileId: { in: ids } },
+          orderBy: { startAt: "desc" },
+        });
+        return profiles.map((profile) => {
+          const history = appointments.filter((appointment) => appointment.customerProfileId === profile.id);
+          return {
+            id: profile.id,
+            displayName: profile.displayName,
+            email: profile.email,
+            phone: profile.phone,
+            appointmentCount: history.length,
+            lastAppointmentAt: history[0]?.startAt ?? null,
+          };
+        });
+      });
+    },
+
+
     async listAppointments(tenantContext, range) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
         tx.appointment.findMany({

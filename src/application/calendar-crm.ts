@@ -3,6 +3,7 @@ import type { TenantContext } from "../domain/tenant-context";
 import type { AppointmentRecord } from "../domain/appointment";
 
 export type CalendarRepository = Readonly<{
+  listCustomers(tenantContext: TenantContext, query: string): Promise<ReadonlyArray<Readonly<{ id: string; displayName: string; email: string | null; phone: string | null; appointmentCount: number; lastAppointmentAt: Date | null }>>>;
   listAppointments(tenantContext: TenantContext, range: Readonly<{ startAt: Date; endAt: Date; staffId?: string }>): Promise<ReadonlyArray<AppointmentRecord>>;
   customerCard(tenantContext: TenantContext, customerProfileId: string): Promise<Readonly<{
     id: string; displayName: string; email: string | null; phone: string | null;
@@ -18,6 +19,13 @@ export type CalendarAuthorizer = Readonly<{
 
 export function createCalendarCrm(dependencies: Readonly<{ repository: CalendarRepository; authorizer: CalendarAuthorizer }>) {
   return {
+    async customers(identity: ApplicationIdentity, tenantContext: TenantContext, query: unknown) {
+      if (!(await dependencies.authorizer.authorize(identity, tenantContext, "TENANT_ADMIN"))) return { status: "UNAUTHORIZED" as const };
+      if (typeof query !== "string" || query.length > 100 || /[\\u0000-\\u001f\\u007f]/.test(query)) return { status: "INVALID_INPUT" as const };
+      try { return { status: "ok" as const, customers: await dependencies.repository.listCustomers(tenantContext, query.trim()) }; }
+      catch { return { status: "PERSISTENCE_FAILURE" as const }; }
+    },
+
     async calendar(identity: ApplicationIdentity, tenantContext: TenantContext, range: Readonly<{ startAt: Date; endAt: Date; staffId?: string }>) {
       if (!(await dependencies.authorizer.authorize(identity, tenantContext, "TENANT_ADMIN"))) return { status: "UNAUTHORIZED" as const };
       if (!(range.startAt instanceof Date) || !(range.endAt instanceof Date) || range.startAt >= range.endAt) return { status: "INVALID_INPUT" as const };
