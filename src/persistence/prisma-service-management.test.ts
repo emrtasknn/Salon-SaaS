@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPrismaServiceRepository } from "./prisma-service-management";
+import { createPrismaServiceRepository, type PrismaServiceClient } from "./prisma-service-management";
 import type { TenantContext } from "../domain/tenant-context";
 
 const tenantContext = { tenantId: "tenant-1" } as TenantContext;
