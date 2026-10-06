@@ -31,13 +31,13 @@ export interface PrismaTenantClient {
   ): Promise<T>;
 }
 
-export async function withPrismaTenantContext<T>(
+export async function withPrismaTenantContext<T, TTransaction extends PrismaTenantTransactionClient = PrismaTenantTransactionClient>(
   prisma: PrismaTenantClient,
   tenantContext: TenantContext,
-  operation: (tx: PrismaTenantTransactionClient) => Promise<T>,
+  operation: (tx: TTransaction) => Promise<T>,
 ): Promise<T> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantContext.tenantId}, true)`;
-    return operation(tx);
+    return operation(tx as TTransaction);
   });
 }
