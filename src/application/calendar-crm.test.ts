@@ -25,6 +25,20 @@ describe("calendar crm", () => {
     expect(repository.listCustomers).not.toHaveBeenCalledWith(tenant, "x".repeat(101));
   });
 
+  it("denies customer detail access before repository lookup", async () => {
+    authorizer.authorize.mockResolvedValueOnce(false);
+    const result = await createCalendarCrm({ repository, authorizer }).customer(identity, tenant, "other-tenant-customer");
+    expect(result).toEqual({ status: "UNAUTHORIZED" });
+    expect(repository.customerCard).not.toHaveBeenCalledWith(tenant, "other-tenant-customer");
+  });
+
+  it("denies note mutation before repository lookup", async () => {
+    authorizer.authorize.mockResolvedValueOnce(false);
+    const result = await createCalendarCrm({ repository, authorizer }).addNote(identity, tenant, "other-tenant-customer", "attempt");
+    expect(result).toEqual({ status: "UNAUTHORIZED" });
+    expect(repository.addCustomerNote).not.toHaveBeenCalledWith(tenant, "other-tenant-customer", "attempt");
+  });
+
   it("lists a validated calendar range", async () => {
     const result = await createCalendarCrm({ repository, authorizer }).calendar(identity, tenant, {
       startAt: new Date("2026-10-05T00:00:00Z"), endAt: new Date("2026-10-06T00:00:00Z"),
