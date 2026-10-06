@@ -52,7 +52,7 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
           let profile = await tx.profile.findUnique({ where: { tenantId_email: { tenantId: tenantContext.tenantId, email: input.email } } });
           if (!profile) profile = await tx.profile.create({ data: { tenantId: tenantContext.tenantId, displayName: input.displayName, email: input.email, phone: input.phone } });
           await tx.appointment.create({ data: { tenantId: tenantContext.tenantId, staffId: input.staffId, serviceId: input.serviceId, customerProfileId: profile.id, startAt: input.startAt, endAt, status: "PENDING" } });
-          return "created";
+          const appointment = await tx.appointment.create({ data: { tenantId: tenantContext.tenantId, staffId: input.staffId, serviceId: input.serviceId, customerProfileId: profile.id, startAt: input.startAt, endAt, status: "PENDING" } });\n          return { status: "created" as const, appointmentId: appointment.id };
         });
       } catch { return "persistence_failure"; }
     },
