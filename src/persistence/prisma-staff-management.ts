@@ -5,12 +5,12 @@ import type { TenantContext } from "../domain/tenant-context";
 
 type StaffRow = Readonly<{ id: string; tenantId: string; profileId: string; status: "ACTIVE" | "INACTIVE" }>;
 
-export interface PrismaStaffTransaction extends PrismaTenantTransactionClient {
+export type PrismaStaffTransaction = PrismaTenantTransactionClient & {
   profile: {
     create(args: { data: { tenantId: string; displayName: string; email?: string | null; phone?: string | null } }): Promise<{ id: string }>;
     update(args: { where: { tenantId_id: { tenantId: string; id: string } }; data: { displayName?: string; email?: string | null; phone?: string | null } }): Promise<{ id: string }>;
   };
-  tenantMembership: {
+  tenantMembership: PrismaTenantTransactionClient["tenantMembership"] & {
     create(args: { data: { tenantId: string; subjectId: string; profileId: string; role: "STAFF" } }): Promise<{ id: string }>;
   };
   staff: {
