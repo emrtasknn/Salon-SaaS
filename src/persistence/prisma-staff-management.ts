@@ -1,11 +1,11 @@
 import type { StaffRepository, StaffProvisioningRepositoryInput } from "../application/staff-management";
 import type { StaffRecord } from "../domain/staff";
-import { withPrismaTenantContext, type PrismaTenantClient } from "./prisma-tenant-context";
+import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 import type { TenantContext } from "../domain/tenant-context";
 
 type StaffRow = Readonly<{ id: string; tenantId: string; profileId: string; status: "ACTIVE" | "INACTIVE" }>;
 
-export interface PrismaStaffTransaction {
+export interface PrismaStaffTransaction extends PrismaTenantTransactionClient {
   profile: {
     create(args: { data: { tenantId: string; displayName: string; email?: string | null; phone?: string | null } }): Promise<{ id: string }>;
     update(args: { where: { tenantId_id: { tenantId: string; id: string } }; data: { displayName?: string; email?: string | null; phone?: string | null } }): Promise<{ id: string }>;
