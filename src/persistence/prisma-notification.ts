@@ -34,12 +34,13 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
         const serviceName = appointment.service.name;
         const time = new Intl.DateTimeFormat("tr-TR", { timeZone: tenant.timezone, dateStyle: "short", timeStyle: "short" }).format(appointment.startAt);
         if (eventType === "APPOINTMENT_CREATED") return [
-          { profileId: staff.profileId, displayName: staff.displayName, phone: staff.phone, templateKey: "appointment-created-staff", body: `Yeni randevu talebi: ${customer.displayName} — ${serviceName} — ${time}. Onay bekliyor.` },
-          { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.` },
+          { profileId: staff.profileId, displayName: staff.displayName, phone: staff.phone, templateKey: "appointment-created-staff", body: `Yeni randevu talebi: ${customer.displayName} — ${serviceName} — ${time}. Onay bekliyor.`, templateParameters: [customer.displayName, serviceName, time] },
+          { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [serviceName, time] },
         ];
         return [{ profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone,
           templateKey: eventType === "APPOINTMENT_CONFIRMED" ? "appointment-confirmed-customer" : "appointment-rejected-customer",
-          body: eventType === "APPOINTMENT_CONFIRMED" ? `Randevunuz onaylandı. ${serviceName} — ${time} — ${staff.displayName}.` : `Randevu talebiniz onaylanmadı. ${serviceName} — ${time}.` }];
+          body: eventType === "APPOINTMENT_CONFIRMED" ? `Randevunuz onaylandı. ${serviceName} — ${time} — ${staff.displayName}.` : `Randevu talebiniz onaylanmadı. ${serviceName} — ${time}.`,
+          templateParameters: eventType === "APPOINTMENT_CONFIRMED" ? [serviceName, time, staff.displayName] : [serviceName, time] }];
       });
     },
     async claim(tenantContext, input) {

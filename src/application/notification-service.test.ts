@@ -4,11 +4,11 @@ import { createMockWhatsAppProvider } from "../infrastructure/notifications";
 
 describe("notification service", () => {
   it("sends created notifications to staff and customer", async () => {
-    const calls: Array<Readonly<{ to: string; body: string; templateKey: string }>> = [];
+    const calls: Array<Readonly<{ to: string; body: string; templateKey: string; templateParameters: ReadonlyArray<string> }>> = [];
     const repository = {
       recipients: vi.fn().mockResolvedValue([
-        { profileId: "s", displayName: "Staff", phone: "+90555", templateKey: "staff", body: "pending" },
-        { profileId: "c", displayName: "Customer", phone: "+90556", templateKey: "customer", body: "created" },
+        { profileId: "s", displayName: "Staff", phone: "+90555", templateKey: "staff", body: "pending", templateParameters: [] },
+        { profileId: "c", displayName: "Customer", phone: "+90556", templateKey: "customer", body: "created", templateParameters: [] },
       ]),
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn().mockResolvedValue(undefined),
@@ -23,7 +23,7 @@ describe("notification service", () => {
   it("does not duplicate an already sent delivery", async () => {
     const provider = { channel: "WHATSAPP" as const, send: vi.fn() };
     const repository = {
-      recipients: vi.fn().mockResolvedValue([{ profileId: "c", displayName: "C", phone: "+1", templateKey: "x", body: "x" }]),
+      recipients: vi.fn().mockResolvedValue([{ profileId: "c", displayName: "C", phone: "+1", templateKey: "x", body: "x", templateParameters: [] }]),
       claim: vi.fn().mockResolvedValue("already_sent"),
       markSent: vi.fn(), markFailed: vi.fn(),
     };

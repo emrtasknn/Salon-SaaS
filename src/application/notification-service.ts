@@ -4,7 +4,7 @@ import type { NotificationProvider } from "../infrastructure/notifications";
 
 export type NotificationRepository = Readonly<{
   recipients(tenantContext: TenantContext, appointmentId: string, eventType: NotificationEventType): Promise<ReadonlyArray<{
-    profileId: string; displayName: string; phone: string | null; templateKey: string; body: string;
+    profileId: string; displayName: string; phone: string | null; templateKey: string; body: string; templateParameters: ReadonlyArray<string>;
   }>>;
   claim(tenantContext: TenantContext, input: Readonly<{
     appointmentId: string; eventType: NotificationEventType; channel: "WHATSAPP"; recipientProfileId: string; templateKey: string;
@@ -36,7 +36,12 @@ export function createNotificationService(dependencies: Readonly<{ repository: N
           continue;
         }
         try {
-          const sent = await dependencies.provider.send({ to: recipient.phone, body: recipient.body, templateKey: recipient.templateKey });
+          const sent = await dependencies.provider.send({
+            to: recipient.phone,
+            body: recipient.body,
+            templateKey: recipient.templateKey,
+            templateParameters: recipient.templateParameters,
+          });
           await dependencies.repository.markSent(tenantContext, { appointmentId, eventType, channel: "WHATSAPP", recipientProfileId: recipient.profileId, providerMessageId: sent.providerMessageId });
           results.push({ profileId: recipient.profileId, status: "SENT" });
         } catch {
