@@ -13,6 +13,7 @@ export function verifyMetaWebhookSignature(input: Readonly<{
 }
 
 export type MetaWebhookStatus = Readonly<{
+  phoneNumberId: string;
   providerMessageId: string;
   status: "sent" | "delivered" | "failed" | "read";
   errorCode?: string;
@@ -32,6 +33,10 @@ export function parseMetaWebhookStatuses(payload: unknown): ReadonlyArray<MetaWe
       if (!change || typeof change !== "object") continue;
       const value = (change as { value?: unknown }).value;
       if (!value || typeof value !== "object") continue;
+      const metadata = (value as { metadata?: unknown }).metadata;
+      if (!metadata || typeof metadata !== "object") continue;
+      const phoneNumberId = (metadata as { phone_number_id?: unknown }).phone_number_id;
+      if (typeof phoneNumberId !== "string" || !phoneNumberId) continue;
       const rawStatuses = (value as { statuses?: unknown }).statuses;
       if (!Array.isArray(rawStatuses)) continue;
       for (const raw of rawStatuses) {
@@ -43,7 +48,7 @@ export function parseMetaWebhookStatuses(payload: unknown): ReadonlyArray<MetaWe
         const errorCode = firstError && typeof firstError === "object" && typeof (firstError as { code?: unknown }).code === "number"
           ? String((firstError as { code: number }).code)
           : undefined;
-        statuses.push({ providerMessageId: item.id, status: item.status, ...(errorCode ? { errorCode } : {}) });
+        statuses.push({ phoneNumberId, providerMessageId: item.id, status: item.status, ...(errorCode ? { errorCode } : {}) });
       }
     }
   }
