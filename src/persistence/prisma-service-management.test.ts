@@ -37,12 +37,11 @@ function makePrisma() {
     },
   };
 
-  return {
-    tx,
-    prisma: {
-      $transaction: vi.fn(async (operation: (value: typeof tx) => Promise<unknown>) => operation(tx)),
-    },
-  };
+  const prisma = {
+    $transaction: vi.fn(async (operation: (value: typeof tx) => Promise<unknown>) => operation(tx)),
+  } as PrismaServiceClient;
+
+  return { tx, prisma };
 }
 
 describe("prisma service repository", () => {
