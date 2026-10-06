@@ -9,6 +9,7 @@ const base = {
   staffId: "s",
   durationMinutes: 60,
   bufferMinutes: 15,
+  appointments: [],
 };
 
 describe("availability", () => {
