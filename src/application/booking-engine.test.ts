@@ -16,7 +16,7 @@ const authorizer = { authorize: vi.fn().mockResolvedValue(true), authorizeStaffD
 
 describe("booking engine", () => {
   it("calculates availability from server-owned resources", async () => {
-    const result = await createBookingEngine({ repository, authorizer }).availability(identity, tenant, { serviceId: "svc", staffId: "staff", dateIso: "2026-10-05" });
+    const result = await createBookingEngine({ repository, authorizer }).availability(identity, tenant, { serviceId: "svc", staffId: "staff", dateIso: "2026-10-12" });
     expect(result.status).toBe("ok");
     expect(result.slots.length).toBeGreaterThan(0);
   });
