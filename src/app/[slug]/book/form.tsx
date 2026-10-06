@@ -49,7 +49,7 @@ export function PublicBookingForm({
   const [dateIso, setDateIso] = useState(minDate);
   const [slots, setSlots] = useState<ReadonlyArray<Slot>>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
-  const [availabilityStatus, setAvailabilityStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle");
+  const [availabilityStatus, setAvailabilityStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">(() =>\n    initialServiceId && staff[0]?.id ? "loading" : "idle",\n  );
   const [status, setStatus] = useState("");
   const [busy, startTransition] = useTransition();
 
@@ -148,7 +148,7 @@ export function PublicBookingForm({
             <span className="text-sm font-medium">Hizmet</span>
             <select
               value={serviceId}
-              onChange={(event) => setServiceId(event.target.value)}
+              onChange={(event) => {\n                setServiceId(event.target.value);\n                setSelectedSlot("");\n                setAvailabilityStatus(event.target.value && staffId && dateIso ? "loading" : "idle");\n              }}
               required
               className="w-full rounded-lg border px-3 py-2 text-sm"
             >
@@ -165,7 +165,7 @@ export function PublicBookingForm({
             <span className="text-sm font-medium">Personel</span>
             <select
               value={staffId}
-              onChange={(event) => setStaffId(event.target.value)}
+              onChange={(event) => {\n                setStaffId(event.target.value);\n                setSelectedSlot("");\n                setAvailabilityStatus(event.target.value && serviceId && dateIso ? "loading" : "idle");\n              }}
               required
               disabled={!staff.length}
               className="w-full rounded-lg border px-3 py-2 text-sm"
@@ -186,7 +186,7 @@ export function PublicBookingForm({
               type="date"
               min={minDate}
               value={dateIso}
-              onChange={(event) => setDateIso(event.target.value)}
+              onChange={(event) => {\n                setDateIso(event.target.value);\n                setSelectedSlot("");\n                setAvailabilityStatus(event.target.value && serviceId && staffId ? "loading" : "idle");\n              }}
               required
               className="w-full rounded-lg border px-3 py-2 text-sm"
             />
