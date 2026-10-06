@@ -19,6 +19,7 @@ model Tenant {
   staff        Staff[]
   services     Service[]
   appointments Appointment[]
+  notificationDeliveries NotificationDelivery[]
   memberships  TenantMembership[]
   workingHours WorkingHours[]
   customerNotes CustomerNote[]
@@ -61,6 +62,23 @@ enum AppointmentStatus {
   REJECTED
   CANCELLED
   COMPLETED
+}
+
+enum NotificationEventType {
+  APPOINTMENT_CREATED
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_REJECTED
+}
+
+enum NotificationChannel {
+  WHATSAPP
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
 }
 
 model TenantMembership {
@@ -146,6 +164,29 @@ model CustomerNote {
   @@index([tenantId, customerProfileId, createdAt])
 }
 
+model NotificationDelivery {
+  id                String   @id @default(cuid())
+  tenantId          String
+  appointmentId     String
+  eventType         NotificationEventType
+  channel           NotificationChannel
+  recipientProfileId String
+  templateKey       String
+  status            NotificationDeliveryStatus @default(PENDING)
+  providerMessageId String?
+  attemptCount      Int      @default(0)
+  lastErrorCode     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointment Appointment @relation(fields: [tenantId, appointmentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, appointmentId, eventType, channel, recipientProfileId])
+  @@index([tenantId, status, createdAt])
+}
+
 model Appointment {
   id                String   @id @default(cuid())
   tenantId          String
@@ -163,6 +204,7 @@ model Appointment {
   service         Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@unique([tenantId, id])
   @@index([tenantId, startAt])
   @@index([tenantId, staffId, startAt])
   @@index([tenantId, customerProfileId, startAt])
