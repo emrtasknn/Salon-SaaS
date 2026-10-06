@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { listAdminData } from "./actions";
 import { AdminManagement } from "./admin-management";
 
