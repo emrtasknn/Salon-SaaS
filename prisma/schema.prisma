@@ -20,6 +20,7 @@ model Tenant {
   services     Service[]
   appointments Appointment[]
   memberships  TenantMembership[]
+  workingHours WorkingHours[]
 }
 
 model Profile {
@@ -104,6 +105,22 @@ model Service {
   @@index([tenantId])
 }
 
+model WorkingHours {
+  id          String   @id @default(cuid())
+  tenantId    String
+  dayOfWeek   Int
+  openMinute  Int
+  closeMinute Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, dayOfWeek])
+  @@index([tenantId])
+}
+
 model Appointment {
   id                String   @id @default(cuid())
   tenantId          String
@@ -112,7 +129,7 @@ model Appointment {
   customerProfileId String
   startAt           DateTime
   endAt             DateTime
-  createdAt          DateTime @default(now())
+  createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   tenant          Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
