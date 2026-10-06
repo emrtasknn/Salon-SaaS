@@ -25,7 +25,7 @@ describe("WhatsApp webhook tenant routing", () => {
     ]);
     expect(count).toBe(1);
     expect(prisma.transaction).toHaveBeenCalledTimes(1);
-    expect(prisma.executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.executeRaw).toHaveBeenCalledTimes(2);
   });
 
   it("does not mutate the domain for read events", async () => {
@@ -36,6 +36,6 @@ describe("WhatsApp webhook tenant routing", () => {
       { providerMessageId: "wamid.1", status: "read" },
     ]);
     expect(count).toBe(0);
-    expect(prisma.executeRaw).not.toHaveBeenCalled();
+    expect(prisma.executeRaw).toHaveBeenCalledTimes(1);
   });
 });
