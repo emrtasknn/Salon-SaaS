@@ -3,7 +3,10 @@ import type {
   ServerAuthSnapshot,
 } from "../../application/auth-request-boundary";
 
-export type SupabaseAuthUser = Readonly<{ id: unknown }>;
+export type SupabaseAuthUser = Readonly<{
+  id: unknown;
+  app_metadata?: unknown;
+}>;
 
 export type SupabaseAuthResponse = Readonly<{
   data: Readonly<{ user: SupabaseAuthUser | null }>;
@@ -17,6 +20,18 @@ export interface SupabaseAuthClient {
 export type SupabaseAuthAdapterDependencies = Readonly<{
   client: SupabaseAuthClient;
 }>;
+
+function readTenantId(appMetadata: unknown): unknown {
+  if (typeof appMetadata !== "object" || appMetadata === null) {
+    return undefined;
+  }
+
+  if (!("tenant_id" in appMetadata)) {
+    return undefined;
+  }
+
+  return appMetadata.tenant_id;
+}
 
 export function createSupabaseAuthAdapter(
   dependencies: SupabaseAuthAdapterDependencies,
@@ -35,7 +50,11 @@ export function createSupabaseAuthAdapter(
           return { state: "unauthenticated" };
         }
 
-        return { state: "authenticated", subjectId };
+        return {
+          state: "authenticated",
+          subjectId,
+          tenantId: readTenantId(response.data.user.app_metadata),
+        };
       } catch {
         return { state: "unauthenticated" };
       }
