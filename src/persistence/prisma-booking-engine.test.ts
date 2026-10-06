@@ -25,7 +25,7 @@ describe("prisma booking repository", () => {
 
   it("maps invalid transition without writing", async () => {
     const tx = { $executeRaw: vi.fn(), tenantMembership: { findUnique: vi.fn() }, appointment: { updateMany: vi.fn() } };
-    const prisma = { $transaction: vi.fn(async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const prisma = { $transaction: vi.fn(async (callback: any) => callback(tx)) } as unknown as PrismaTenantClient;
     const repository = createPrismaBookingRepository(prisma);
     await expect(repository.transition({ tenantId: "t" as never }, "a", "REJECTED", "CONFIRMED")).resolves.toBe("invalid_transition");
     expect(tx.appointment.updateMany).not.toHaveBeenCalled();
