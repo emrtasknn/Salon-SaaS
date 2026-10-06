@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCalendarCrm } from "./calendar-crm";
+import { createAuthenticatedIdentity } from "../domain/auth-identity";
 
-const identity = { state: "authenticated", subjectId: "u", profileId: "p" } as const;
+const identity = createAuthenticatedIdentity("u", "p");
 const tenant = { tenantId: "t" as never };
 const repository = {
   listAppointments: vi.fn().mockResolvedValue([]),
