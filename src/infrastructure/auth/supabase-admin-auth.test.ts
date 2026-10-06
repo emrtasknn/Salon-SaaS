@@ -11,7 +11,7 @@ describe("supabase admin auth provisioning", () => {
     const p = createSupabaseAdminAuthProvisioner({ url: "https://x.supabase.co", serviceRoleKey: "secret", fetcher });
     const result = await p.provision({ email: "staff@example.com", displayName: "Staff", tenantId: "tenant-1" });
     expect(result).toEqual({ status: "created", subjectId: "auth-1" });
-    expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("/auth/v1/invite"), expect.objectContaining({ method: "POST" }));
+    expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("/auth/v1/invite"), expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "staff@example.com", data: { display_name: "Staff" }, app_metadata: { tenant_id: "tenant-1" } }) }));
   });
   it("compensates only the created subject", async () => {
     const fetcher = vi.fn().mockResolvedValue(response(204, null));
