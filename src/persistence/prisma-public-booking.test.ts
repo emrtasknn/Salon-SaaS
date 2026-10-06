@@ -19,6 +19,6 @@ describe("public booking repository", () => {
       serviceId: "svc", staffId: "staff", startAt: new Date("2026-10-05T06:00:00Z"),
       displayName: "Customer", email: "c@example.com", phone: null,
     })).resolves.toBe("created");
-    expect(tx.$executeRaw).toHaveBeenCalled();
+    expect(transaction.$executeRaw).toHaveBeenCalled();
   });
 });
