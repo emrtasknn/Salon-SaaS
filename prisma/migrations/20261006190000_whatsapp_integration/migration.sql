@@ -52,6 +52,5 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION private.resolve_whatsapp_tenant_id(TEXT) FROM PUBLIC;
-REVOKE ALL ON FUNCTION private.resolve_whatsapp_tenant_id(TEXT) FROM anon, authenticated, service_role;
 GRANT USAGE ON SCHEMA private TO postgres;
 GRANT EXECUTE ON FUNCTION private.resolve_whatsapp_tenant_id(TEXT) TO postgres;
