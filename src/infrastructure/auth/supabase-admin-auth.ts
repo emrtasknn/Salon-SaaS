@@ -31,12 +31,12 @@ export type SupabaseAdminAuthConfig = Readonly<{
 function normalizeEmail(value: string | null | undefined): string | null {
   if (value == null || value.trim() === "") return null;
   const email = value.trim();
-  if (email.length > 320 || /[\\u0000-\\u001f\\u007f]/.test(email)) return null;
+  if (email.length > 320 || /[\u0000-\u001f\u007f]/.test(email)) return null;
   return email;
 }
 
 function endpoint(config: SupabaseAdminAuthConfig, path: string): string {
-  return `${config.url.replace(/\\/$/, "")}/auth/v1${path}`;
+  return `${config.url.replace(/\/$/, "")}/auth/v1${path}`;
 }
 
 function headers(config: SupabaseAdminAuthConfig): HeadersInit {
