@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { decideStaffAppointment, listStaffAppointments } from "./actions";
+import { listStaffAppointments } from "./actions";
+import { decideAndNotify } from "./decide";
 
 type Props = { initialDate: string; initialData: Awaited<ReturnType<typeof listStaffAppointments>> };
 const labels: Record<string, string> = { PENDING: "Bekliyor", CONFIRMED: "Onaylandı", REJECTED: "Reddedildi", CANCELLED: "İptal", COMPLETED: "Tamamlandı" };
@@ -25,7 +26,7 @@ export function StaffAppointments({ initialDate, initialData }: Props) {
     {appointments.length === 0 ? <div className="rounded-xl border bg-white p-8 text-center text-sm text-zinc-500">Bu gün için randevu yok.</div> :
       <div className="space-y-3">{appointments.map((a) => <article key={a.id} className="rounded-xl border bg-white p-4">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.startAt))}–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.endAt))}</p><p className="mt-1 text-xs text-zinc-500">Müşteri: {a.customerProfileId} · Hizmet: {a.serviceId}</p></div><span className="rounded-full border px-2 py-1 text-xs">{labels[a.status] ?? a.status}</span></div>
-        {a.status === "PENDING" && <div className="mt-4 flex gap-2"><button disabled={busy} onClick={() => startTransition(async () => { const r = await decideStaffAppointment(a, "CONFIRMED"); setFeedback(r.status === "updated" ? "Randevu onaylandı." : "Randevu onaylanamadı."); if (r.status === "updated") refresh(); })} className="rounded-lg bg-black px-3 py-2 text-xs text-white">Onayla</button><button disabled={busy} onClick={() => startTransition(async () => { const r = await decideStaffAppointment(a, "REJECTED"); setFeedback(r.status === "updated" ? "Randevu reddedildi." : "Randevu reddedilemedi."); if (r.status === "updated") refresh(); })} className="rounded-lg border px-3 py-2 text-xs">Reddet</button></div>}
+        {a.status === "PENDING" && <div className="mt-4 flex gap-2"><button disabled={busy} onClick={() => startTransition(async () => { const r = await decideAndNotify(a, "CONFIRMED"); setFeedback(r.status === "updated" ? "Randevu onaylandı." : "Randevu onaylanamadı."); if (r.status === "updated") refresh(); })} className="rounded-lg bg-black px-3 py-2 text-xs text-white">Onayla</button><button disabled={busy} onClick={() => startTransition(async () => { const r = await decideAndNotify(a, "REJECTED"); setFeedback(r.status === "updated" ? "Randevu reddedildi." : "Randevu reddedilemedi."); if (r.status === "updated") refresh(); })} className="rounded-lg border px-3 py-2 text-xs">Reddet</button></div>}
       </article>)}</div>}
   </div></main>;
 }
