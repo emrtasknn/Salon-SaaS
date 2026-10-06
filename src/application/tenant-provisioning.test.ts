@@ -3,6 +3,13 @@ import { createTenantProvisioner } from "./tenant-provisioning";
 
 const actor = { kind: "SUPER_ADMIN" as const, subjectId: "admin-subject" };
 
+function authBinding() {
+  return {
+    bindTenant: vi.fn(async () => ({ status: "bound" as const })),
+    rollbackTenantBinding: vi.fn(async () => ({ status: "rolled_back" as const })),
+  };
+}
+
 function input() {
   return {
     actor,
@@ -24,6 +31,7 @@ describe("tenant provisioning application service", () => {
     const provisioner = createTenantProvisioner({
       authorizer: { authorize: vi.fn(async () => ({ allowed: false })) },
       repository,
+      authBinding: authBinding(),
     });
 
     await expect(provisioner.provision(input())).resolves.toEqual({
@@ -43,6 +51,7 @@ describe("tenant provisioning application service", () => {
     const provisioner = createTenantProvisioner({
       authorizer: { authorize: vi.fn(async () => ({ allowed: true })) },
       repository,
+      authBinding: authBinding(),
     });
 
     const result = await provisioner.provision(input());
@@ -69,6 +78,7 @@ describe("tenant provisioning application service", () => {
       repository: {
         provision: vi.fn(async () => ({ status: "duplicate_slug" as const })),
       },
+      authBinding: authBinding(),
     });
 
     await expect(duplicateProvisioner.provision(input())).resolves.toEqual({
@@ -82,10 +92,37 @@ describe("tenant provisioning application service", () => {
           throw new Error("db down");
         }),
       },
+      authBinding: authBinding(),
     });
 
     await expect(failingProvisioner.provision(input())).resolves.toEqual({
       status: "PERSISTENCE_FAILURE",
     });
+  });
+
+  it("binds the first admin before persistence and rolls it back on persistence failure", async () => {
+    const binding = authBinding();
+    const repository = {
+      provision: vi.fn(async () => {
+        throw new Error("db down");
+      }),
+    };
+    const provisioner = createTenantProvisioner({
+      authorizer: { authorize: vi.fn(async () => ({ allowed: true })) },
+      repository,
+      authBinding: binding,
+    });
+
+    await expect(provisioner.provision(input())).resolves.toEqual({
+      status: "PERSISTENCE_FAILURE",
+    });
+    expect(binding.bindTenant).toHaveBeenCalledWith(
+      "owner-subject",
+      expect.any(String),
+    );
+    expect(binding.rollbackTenantBinding).toHaveBeenCalledWith(
+      "owner-subject",
+      expect.any(String),
+    );
   });
 });
