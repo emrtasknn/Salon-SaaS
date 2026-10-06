@@ -13,7 +13,7 @@ describe("prisma booking repository", () => {
       workingHours: { findMany: vi.fn().mockResolvedValue([]) },
       appointment: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({}), updateMany: vi.fn() },
     };
-    const prisma = { $transaction: vi.fn(async <T>(callback: (tx: typeof tx) => Promise<T>) => callback(tx)) } as unknown as PrismaTenantClient;
+    const prisma = { $transaction: vi.fn(async (callback: any) => callback(tx)) } as unknown as PrismaTenantClient;
     const repository = createPrismaBookingRepository(prisma);
     await expect(repository.createAppointment({ tenantId: "t" as never }, {
       staffId: "s", serviceId: "svc", customerProfileId: "c",
