@@ -43,7 +43,7 @@ async function context() {
   };
 }
 
-function crm(context: NonNullable<Awaited<ReturnType<typeof context>>>) {
+type AdminContext = {\n  prisma: ReturnType<typeof getPrisma>;\n  reader: ReturnType<typeof createPrismaMembershipReader>;\n  tenantContext: Awaited<ReturnType<typeof readAuthenticatedTenantRequest>> extends infer _T ? never : never;\n  identity: ReturnType<typeof createAuthenticatedIdentity>;\n};\n\nfunction crm(context: AdminContext) {
   return createCalendarCrm({
     repository: createPrismaCalendarCrmRepository(context.prisma),
     authorizer: {
