@@ -12,7 +12,7 @@ import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supaba
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import { localWallTimeToUtc } from "../../domain/availability";
-import type { ApplicationIdentity } from "../../domain/auth-identity";
+import { createAuthenticatedIdentity, type ApplicationIdentity } from "../../domain/auth-identity";
 import type { AppointmentStatus } from "../../domain/appointment";
 
 async function getAdminContext() {
@@ -23,11 +23,7 @@ async function getAdminContext() {
   const reader = createPrismaMembershipReader({ prisma });
   const membership = await reader.readMembership({ tenantContext: request.tenantContext, identity: request.identity });
   if (membership.status !== "found" || !["TENANT_ADMIN", "SUPER_ADMIN"].includes(membership.membership.role)) return null;
-  return { prisma, reader, tenantContext: request.tenantContext, identity: {
-    state: "authenticated" as const,
-    subjectId: request.identity.subjectId,
-    profileId: membership.membership.profileId,
-  } as ApplicationIdentity };
+  return { prisma, reader, tenantContext: request.tenantContext, identity: createAuthenticatedIdentity(request.identity.subjectId, membership.membership.profileId) };
 }
 
 function calendar(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof createPrismaMembershipReader>) {
