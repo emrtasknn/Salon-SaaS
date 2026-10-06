@@ -8,6 +8,7 @@ type Tx = PrismaTenantTransactionClient & {
     findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown> }): Promise<AppointmentRecord[]>;
   };
   profile: {
+    findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown>; take: number }): Promise<Array<{ id: string; displayName: string; email: string | null; phone: string | null }>>;
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; displayName: string; email: string | null; phone: string | null } | null>;
   };
   customerNote: {
