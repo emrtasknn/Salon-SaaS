@@ -44,7 +44,7 @@ export function AdminManagement({ initialData }: Props) {
 
   const services = data.services.status === "listed" ? data.services.services : [];
   const hours = data.workingHours.status === "listed" ? data.workingHours.workingHours : [];
-  const staff = data.staff.status === "listed" ? data.staff.staff : [];
+  const staff = data.staff.status === "listed" && data.staff.staff ? data.staff.staff : [];
 
   return (
     <main className="min-h-screen bg-zinc-50">
