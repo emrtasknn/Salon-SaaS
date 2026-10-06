@@ -18,14 +18,38 @@ describe("createSupabaseAuthAdapter", () => {
     });
   });
 
-  it("does not perform profile resolution inside authentication", async () => {
+  it("maps only server-managed app_metadata tenant binding", async () => {
     const getUser = vi.fn().mockResolvedValue({
       data: {
         user: {
           id: "supabase-user-1",
-          tenantId: "attacker-tenant",
-          role: "SUPER_ADMIN",
-          profileId: "attacker-profile",
+          app_metadata: { tenant_id: "tenant-1" },
+        },
+      },
+      error: null,
+    });
+
+    const adapter = createSupabaseAuthAdapter({
+      client: { auth: { getUser } },
+    });
+
+    await expect(adapter.readIdentity()).resolves.toEqual({
+      state: "authenticated",
+      subjectId: "supabase-user-1",
+      tenantId: "tenant-1",
+    });
+  });
+
+  it("does not perform profile or tenant resolution from user metadata", async () => {
+    const getUser = vi.fn().mockResolvedValue({
+      data: {
+        user: {
+          id: "supabase-user-1",
+          user_metadata: {
+            tenant_id: "attacker-tenant",
+            role: "SUPER_ADMIN",
+            profileId: "attacker-profile",
+          },
         },
       },
       error: null,

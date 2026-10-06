@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   readAuthenticatedSubject,
+  readAuthenticatedTenantRequest,
   type ServerAuthAdapter,
 } from "./auth-request-boundary";
 
@@ -68,6 +69,56 @@ describe("readAuthenticatedSubject", () => {
     await expect(readAuthenticatedSubject(adapter)).resolves.toEqual({
       state: "authenticated",
       subjectId: "subject-a",
+    });
+  });
+});
+
+describe("readAuthenticatedTenantRequest", () => {
+  it("fails closed when an authenticated subject has no trusted tenant binding", async () => {
+    const adapter: ServerAuthAdapter = {
+      readIdentity: vi.fn().mockResolvedValue({
+        state: "authenticated",
+        subjectId: "subject-a",
+      }),
+    };
+
+    await expect(readAuthenticatedTenantRequest(adapter)).resolves.toEqual({
+      state: "unauthenticated",
+    });
+  });
+
+  it("constructs TenantContext only from the trusted server auth snapshot", async () => {
+    const adapter: ServerAuthAdapter = {
+      readIdentity: vi.fn().mockResolvedValue({
+        state: "authenticated",
+        subjectId: "subject-a",
+        tenantId: "tenant-a",
+      }),
+    };
+
+    await expect(readAuthenticatedTenantRequest(adapter)).resolves.toEqual({
+      state: "authenticated",
+      identity: {
+        state: "authenticated",
+        subjectId: "subject-a",
+      },
+      tenantContext: {
+        tenantId: "tenant-a",
+      },
+    });
+  });
+
+  it("fails closed for an invalid tenant binding", async () => {
+    const adapter: ServerAuthAdapter = {
+      readIdentity: vi.fn().mockResolvedValue({
+        state: "authenticated",
+        subjectId: "subject-a",
+        tenantId: "",
+      }),
+    };
+
+    await expect(readAuthenticatedTenantRequest(adapter)).resolves.toEqual({
+      state: "unauthenticated",
     });
   });
 });
