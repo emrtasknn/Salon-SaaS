@@ -58,3 +58,11 @@ The source-of-truth documents in this repository take precedence over informal a
 For product UI/UX work, use `.claude/agents/salon-saas-uiux.md` and `.claude/skills/salon-saas-uiux/SKILL.md`.
 
 The UI/UX Agent is a design/quality worker inside the governed workflow. It must not change auth, RLS, tenant isolation, authorization, booking semantics, or MVP scope without escalation and approval.
+
+## PWA / Web Push Rules
+
+- Treat PWA-first as an approved product/distribution strategy, not an optional Phase 3 feature.
+- Do not introduce native iOS/Android application work unless a validated requirement shows that PWA cannot meet it and human approval is obtained.
+- Do not add a push-subscription persistence model or change notification routing without architecture review.
+- Web Push must preserve tenant/profile ownership, server-side authorization, RLS, multiple-device support, revoked-subscription handling, staff deactivation behavior, and cleanup.
+- Browser/client notification state is never authoritative for appointment lifecycle or authorization.
