@@ -61,7 +61,7 @@ export function AdminManagement({ initialData }: Props) {
   const staff = data.staff.status === "listed" && data.staff.staff ? data.staff.staff : [];
 
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <main className="min-h-screen bg-zinc-100 text-zinc-900">
       <div className="mx-auto max-w-6xl p-4 sm:p-6">
         <header className="mb-8 flex items-end justify-between gap-4">
           <div>
@@ -70,15 +70,15 @@ export function AdminManagement({ initialData }: Props) {
             <p className="mt-2 max-w-2xl text-sm text-zinc-600">Bugünün operasyonu için personel, hizmet ve çalışma saatlerini yönetin.</p>
           </div>
           <div className="flex gap-2">
-            <button className="rounded-lg border px-3 py-2 text-sm" onClick={refresh} disabled={busy}>{busy ? "Yenileniyor…" : "Yenile"}</button>
-            <button className="rounded-lg border px-3 py-2 text-sm" onClick={handleLogout}>Çıkış yap</button>
+            <button className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" onClick={refresh} disabled={busy}>{busy ? "Yenileniyor…" : "Yenile"}</button>
+            <button className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" onClick={handleLogout}>Çıkış yap</button>
           </div>
         </header>
 
-        {feedback && <p role="status" className="mb-5 rounded-lg border bg-white p-3 text-sm">{feedback}</p>}
+        {feedback && <p role="status" className="mb-5 rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900 shadow-sm">{feedback}</p>}
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <section className="rounded-xl border bg-white p-5">
+          <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold">Personel</h2>
             <form className="mt-4 space-y-3" action={(formData) => startTransition(async () => {
               const result = await createStaffAction({
@@ -88,15 +88,15 @@ export function AdminManagement({ initialData }: Props) {
               setFeedback(result.status === "created" ? "Personel oluşturuldu." : message(result.status));
               if (result.status === "created") refresh();
             })}>
-              <input name="displayName" required placeholder="Ad soyad" className="w-full rounded-lg border px-3 py-2 text-sm" />
-              <input name="email" type="email" placeholder="E-posta" className="w-full rounded-lg border px-3 py-2 text-sm" />
+              <input name="displayName" required placeholder="Ad soyad" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
+              <input name="email" type="email" placeholder="E-posta" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
               <button disabled={busy} className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white">Personel ekle</button>
             </form>
             <div className="mt-5 space-y-2">
               {staff.length === 0 ? <p className="text-sm text-zinc-500">Henüz personel yok.</p> : staff.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+                <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm">
                   <span className="truncate font-mono text-xs">{item.id}</span>
-                  <button className="text-xs underline" onClick={() => startTransition(async () => {
+                  <button className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200" onClick={() => startTransition(async () => {
                     const result = await setStaffStatusAction(item.id, item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE");
                     setFeedback(message(result.status));
                     if (result.status === "updated") refresh();
@@ -106,7 +106,7 @@ export function AdminManagement({ initialData }: Props) {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5">
+          <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold">Hizmetler</h2>
             <form className="mt-4 space-y-3" action={(formData) => startTransition(async () => {
               const result = await createServiceAction({
@@ -117,16 +117,16 @@ export function AdminManagement({ initialData }: Props) {
               setFeedback(message(result.status));
               if (result.status === "created") refresh();
             })}>
-              <input name="name" required placeholder="Hizmet adı" className="w-full rounded-lg border px-3 py-2 text-sm" />
-              <input name="durationMinutes" required type="number" min="1" placeholder="Süre (dk)" className="w-full rounded-lg border px-3 py-2 text-sm" />
-              <input name="bufferMinutes" type="number" min="0" placeholder="Ara (dk)" className="w-full rounded-lg border px-3 py-2 text-sm" />
+              <input name="name" required placeholder="Hizmet adı" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
+              <input name="durationMinutes" required type="number" min="1" placeholder="Süre (dk)" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
+              <input name="bufferMinutes" type="number" min="0" placeholder="Ara (dk)" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
               <button disabled={busy} className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white">Hizmet ekle</button>
             </form>
             <div className="mt-5 space-y-2">
               {services.length === 0 ? <p className="text-sm text-zinc-500">Henüz hizmet yok.</p> : services.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+                <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm">
                   <div><p className="font-medium">{item.name}</p><p className="text-xs text-zinc-500">{item.durationMinutes} dk · {item.bufferMinutes} dk ara</p></div>
-                  <button className="text-xs underline" onClick={() => startTransition(async () => {
+                  <button className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200" onClick={() => startTransition(async () => {
                     const result = await toggleServiceAction(item.id, !item.active);
                     setFeedback(message(result.status));
                     if (result.status === "updated") refresh();
@@ -136,21 +136,21 @@ export function AdminManagement({ initialData }: Props) {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-white p-5">
+          <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold">Çalışma saatleri</h2>
             <div className="mt-4 space-y-2">
               {days.map((day, index) => {
                 const item = hours.find((value) => value.dayOfWeek === index);
-                return <div key={day} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between"><span className="text-sm font-medium">{day}</span>{item && <button className="text-xs underline" onClick={() => startTransition(async () => { const result = await removeWorkingHoursAction(index); setFeedback(message(result.status)); if (result.status === "removed") refresh(); })}>Kaldır</button>}</div>
+                return <div key={day} className="rounded-lg border border-zinc-300 bg-zinc-50 p-3">
+                  <div className="flex items-center justify-between"><span className="text-sm font-medium">{day}</span>{item && <button className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200" onClick={() => startTransition(async () => { const result = await removeWorkingHoursAction(index); setFeedback(message(result.status)); if (result.status === "removed") refresh(); })}>Kaldır</button>}</div>
                   <form className="mt-2 flex gap-2" action={(formData) => startTransition(async () => {
                     const result = await saveWorkingHoursAction({ dayOfWeek: index, openMinute: Number(formData.get("openMinute") ?? 0), closeMinute: Number(formData.get("closeMinute") ?? 0) });
                     setFeedback(message(result.status));
                     if (result.status === "created" || result.status === "updated") refresh();
                   })}>
-                    <input name="openMinute" type="number" min="0" max="1439" defaultValue={item?.openMinute ?? 540} className="w-full rounded border px-2 py-1 text-xs" aria-label={day + " açılış"} />
-                    <input name="closeMinute" type="number" min="1" max="1440" defaultValue={item?.closeMinute ?? 1080} className="w-full rounded border px-2 py-1 text-xs" aria-label={day + " kapanış"} />
-                    <button disabled={busy} className="rounded bg-zinc-900 px-2 py-1 text-xs text-white">Kaydet</button>
+                    <input name="openMinute" type="number" min="0" max="1439" defaultValue={item?.openMinute ?? 540} className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" aria-label={day + " açılış"} />
+                    <input name="closeMinute" type="number" min="1" max="1440" defaultValue={item?.closeMinute ?? 1080} className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" aria-label={day + " kapanış"} />
+                    <button disabled={busy} className="rounded bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-zinc-800">Kaydet</button>
                   </form>
                 </div>;
               })}
