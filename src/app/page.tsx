@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { RecoveryRedirect } from "./recovery-redirect";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <>
+      <RecoveryRedirect />
+      <main className="min-h-screen bg-zinc-50">
       <section className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">
         <p className="text-sm font-medium text-zinc-500">Salon-SaaS MVP</p>
         <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight">İşletmenizin günlük operasyonunu tek yerden yönetin.</h1>
@@ -13,6 +16,7 @@ export default function Home() {
           <Link href="/admin" className="inline-flex rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white">Yönetim alanı</Link>
         </div>
       </section>
-    </main>
+      </main>
+    </>
   );
 }
