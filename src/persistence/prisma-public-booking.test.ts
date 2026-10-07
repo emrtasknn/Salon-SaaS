@@ -12,9 +12,9 @@ function makeTransaction(overrides: Readonly<{
     tenantMembership: { findUnique: vi.fn() },
     tenant: { findUnique: vi.fn().mockResolvedValue({ id: "tenant-a", timezone: "Europe/Istanbul" }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([{ id: "wh", tenantId: "tenant-a", dayOfWeek: 1, openMinute: 540, closeMinute: 1080 }]) },
-    service: { findUnique: vi.fn().mockResolvedValue(overrides.service ?? { id: "svc-a", durationMinutes: 60, bufferMinutes: 15, active: true }) },
-    staff: { findUnique: vi.fn().mockResolvedValue(overrides.staff ?? { id: "staff-a", status: "ACTIVE" }) },
-    profile: { findUnique: vi.fn().mockResolvedValue(overrides.profile ?? { id: "c" }), create: vi.fn() },
+    service: { findUnique: vi.fn().mockResolvedValue(overrides.service !== undefined ? overrides.service : { id: "svc-a", durationMinutes: 60, bufferMinutes: 15, active: true }) },
+    staff: { findUnique: vi.fn().mockResolvedValue(overrides.staff !== undefined ? overrides.staff : { id: "staff-a", status: "ACTIVE" }) },
+    profile: { findUnique: vi.fn().mockResolvedValue(overrides.profile !== undefined ? overrides.profile : { id: "c" }), create: vi.fn() },
     appointment: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: "a" }) },
   };
 }
