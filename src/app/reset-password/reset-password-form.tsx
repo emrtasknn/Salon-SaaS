@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
+import { createNextSupabaseBrowserClient } from "../../infrastructure/auth/supabase-browser-client";
 
 export function ResetPasswordForm() {
   const router = useRouter();
