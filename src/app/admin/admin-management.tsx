@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+
+import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
 import {
   createServiceAction,
   createStaffAction,
@@ -33,6 +36,17 @@ export function AdminManagement({ initialData }: Props) {
   const [busy, startTransition] = useTransition();
   const [feedback, setFeedback] = useState("");
 
+  const router = useRouter();
+
+  async function handleLogout() {
+    const supabase = createNextSupabaseBrowserClient();
+
+    await supabase.auth.signOut();
+
+    router.replace("/login");
+    router.refresh();
+  }
+
   const refresh = () => startTransition(async () => {
     const next = await listAdminData();
     setData(next);
@@ -55,7 +69,10 @@ export function AdminManagement({ initialData }: Props) {
             <h1 className="mt-1 text-3xl font-semibold tracking-tight">İşletme yönetimi</h1>
             <p className="mt-2 max-w-2xl text-sm text-zinc-600">Bugünün operasyonu için personel, hizmet ve çalışma saatlerini yönetin.</p>
           </div>
-          <button className="rounded-lg border px-3 py-2 text-sm" onClick={refresh} disabled={busy}>{busy ? "Yenileniyor…" : "Yenile"}</button>
+          <div className="flex gap-2">
+            <button className="rounded-lg border px-3 py-2 text-sm" onClick={refresh} disabled={busy}>{busy ? "Yenileniyor…" : "Yenile"}</button>
+            <button className="rounded-lg border px-3 py-2 text-sm" onClick={handleLogout}>Çıkış yap</button>
+          </div>
         </header>
 
         {feedback && <p role="status" className="mb-5 rounded-lg border bg-white p-3 text-sm">{feedback}</p>}
