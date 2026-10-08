@@ -5,7 +5,20 @@ import { createNextSupabaseBrowserClient } from "../infrastructure/auth/supabase
 
 export function RecoveryRedirect() {
   useEffect(() => {
-    if (typeof window === "undefined" || !window.location.hash.includes("type=recovery")) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+
+    if (hash.get("type") !== "recovery") {
+      return;
+    }
+
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+
+    if (!accessToken || !refreshToken) {
       return;
     }
 
@@ -26,11 +39,16 @@ export function RecoveryRedirect() {
       }
     });
 
-    void supabase.auth.getSession().then(({ data }) => {
-      if (data.session !== null) {
-        redirectToResetPassword();
-      }
-    });
+    void supabase.auth
+      .setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
+      .then(({ data, error }) => {
+        if (error === null && data.session !== null) {
+          redirectToResetPassword();
+        }
+      });
 
     return () => {
       subscription.unsubscribe();
