@@ -35,7 +35,7 @@ function input() {
   };
 }
 
-function provisioner(overrides: Record<string, unknown> = {}) {
+function makeProvisioner() {
   const repository = {
     provision: vi.fn(async (value) => ({
       status: "created" as const,
@@ -55,14 +55,13 @@ function provisioner(overrides: Record<string, unknown> = {}) {
       repository,
       authProvisioner: auth,
       authBinding: binding,
-      ...overrides,
     }),
   };
 }
 
 describe("tenant provisioning application service", () => {
   it("fails closed when the actor is not authorized", async () => {
-    const { repository, provisioner } = provisioner();
+    const { repository } = makeProvisioner();
     const unauthorized = createTenantProvisioner({
       authorizer: { authorize: vi.fn(async () => ({ allowed: false })) },
       repository,
@@ -77,9 +76,15 @@ describe("tenant provisioning application service", () => {
   });
 
   it("normalizes input and creates the first admin auth account before persistence", async () => {
-    const { repository, auth, binding, provisioner } = provisioner();
+    const { repository, auth, binding } = makeProvisioner();
+    const tenantProvisioner = createTenantProvisioner({
+      authorizer: { authorize: vi.fn(async () => ({ allowed: true })) },
+      repository,
+      authProvisioner: auth,
+      authBinding: binding,
+    });
 
-    const result = await provisioner.provision(input());
+    const result = await tenantProvisioner.provision(input());
 
     expect(result.status).toBe("created");
     expect(auth.provision).toHaveBeenCalledWith(
@@ -110,10 +115,16 @@ describe("tenant provisioning application service", () => {
   });
 
   it("rejects missing or malformed admin email before creating an auth account", async () => {
-    const { auth, provisioner } = provisioner();
+    const { auth } = makeProvisioner();
+    const tenantProvisioner = createTenantProvisioner({
+      authorizer: { authorize: vi.fn(async () => ({ allowed: true })) },
+      repository: { provision: vi.fn() },
+      authProvisioner: auth,
+      authBinding: authBinding(),
+    });
 
     await expect(
-      provisioner.provision({
+      tenantProvisioner.provision({
         ...input(),
         firstAdmin: { ...input().firstAdmin, email: "" },
       }),
@@ -161,7 +172,7 @@ describe("tenant provisioning application service", () => {
   });
 
   it("maps duplicate slug and compensates the invited admin", async () => {
-    const { auth } = provisioner();
+    const { auth } = makeProvisioner();
     const duplicateRepository = {
       provision: vi.fn(async () => ({ status: "duplicate_slug" as const })),
     };
