@@ -1,6 +1,6 @@
 import "server-only";
 import { createAuthSubjectId } from "../../domain/auth-identity";
-import type { AuthAdminProvisioner, AuthProvisioningInput } from "../../application/auth-admin-provisioning";
+import type { AuthAdminProvisioner } from "../../application/auth-admin-provisioning";
 export type { AuthAdminProvisioner } from "../../application/auth-admin-provisioning";
 export type { AuthProvisioningInput } from "../../application/auth-admin-provisioning";
 export type SupabaseAdminAuthConfig = Readonly<{
