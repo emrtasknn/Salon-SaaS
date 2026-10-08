@@ -13,6 +13,33 @@ describe("supabase admin auth provisioning", () => {
     expect(result).toEqual({ status: "created", subjectId: "auth-1" });
     expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("/auth/v1/invite"), expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "staff@example.com", data: { display_name: "Staff" }, app_metadata: { tenant_id: "tenant-1" } }) }));
   });
+  it("creates a confirmed password user when a password is supplied", async () => {
+    const fetcher = vi.fn().mockResolvedValue(response(200, { id: "auth-password-1" }));
+    const p = createSupabaseAdminAuthProvisioner({ url: "https://x.supabase.co", serviceRoleKey: "secret", fetcher });
+
+    const result = await p.provision({
+      email: "owner@example.com",
+      password: "OwnerPass123!",
+      displayName: "Salon Sahibi",
+      tenantId: "tenant-1",
+    });
+
+    expect(result).toEqual({ status: "created", subjectId: "auth-password-1" });
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringContaining("/auth/v1/admin/users"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          email: "owner@example.com",
+          password: "OwnerPass123!",
+          email_confirm: true,
+          user_metadata: { display_name: "Salon Sahibi" },
+          app_metadata: { tenant_id: "tenant-1" },
+        }),
+      }),
+    );
+  });
+
   it("compensates only the created subject", async () => {
     const fetcher = vi.fn().mockResolvedValue(response(204, null));
     const p = createSupabaseAdminAuthProvisioner({ url: "https://x.supabase.co", serviceRoleKey: "secret", fetcher });
