@@ -32,7 +32,11 @@ export function LoginForm() {
         return;
       }
 
-      router.replace("/admin");
+      const { data } = await supabase.auth.getUser();
+      const isSuperAdmin =
+        data.user?.app_metadata?.platform_role === "SUPER_ADMIN";
+
+      router.replace(isSuperAdmin ? "/platform/tenants" : "/admin");
       router.refresh();
     } catch {
       setErrorMessage("Giriş sırasında beklenmeyen bir hata oluştu.");
@@ -42,7 +46,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={onSubmit}>
       <div>
         <label htmlFor="email">E-posta</label>
         <input
