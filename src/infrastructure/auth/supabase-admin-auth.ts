@@ -1,7 +1,6 @@
 import "server-only";
-import { createAuthSubjectId, type AuthSubjectId } from "../../domain/auth-identity";
-
-import type { AuthAdminProvisioner, AuthProvisioningInput } from "../../application/auth-admin-provisioning";
+import { createAuthSubjectId } from "../../domain/auth-identity";
+import type { AuthAdminProvisioner } from "../../application/auth-admin-provisioning";
 export type SupabaseAdminAuthConfig = Readonly<{
   url: string;
   serviceRoleKey: string;
@@ -50,18 +49,31 @@ export function createSupabaseAdminAuthProvisioner(
       if (input.email != null && input.email !== "" && email === null) {
         return { status: "failed", reason: "INVALID_INPUT" };
       }
-      const path = email ? "/invite" : "/admin/users";
+      const password = input.password == null ? null : input.password;
+      if (password !== null && (typeof password !== "string" || password.length < 8 || password.length > 128)) {
+        return { status: "failed", reason: "INVALID_INPUT" };
+      }
+      const path = password !== null ? "/admin/users" : email ? "/invite" : "/admin/users";
       const appMetadata = { tenant_id: input.tenantId };
-      const body = email
-        ? {
-            email,
-            data: { display_name: input.displayName.trim() },
-            app_metadata: appMetadata,
-          }
-        : {
-            user_metadata: { display_name: input.displayName.trim() },
-            app_metadata: appMetadata,
-          };
+      const body =
+        password !== null
+          ? {
+              email,
+              password,
+              email_confirm: true,
+              user_metadata: { display_name: input.displayName.trim() },
+              app_metadata: appMetadata,
+            }
+          : email
+            ? {
+                email,
+                data: { display_name: input.displayName.trim() },
+                app_metadata: appMetadata,
+              }
+            : {
+                user_metadata: { display_name: input.displayName.trim() },
+                app_metadata: appMetadata,
+              };
       try {
         const response = await fetcher(endpoint(config, path), {
           method: "POST",
