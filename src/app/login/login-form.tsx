@@ -46,7 +46,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit}>
+    <form onSubmit={handleSubmit}>
       <div>
         <label htmlFor="email">E-posta</label>
         <input
@@ -73,9 +73,7 @@ export function LoginForm() {
         />
       </div>
 
-      {errorMessage !== "" ? (
-        <p role="alert">{errorMessage}</p>
-      ) : null}
+      {errorMessage !== "" ? <p role="alert">{errorMessage}</p> : null}
 
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Giriş yapılıyor..." : "Giriş yap"}
