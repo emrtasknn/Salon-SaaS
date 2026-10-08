@@ -32,7 +32,11 @@ export function LoginForm() {
         return;
       }
 
-      router.replace("/admin");
+      const { data } = await supabase.auth.getUser();
+      const isSuperAdmin =
+        data.user?.app_metadata?.platform_role === "SUPER_ADMIN";
+
+      router.replace(isSuperAdmin ? "/platform/tenants" : "/admin");
       router.refresh();
     } catch {
       setErrorMessage("Giriş sırasında beklenmeyen bir hata oluştu.");
@@ -69,9 +73,7 @@ export function LoginForm() {
         />
       </div>
 
-      {errorMessage !== "" ? (
-        <p role="alert">{errorMessage}</p>
-      ) : null}
+      {errorMessage !== "" ? <p role="alert">{errorMessage}</p> : null}
 
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Giriş yapılıyor..." : "Giriş yap"}

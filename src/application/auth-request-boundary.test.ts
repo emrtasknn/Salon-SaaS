@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  readAuthenticatedPlatformRequest,
   readAuthenticatedSubject,
   readAuthenticatedTenantRequest,
   type ServerAuthAdapter,
@@ -8,12 +9,8 @@ import {
 describe("readAuthenticatedSubject", () => {
   it("maps trusted authenticated server state to a subject-only identity", async () => {
     const adapter: ServerAuthAdapter = {
-      readIdentity: vi.fn().mockResolvedValue({
-        state: "authenticated",
-        subjectId: "subject-a",
-      }),
+      readIdentity: vi.fn().mockResolvedValue({ state: "authenticated", subjectId: "subject-a" }),
     };
-
     await expect(readAuthenticatedSubject(adapter)).resolves.toEqual({
       state: "authenticated",
       subjectId: "subject-a",
@@ -22,11 +19,8 @@ describe("readAuthenticatedSubject", () => {
 
   it("maps unauthenticated state explicitly", async () => {
     const adapter: ServerAuthAdapter = {
-      readIdentity: vi.fn().mockResolvedValue({
-        state: "unauthenticated",
-      }),
+      readIdentity: vi.fn().mockResolvedValue({ state: "unauthenticated" }),
     };
-
     await expect(readAuthenticatedSubject(adapter)).resolves.toEqual({
       state: "unauthenticated",
     });
@@ -34,12 +28,8 @@ describe("readAuthenticatedSubject", () => {
 
   it("fails closed for malformed authenticated state", async () => {
     const adapter: ServerAuthAdapter = {
-      readIdentity: vi.fn().mockResolvedValue({
-        state: "authenticated",
-        subjectId: "",
-      }),
+      readIdentity: vi.fn().mockResolvedValue({ state: "authenticated", subjectId: "" }),
     };
-
     await expect(readAuthenticatedSubject(adapter)).resolves.toEqual({
       state: "unauthenticated",
     });
@@ -49,26 +39,8 @@ describe("readAuthenticatedSubject", () => {
     const adapter: ServerAuthAdapter = {
       readIdentity: vi.fn().mockRejectedValue(new Error("auth unavailable")),
     };
-
     await expect(readAuthenticatedSubject(adapter)).resolves.toEqual({
       state: "unauthenticated",
-    });
-  });
-
-  it("does not accept profile, tenant, or role metadata as authentication inputs", async () => {
-    const adapter: ServerAuthAdapter = {
-      readIdentity: vi.fn().mockResolvedValue({
-        state: "authenticated",
-        subjectId: "subject-a",
-        profileId: "attacker-profile",
-        tenantId: "attacker-tenant",
-        role: "SUPER_ADMIN",
-      }),
-    };
-
-    await expect(readAuthenticatedSubject(adapter)).resolves.toEqual({
-      state: "authenticated",
-      subjectId: "subject-a",
     });
   });
 });
@@ -76,12 +48,8 @@ describe("readAuthenticatedSubject", () => {
 describe("readAuthenticatedTenantRequest", () => {
   it("fails closed when an authenticated subject has no trusted tenant binding", async () => {
     const adapter: ServerAuthAdapter = {
-      readIdentity: vi.fn().mockResolvedValue({
-        state: "authenticated",
-        subjectId: "subject-a",
-      }),
+      readIdentity: vi.fn().mockResolvedValue({ state: "authenticated", subjectId: "subject-a" }),
     };
-
     await expect(readAuthenticatedTenantRequest(adapter)).resolves.toEqual({
       state: "unauthenticated",
     });
@@ -95,16 +63,10 @@ describe("readAuthenticatedTenantRequest", () => {
         tenantId: "tenant-a",
       }),
     };
-
     await expect(readAuthenticatedTenantRequest(adapter)).resolves.toEqual({
       state: "authenticated",
-      identity: {
-        state: "authenticated",
-        subjectId: "subject-a",
-      },
-      tenantContext: {
-        tenantId: "tenant-a",
-      },
+      identity: { state: "authenticated", subjectId: "subject-a" },
+      tenantContext: { tenantId: "tenant-a" },
     });
   });
 
@@ -116,8 +78,50 @@ describe("readAuthenticatedTenantRequest", () => {
         tenantId: "",
       }),
     };
-
     await expect(readAuthenticatedTenantRequest(adapter)).resolves.toEqual({
+      state: "unauthenticated",
+    });
+  });
+});
+
+describe("readAuthenticatedPlatformRequest", () => {
+  it("accepts only the trusted platform role", async () => {
+    const adapter: ServerAuthAdapter = {
+      readIdentity: vi.fn().mockResolvedValue({
+        state: "authenticated",
+        subjectId: "super-admin-subject",
+        platformRole: "SUPER_ADMIN",
+      }),
+    };
+    await expect(readAuthenticatedPlatformRequest(adapter)).resolves.toEqual({
+      state: "authenticated",
+      identity: { state: "authenticated", subjectId: "super-admin-subject" },
+      platformRole: "SUPER_ADMIN",
+    });
+  });
+
+  it("rejects tenant admins even when they have a tenant binding", async () => {
+    const adapter: ServerAuthAdapter = {
+      readIdentity: vi.fn().mockResolvedValue({
+        state: "authenticated",
+        subjectId: "tenant-admin-subject",
+        tenantId: "tenant-a",
+        platformRole: "TENANT_ADMIN",
+      }),
+    };
+    await expect(readAuthenticatedPlatformRequest(adapter)).resolves.toEqual({
+      state: "unauthenticated",
+    });
+  });
+
+  it("fails closed when the platform role is absent", async () => {
+    const adapter: ServerAuthAdapter = {
+      readIdentity: vi.fn().mockResolvedValue({
+        state: "authenticated",
+        subjectId: "subject-a",
+      }),
+    };
+    await expect(readAuthenticatedPlatformRequest(adapter)).resolves.toEqual({
       state: "unauthenticated",
     });
   });

@@ -16,6 +16,7 @@ export type ServerAuthSnapshot =
       state: "authenticated";
       subjectId: unknown;
       tenantId?: unknown;
+      platformRole?: unknown;
     }>
   | Readonly<{
       state: "unauthenticated";
@@ -86,6 +87,38 @@ export async function readAuthenticatedTenantRequest(
       state: "authenticated",
       identity,
       tenantContext: tenantContextResult.value,
+    });
+  } catch {
+    return createUnauthenticatedIdentity();
+  }
+}
+
+export type AuthenticatedPlatformRequest =
+  | Readonly<{
+      state: "authenticated";
+      identity: AuthenticatedSubjectIdentity;
+      platformRole: "SUPER_ADMIN";
+    }>
+  | Readonly<{ state: "unauthenticated" }>;
+
+export async function readAuthenticatedPlatformRequest(
+  adapter: ServerAuthAdapter,
+): Promise<AuthenticatedPlatformRequest> {
+  try {
+    const snapshot = await adapter.readIdentity();
+
+    if (
+      snapshot.state !== "authenticated" ||
+      typeof snapshot.subjectId !== "string" ||
+      snapshot.platformRole !== "SUPER_ADMIN"
+    ) {
+      return createUnauthenticatedIdentity();
+    }
+
+    return Object.freeze({
+      state: "authenticated",
+      identity: createAuthenticatedSubjectIdentity(snapshot.subjectId),
+      platformRole: "SUPER_ADMIN",
     });
   } catch {
     return createUnauthenticatedIdentity();

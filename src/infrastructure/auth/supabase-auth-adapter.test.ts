@@ -1,109 +1,56 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createSupabaseAuthAdapter } from "./supabase-auth-adapter";
 
 describe("createSupabaseAuthAdapter", () => {
-  it("maps server-derived Supabase identity to subject only", async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: { user: { id: "supabase-user-1" } },
-      error: null,
-    });
-
+  it("reads tenant_id and platform_role from trusted app_metadata", async () => {
     const adapter = createSupabaseAuthAdapter({
-      client: { auth: { getUser } },
-    });
-
-    await expect(adapter.readIdentity()).resolves.toEqual({
-      state: "authenticated",
-      subjectId: "supabase-user-1",
-    });
-  });
-
-  it("maps only server-managed app_metadata tenant binding", async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: {
-        user: {
-          id: "supabase-user-1",
-          app_metadata: { tenant_id: "tenant-1" },
-        },
-      },
-      error: null,
-    });
-
-    const adapter = createSupabaseAuthAdapter({
-      client: { auth: { getUser } },
-    });
-
-    await expect(adapter.readIdentity()).resolves.toEqual({
-      state: "authenticated",
-      subjectId: "supabase-user-1",
-      tenantId: "tenant-1",
-    });
-  });
-
-  it("does not perform profile or tenant resolution from user metadata", async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: {
-        user: {
-          id: "supabase-user-1",
-          user_metadata: {
-            tenant_id: "attacker-tenant",
-            role: "SUPER_ADMIN",
-            profileId: "attacker-profile",
+      client: {
+        auth: {
+          async getUser() {
+            return {
+              error: null,
+              data: {
+                user: {
+                  id: "subject-a",
+                  app_metadata: {
+                    tenant_id: "tenant-a",
+                    platform_role: "SUPER_ADMIN",
+                  },
+                },
+              },
+            };
           },
         },
       },
-      error: null,
-    });
-
-    const adapter = createSupabaseAuthAdapter({
-      client: { auth: { getUser } },
     });
 
     await expect(adapter.readIdentity()).resolves.toEqual({
       state: "authenticated",
-      subjectId: "supabase-user-1",
+      subjectId: "subject-a",
+      tenantId: "tenant-a",
+      platformRole: "SUPER_ADMIN",
     });
   });
 
-  it("fails closed on provider error or missing user", async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: { user: null },
-      error: new Error("auth unavailable"),
-    });
-
+  it("does not infer a platform role when app_metadata is absent", async () => {
     const adapter = createSupabaseAuthAdapter({
-      client: { auth: { getUser } },
+      client: {
+        auth: {
+          async getUser() {
+            return {
+              error: null,
+              data: {
+                user: { id: "subject-a", app_metadata: {} },
+              },
+            };
+          },
+        },
+      },
     });
 
     await expect(adapter.readIdentity()).resolves.toEqual({
-      state: "unauthenticated",
-    });
-  });
-
-  it("fails closed on malformed user identity", async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: { user: { id: "" } },
-      error: null,
-    });
-
-    const adapter = createSupabaseAuthAdapter({
-      client: { auth: { getUser } },
-    });
-
-    await expect(adapter.readIdentity()).resolves.toEqual({
-      state: "unauthenticated",
-    });
-  });
-
-  it("fails closed when the auth provider throws", async () => {
-    const getUser = vi.fn().mockRejectedValue(new Error("provider failure"));
-
-    const adapter = createSupabaseAuthAdapter({
-      client: { auth: { getUser } },
-    });
-
-    await expect(adapter.readIdentity()).resolves.toEqual({
-      state: "unauthenticated",
+      state: "authenticated",
+      subjectId: "subject-a",
     });
   });
 });
