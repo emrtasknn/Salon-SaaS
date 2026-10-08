@@ -10,14 +10,16 @@ import { createSupabaseAuthAdapter } from "@/infrastructure/auth/supabase-auth-a
 import { getPrisma } from "@/infrastructure/prisma-runtime";
 import { createPrismaTenantProvisioningRepository } from "@/persistence/prisma-tenant-provisioning";
 
-async function getPlatformContext() {
+export async function readPlatformAccess() {
   const supabase = await createNextSupabaseServerClient(
     readSupabaseServerClientConfig(),
   );
 
-  return readAuthenticatedPlatformRequest(
+  const context = await readAuthenticatedPlatformRequest(
     createSupabaseAuthAdapter({ client: supabase as never }),
   );
+
+  return context.state === "authenticated";
 }
 
 export async function createTenantAction(input: {
@@ -29,7 +31,12 @@ export async function createTenantAction(input: {
   firstAdminPassword: string;
   firstAdminPhone?: string;
 }) {
-  const context = await getPlatformContext();
+  const supabase = await createNextSupabaseServerClient(
+    readSupabaseServerClientConfig(),
+  );
+  const context = await readAuthenticatedPlatformRequest(
+    createSupabaseAuthAdapter({ client: supabase as never }),
+  );
 
   if (context.state !== "authenticated") {
     return { status: "UNAUTHORIZED" as const };
