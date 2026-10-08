@@ -160,7 +160,7 @@ describe("tenant provisioning application service", () => {
   });
 
   it("maps duplicate slug and compensates the invited admin", async () => {
-    const { auth, provisioner } = provisioner();
+    const { auth } = provisioner();
     const duplicateRepository = {
       provision: vi.fn(async () => ({ status: "duplicate_slug" as const })),
     };
