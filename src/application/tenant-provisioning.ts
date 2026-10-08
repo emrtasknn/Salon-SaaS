@@ -1,5 +1,6 @@
 import { createTenantId, type TenantContext } from "../domain/tenant-context";
 import type { AuthSubjectId } from "../domain/auth-identity";
+import type { AuthAdminProvisioner } from "../infrastructure/auth/supabase-admin-auth";
 import type { TenantAdminAuthBinding } from "./tenant-admin-auth-binding";
 import {
   createTenantName,
@@ -8,9 +9,10 @@ import {
   type TenantProvisioningData,
 } from "../domain/tenant";
 
-export type TenantProvisioningActor =
-  | Readonly<{ kind: "SUPER_ADMIN"; subjectId: string }>
-  | Readonly<{ kind: "TENANT_ONBOARDING"; subjectId: string }>;
+export type TenantProvisioningActor = Readonly<{
+  kind: "SUPER_ADMIN";
+  subjectId: string;
+}>;
 
 export type TenantProvisioningInput = Readonly<{
   actor: TenantProvisioningActor;
@@ -20,9 +22,8 @@ export type TenantProvisioningInput = Readonly<{
     timezone: unknown;
   }>;
   firstAdmin: Readonly<{
-    subjectId: unknown;
     displayName: unknown;
-    email?: unknown;
+    email: unknown;
     phone?: unknown;
   }>;
 }>;
@@ -32,7 +33,7 @@ export type TenantProvisioningRepositoryInput = Readonly<{
   firstAdmin: Readonly<{
     subjectId: string;
     displayName: string;
-    email: string | null;
+    email: string;
     phone: string | null;
   }>;
 }>;
@@ -64,8 +65,10 @@ export type TenantProvisioningResult =
         | "UNAUTHORIZED"
         | "INVALID_INPUT"
         | "DUPLICATE_SLUG"
+        | "AUTH_PROVISIONING_FAILED"
         | "AUTH_BINDING_FAILED"
         | "AUTH_BINDING_ROLLBACK_FAILED"
+        | "AUTH_COMPENSATION_FAILED"
         | "PERSISTENCE_FAILURE";
     }>;
 
@@ -80,11 +83,21 @@ function optionalText(
   return normalized;
 }
 
+function requiredEmail(value: unknown): string | typeof INVALID {
+  if (typeof value !== "string") return INVALID;
+  const email = value.trim();
+  if (email.length === 0 || email.length > 320) return INVALID;
+  if (/[\u0000-\u001f\u007f]/.test(email)) return INVALID;
+  if (!email.includes("@")) return INVALID;
+  return email;
+}
+
 const INVALID = Symbol("INVALID");
 
 export function createTenantProvisioner(dependencies: Readonly<{
   authorizer: TenantProvisioningAuthorizer;
   repository: TenantProvisioningRepository;
+  authProvisioner: AuthAdminProvisioner;
   authBinding: TenantAdminAuthBinding;
 }>) {
   return {
@@ -105,10 +118,10 @@ export function createTenantProvisioner(dependencies: Readonly<{
       }
 
       if (
-        typeof input.firstAdmin.subjectId !== "string" ||
-        input.firstAdmin.subjectId.trim() !== input.firstAdmin.subjectId ||
-        input.firstAdmin.subjectId.length === 0 ||
-        input.firstAdmin.subjectId.length > 128
+        typeof input.actor.subjectId !== "string" ||
+        input.actor.subjectId.trim() !== input.actor.subjectId ||
+        input.actor.subjectId.length === 0 ||
+        input.actor.subjectId.length > 128
       ) {
         return { status: "INVALID_INPUT" };
       }
@@ -120,7 +133,7 @@ export function createTenantProvisioner(dependencies: Readonly<{
         return { status: "INVALID_INPUT" };
       }
 
-      const email = optionalText(input.firstAdmin.email);
+      const email = requiredEmail(input.firstAdmin.email);
       const phone = optionalText(input.firstAdmin.phone);
       if (email === INVALID || phone === INVALID) {
         return { status: "INVALID_INPUT" };
@@ -131,6 +144,27 @@ export function createTenantProvisioner(dependencies: Readonly<{
       );
       if (!tenantId.ok) return { status: "PERSISTENCE_FAILURE" };
 
+      const auth = await dependencies.authProvisioner.provision({
+        email,
+        displayName: input.firstAdmin.displayName.trim(),
+        tenantId: tenantId.value,
+      });
+      if (auth.status === "failed") {
+        return { status: "AUTH_PROVISIONING_FAILED" };
+      }
+
+      const subjectId = auth.subjectId as AuthSubjectId;
+      const binding = await dependencies.authBinding.bindTenant(
+        subjectId,
+        tenantId.value,
+      );
+      if (binding.status === "failed") {
+        const compensation = await dependencies.authProvisioner.compensate(subjectId);
+        return compensation.status === "failed"
+          ? { status: "AUTH_COMPENSATION_FAILED" }
+          : { status: "AUTH_BINDING_FAILED" };
+      }
+
       const repositoryInput: TenantProvisioningRepositoryInput = {
         tenant: {
           tenantId: tenantId.value,
@@ -139,36 +173,33 @@ export function createTenantProvisioner(dependencies: Readonly<{
           timezone: timezone.value,
         },
         firstAdmin: {
-          subjectId: input.firstAdmin.subjectId,
+          subjectId,
           displayName: input.firstAdmin.displayName.trim(),
           email,
           phone,
         },
       };
 
-      const subjectId = input.firstAdmin.subjectId as AuthSubjectId;
-      const binding = await dependencies.authBinding.bindTenant(
-        subjectId,
-        tenantId.value,
-      );
-      if (binding.status === "failed") {
-        return { status: "AUTH_BINDING_FAILED" };
-      }
-
       try {
         const result = await dependencies.repository.provision(repositoryInput);
 
         if (result.status === "duplicate_slug") {
-          if (binding.status === "bound") {
-            const rollback = await dependencies.authBinding.rollbackTenantBinding(
-              subjectId,
-              tenantId.value,
-            );
-            if (rollback.status === "failed") {
-              return { status: "AUTH_BINDING_ROLLBACK_FAILED" };
-            }
+          const rollback =
+            binding.status === "bound"
+              ? await dependencies.authBinding.rollbackTenantBinding(
+                  subjectId,
+                  tenantId.value,
+                )
+              : { status: "not_owned" as const };
+
+          if (rollback.status === "failed") {
+            return { status: "AUTH_BINDING_ROLLBACK_FAILED" };
           }
-          return { status: "DUPLICATE_SLUG" };
+
+          const compensation = await dependencies.authProvisioner.compensate(subjectId);
+          return compensation.status === "failed"
+            ? { status: "AUTH_COMPENSATION_FAILED" }
+            : { status: "DUPLICATE_SLUG" };
         }
 
         const context = createTenantId(result.tenantId);
@@ -189,7 +220,11 @@ export function createTenantProvisioner(dependencies: Readonly<{
             return { status: "AUTH_BINDING_ROLLBACK_FAILED" };
           }
         }
-        return { status: "PERSISTENCE_FAILURE" };
+
+        const compensation = await dependencies.authProvisioner.compensate(subjectId);
+        return compensation.status === "failed"
+          ? { status: "AUTH_COMPENSATION_FAILED" }
+          : { status: "PERSISTENCE_FAILURE" };
       }
     },
   };
