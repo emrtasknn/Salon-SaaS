@@ -22,9 +22,15 @@ export type SupabaseAuthAdapterDependencies = Readonly<{
 }>;
 
 function readAppMetadataValue(appMetadata: unknown, key: string): unknown {
-  if (typeof appMetadata !== "object" || appMetadata === null) return undefined;
-  if (!(key in appMetadata)) return undefined;
-  return appMetadata[key as keyof typeof appMetadata];
+  if (
+    typeof appMetadata !== "object" ||
+    appMetadata === null ||
+    Array.isArray(appMetadata)
+  ) {
+    return undefined;
+  }
+
+  return (appMetadata as Record<string, unknown>)[key];
 }
 
 export function createSupabaseAuthAdapter(
