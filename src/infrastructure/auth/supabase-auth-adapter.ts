@@ -21,10 +21,10 @@ export type SupabaseAuthAdapterDependencies = Readonly<{
   client: SupabaseAuthClient;
 }>;
 
-function readTenantId(appMetadata: unknown): unknown {
+function readAppMetadataValue(appMetadata: unknown, key: string): unknown {
   if (typeof appMetadata !== "object" || appMetadata === null) return undefined;
-  if (!("tenant_id" in appMetadata)) return undefined;
-  return appMetadata.tenant_id;
+  if (!(key in appMetadata)) return undefined;
+  return appMetadata[key as keyof typeof appMetadata];
 }
 
 export function createSupabaseAuthAdapter(
@@ -44,12 +44,15 @@ export function createSupabaseAuthAdapter(
           return { state: "unauthenticated" };
         }
 
-        const tenantId = readTenantId(response.data.user.app_metadata);
+        const appMetadata = response.data.user.app_metadata;
+        const tenantId = readAppMetadataValue(appMetadata, "tenant_id");
+        const platformRole = readAppMetadataValue(appMetadata, "platform_role");
 
         return {
           state: "authenticated",
           subjectId,
           ...(tenantId === undefined ? {} : { tenantId }),
+          ...(platformRole === undefined ? {} : { platformRole }),
         };
       } catch {
         return { state: "unauthenticated" };
