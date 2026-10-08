@@ -24,6 +24,7 @@ export type TenantProvisioningInput = Readonly<{
   firstAdmin: Readonly<{
     displayName: unknown;
     email: unknown;
+    password: unknown;
     phone?: unknown;
   }>;
 }>;
@@ -92,6 +93,13 @@ function requiredEmail(value: unknown): string | typeof INVALID {
   return email;
 }
 
+function requiredPassword(value: unknown): string | typeof INVALID {
+  if (typeof value !== "string") return INVALID;
+  if (value.length < 8 || value.length > 128) return INVALID;
+  if (/[\u0000-\u001f\u007f]/.test(value)) return INVALID;
+  return value;
+}
+
 const INVALID = Symbol("INVALID");
 
 export function createTenantProvisioner(dependencies: Readonly<{
@@ -134,8 +142,9 @@ export function createTenantProvisioner(dependencies: Readonly<{
       }
 
       const email = requiredEmail(input.firstAdmin.email);
+      const password = requiredPassword(input.firstAdmin.password);
       const phone = optionalText(input.firstAdmin.phone);
-      if (email === INVALID || phone === INVALID) {
+      if (email === INVALID || password === INVALID || phone === INVALID) {
         return { status: "INVALID_INPUT" };
       }
 
@@ -146,6 +155,7 @@ export function createTenantProvisioner(dependencies: Readonly<{
 
       const auth = await dependencies.authProvisioner.provision({
         email,
+        password,
         displayName: input.firstAdmin.displayName.trim(),
         tenantId: tenantId.value,
       });
