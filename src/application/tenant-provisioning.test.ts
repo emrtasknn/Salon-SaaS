@@ -91,6 +91,7 @@ describe("tenant provisioning application service", () => {
       expect.objectContaining({
         email: "owner@example.com",
         displayName: "Salon Sahibi",
+        password: "OwnerPass123!",
         tenantId: expect.any(String),
       }),
     );
