@@ -40,14 +40,20 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
     operation: (client: import("pg").PoolClient) => Promise<T>,
   ): Promise<T> => {
     const client = await pool.connect();
+    let transactionStarted = false;
     try {
       await client.query("BEGIN");
+      transactionStarted = true;
       await client.query(`SET ROLE "${role}"`);
       if (tenantId) await setTenant(client, tenantId);
       const result = await operation(client);
       await client.query("ROLLBACK");
+      transactionStarted = false;
       return result;
     } finally {
+      if (transactionStarted) {
+        await client.query("ROLLBACK").catch(() => undefined);
+      }
       await client.query("RESET ROLE");
       client.release();
     }
@@ -57,6 +63,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
     pool = new Pool({ connectionString: databaseUrl });
 
     await pool.query(`CREATE ROLE "${role}" NOLOGIN`);
+    await pool.query(`GRANT "${role}" TO CURRENT_USER WITH SET TRUE`);
     await pool.query(`GRANT USAGE ON SCHEMA public TO "${role}"`);
     for (const table of [
       "Profile",
@@ -276,17 +283,23 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
 
   it("does not leak transaction-local tenant context", async () => {
     const client = await pool.connect();
+    let transactionStarted = false;
     try {
       await client.query("BEGIN");
+      transactionStarted = true;
       await client.query(`SET ROLE "${role}"`);
       await setTenant(client, tenantA);
       await client.query("COMMIT");
+      transactionStarted = false;
 
       const result = await client.query(
         "SELECT current_setting('app.tenant_id', true) AS tenant_id",
       );
       expect(result.rows[0]?.tenant_id ?? "").toBe("");
     } finally {
+      if (transactionStarted) {
+        await client.query("ROLLBACK").catch(() => undefined);
+      }
       await client.query("RESET ROLE");
       client.release();
     }
