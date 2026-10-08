@@ -29,6 +29,14 @@ describe("staff management", () => {
     expect(d.repository.create).toHaveBeenCalledWith(expect.objectContaining({ subjectId: "subject-2" }));
     expect(d.authProvisioner.compensate).toHaveBeenCalledWith("subject-2");
   });
+  it("surfaces compensation failure explicitly", async () => {
+    const d = deps();
+    d.repository.create.mockResolvedValue({ status: "conflict" });
+    d.authProvisioner.compensate.mockResolvedValue({ status: "failed" });
+    const result = await createStaffManager(d).create({ identity, tenantContext, displayName: "Ada" });
+    expect(result.status).toBe("COMPENSATION_FAILED");
+    expect(d.authProvisioner.compensate).toHaveBeenCalledWith("subject-2");
+  });
   it("does not persist when auth provisioning fails", async () => {
     const d = deps();
     d.authProvisioner.provision.mockResolvedValue({ status: "failed", reason: "PROVIDER_REJECTED" });
