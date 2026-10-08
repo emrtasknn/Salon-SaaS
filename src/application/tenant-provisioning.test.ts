@@ -30,6 +30,7 @@ function input() {
     firstAdmin: {
       displayName: "Salon Sahibi",
       email: "owner@example.com",
+      password: "OwnerPass123!",
     },
   };
 }
