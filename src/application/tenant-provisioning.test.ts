@@ -1,21 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
+import { createAuthSubjectId } from "../domain/auth-identity";
+import type { AuthAdminProvisioner, AuthProvisioningResult } from "./auth-admin-provisioning";
+import type { TenantAdminAuthBinding, TenantAdminAuthBindingResult } from "./tenant-admin-auth-binding";
+import type {
+  TenantProvisioningRepository,
+  TenantProvisioningRepositoryResult,
+} from "./tenant-provisioning";
 import { createTenantProvisioner } from "./tenant-provisioning";
 
 const actor = { kind: "SUPER_ADMIN" as const, subjectId: "super-admin-subject" };
 
-function authProvisioner() {
+function authProvisioner(): AuthAdminProvisioner & {
+  provision: ReturnType<typeof vi.fn<() => Promise<AuthProvisioningResult>>>;
+  compensate: ReturnType<typeof vi.fn<() => Promise<{ status: "compensated" | "failed" }>>>;
+} {
   return {
-    provision: vi.fn(async () => ({
-      status: "created" as const,
-      subjectId: "owner-subject" as const,
+    provision: vi.fn<() => Promise<AuthProvisioningResult>>(async () => ({
+      status: "created",
+      subjectId: createAuthSubjectId("owner-subject"),
     })),
-    compensate: vi.fn(async () => ({ status: "compensated" as const })),
+    compensate: vi.fn<() => Promise<{ status: "compensated" | "failed" }>>(async () => ({
+      status: "compensated",
+    })),
   };
 }
 
-function authBinding() {
+function authBinding(): TenantAdminAuthBinding & {
+  bindTenant: ReturnType<typeof vi.fn<() => Promise<TenantAdminAuthBindingResult>>>;
+} {
   return {
-    bindTenant: vi.fn(async () => ({ status: "bound" as const })),
+    bindTenant: vi.fn<() => Promise<TenantAdminAuthBindingResult>>(async () => ({
+      status: "bound",
+    })),
     rollbackTenantBinding: vi.fn(async () => ({ status: "rolled_back" as const })),
   };
 }
@@ -23,10 +39,7 @@ function authBinding() {
 function input() {
   return {
     actor,
-    tenant: {
-      name: "Güzellik & Bakım",
-      timezone: "Europe/Istanbul",
-    },
+    tenant: { name: "Güzellik & Bakım", timezone: "Europe/Istanbul" },
     firstAdmin: {
       displayName: "Salon Sahibi",
       email: "owner@example.com",
@@ -36,7 +49,7 @@ function input() {
 }
 
 function makeProvisioner() {
-  const repository = {
+  const repository: TenantProvisioningRepository = {
     provision: vi.fn(async (value) => ({
       status: "created" as const,
       tenantId: value.tenant.tenantId,
@@ -69,79 +82,57 @@ describe("tenant provisioning application service", () => {
       authBinding: authBinding(),
     });
 
-    await expect(unauthorized.provision(input())).resolves.toEqual({
-      status: "UNAUTHORIZED",
-    });
+    await expect(unauthorized.provision(input())).resolves.toEqual({ status: "UNAUTHORIZED" });
     expect(repository.provision).not.toHaveBeenCalled();
   });
 
   it("normalizes input and creates the first admin auth account before persistence", async () => {
     const { repository, auth, binding } = makeProvisioner();
-    const tenantProvisioner = createTenantProvisioner({
+    const result = await createTenantProvisioner({
       authorizer: { authorize: vi.fn(async () => ({ allowed: true })) },
       repository,
       authProvisioner: auth,
       authBinding: binding,
-    });
-
-    const result = await tenantProvisioner.provision(input());
+    }).provision(input());
 
     expect(result.status).toBe("created");
-    expect(auth.provision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: "owner@example.com",
-        displayName: "Salon Sahibi",
-        password: "OwnerPass123!",
-        tenantId: expect.any(String),
+    expect(auth.provision).toHaveBeenCalledWith(expect.objectContaining({
+      email: "owner@example.com",
+      password: "OwnerPass123!",
+      displayName: "Salon Sahibi",
+      tenantId: expect.any(String),
+    }));
+    expect(binding.bindTenant).toHaveBeenCalledWith("owner-subject", expect.any(String));
+    expect(repository.provision).toHaveBeenCalledWith(expect.objectContaining({
+      tenant: expect.objectContaining({
+        name: "Güzellik & Bakım",
+        slug: "guzellik-bakim",
+        timezone: "Europe/Istanbul",
       }),
-    );
-    expect(binding.bindTenant).toHaveBeenCalledWith(
-      "owner-subject",
-      expect.any(String),
-    );
-    expect(repository.provision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tenant: expect.objectContaining({
-          name: "Güzellik & Bakım",
-          slug: "guzellik-bakim",
-          timezone: "Europe/Istanbul",
-        }),
-        firstAdmin: expect.objectContaining({
-          subjectId: "owner-subject",
-          displayName: "Salon Sahibi",
-          email: "owner@example.com",
-        }),
-      }),
-    );
+    }));
   });
 
   it("rejects missing or malformed admin email before creating an auth account", async () => {
     const { auth } = makeProvisioner();
-    const tenantProvisioner = createTenantProvisioner({
+    const result = await createTenantProvisioner({
       authorizer: { authorize: vi.fn(async () => ({ allowed: true })) },
       repository: { provision: vi.fn() },
       authProvisioner: auth,
       authBinding: authBinding(),
+    }).provision({
+      ...input(),
+      firstAdmin: { ...input().firstAdmin, email: "" },
     });
 
-    await expect(
-      tenantProvisioner.provision({
-        ...input(),
-        firstAdmin: { ...input().firstAdmin, email: "" },
-      }),
-    ).resolves.toEqual({ status: "INVALID_INPUT" });
-
+    expect(result).toEqual({ status: "INVALID_INPUT" });
     expect(auth.provision).not.toHaveBeenCalled();
   });
 
   it("maps auth provisioning failure", async () => {
     const auth = authProvisioner();
-    auth.provision.mockResolvedValueOnce({
-      status: "failed" as const,
-      reason: "ALREADY_EXISTS" as const,
-    });
+    auth.provision.mockResolvedValueOnce({ status: "failed", reason: "ALREADY_EXISTS" });
+    const repository: TenantProvisioningRepository = { provision: vi.fn() };
 
-    const repository = { provision: vi.fn() };
     const result = await createTenantProvisioner({
       authorizer: { authorize: vi.fn(async () => ({ allowed: true })) },
       repository,
@@ -156,10 +147,7 @@ describe("tenant provisioning application service", () => {
   it("compensates the auth account when tenant binding fails", async () => {
     const auth = authProvisioner();
     const binding = authBinding();
-    binding.bindTenant.mockResolvedValueOnce({
-      status: "failed" as const,
-      reason: "PROVIDER_REJECTED" as const,
-    });
+    binding.bindTenant.mockResolvedValueOnce({ status: "failed", reason: "PROVIDER_REJECTED" });
 
     const result = await createTenantProvisioner({
       authorizer: { authorize: vi.fn(async () => ({ allowed: true })) },
@@ -169,13 +157,15 @@ describe("tenant provisioning application service", () => {
     }).provision(input());
 
     expect(result).toEqual({ status: "AUTH_BINDING_FAILED" });
-    expect(auth.compensate).toHaveBeenCalledWith("owner-subject");
+    expect(auth.compensate).toHaveBeenCalledWith(createAuthSubjectId("owner-subject"));
   });
 
-  it("maps duplicate slug and compensates the invited admin", async () => {
+  it("maps duplicate slug and compensates the provisioned admin", async () => {
     const { auth } = makeProvisioner();
-    const duplicateRepository = {
-      provision: vi.fn(async () => ({ status: "duplicate_slug" as const })),
+    const duplicateRepository: TenantProvisioningRepository = {
+      provision: vi.fn(async (): Promise<TenantProvisioningRepositoryResult> => ({
+        status: "duplicate_slug",
+      })),
     };
 
     const result = await createTenantProvisioner({
@@ -186,14 +176,14 @@ describe("tenant provisioning application service", () => {
     }).provision(input());
 
     expect(result).toEqual({ status: "DUPLICATE_SLUG" });
-    expect(auth.compensate).toHaveBeenCalledWith("owner-subject");
+    expect(auth.compensate).toHaveBeenCalledWith(createAuthSubjectId("owner-subject"));
   });
 
   it("compensates the auth account on persistence failure", async () => {
     const auth = authProvisioner();
     const binding = authBinding();
-    const repository = {
-      provision: vi.fn(async () => {
+    const repository: TenantProvisioningRepository = {
+      provision: vi.fn(async (): Promise<TenantProvisioningRepositoryResult> => {
         throw new Error("db down");
       }),
     };
@@ -207,9 +197,9 @@ describe("tenant provisioning application service", () => {
 
     expect(result).toEqual({ status: "PERSISTENCE_FAILURE" });
     expect(binding.rollbackTenantBinding).toHaveBeenCalledWith(
-      "owner-subject",
+      createAuthSubjectId("owner-subject"),
       expect.any(String),
     );
-    expect(auth.compensate).toHaveBeenCalledWith("owner-subject");
+    expect(auth.compensate).toHaveBeenCalledWith(createAuthSubjectId("owner-subject"));
   });
 });
