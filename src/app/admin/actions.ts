@@ -17,7 +17,9 @@ import { createSupabaseAdminAuthProvisioner } from "../../infrastructure/auth/su
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 
 async function getAdminContext() {
-  const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
+  const supabase = await createNextSupabaseServerClient(
+    readSupabaseServerClientConfig(),
+  );
   const request = await readAuthenticatedTenantRequest(
     createSupabaseAuthAdapter({ client: supabase as never }),
   );
@@ -31,11 +33,21 @@ async function getAdminContext() {
   });
   if (membership.status !== "found") return null;
 
-  if (membership.membership.role !== "TENANT_ADMIN" && membership.membership.role !== "SUPER_ADMIN") {
+  if (
+    membership.membership.role !== "TENANT_ADMIN" &&
+    membership.membership.role !== "SUPER_ADMIN"
+  ) {
     return null;
   }
 
-  return { prisma, tenantContext: request.tenantContext, identity: createAuthenticatedIdentity(request.identity.subjectId, membership.membership.profileId) };
+  return {
+    prisma,
+    tenantContext: request.tenantContext,
+    identity: createAuthenticatedIdentity(
+      request.identity.subjectId,
+      membership.membership.profileId,
+    ),
+  };
 }
 
 function services(prisma: ReturnType<typeof getPrisma>) {
@@ -73,7 +85,8 @@ function workingHours(prisma: ReturnType<typeof getPrisma>) {
 function staff(prisma: ReturnType<typeof getPrisma>) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) throw new Error("Supabase admin environment is not configured");
+  if (!url || !serviceRoleKey)
+    throw new Error("Supabase admin environment is not configured");
   return createStaffManager({
     authorizer: {
       async authorize(identity, tenantContext, requiredRole) {
@@ -85,7 +98,10 @@ function staff(prisma: ReturnType<typeof getPrisma>) {
         return decision.authorization.status === "allowed";
       },
     },
-    authProvisioner: createSupabaseAdminAuthProvisioner({ url, serviceRoleKey }),
+    authProvisioner: createSupabaseAdminAuthProvisioner({
+      url,
+      serviceRoleKey,
+    }),
     repository: createPrismaStaffRepository(prisma),
   });
 }
@@ -100,10 +116,19 @@ export async function listAdminData() {
     staff(context.prisma).list(context.identity, context.tenantContext),
   ]);
 
-  return { status: "ok" as const, services: serviceResult, workingHours: hoursResult, staff: staffResult };
+  return {
+    status: "ok" as const,
+    services: serviceResult,
+    workingHours: hoursResult,
+    staff: staffResult,
+  };
 }
 
-export async function createServiceAction(input: { name: string; durationMinutes: number; bufferMinutes: number }) {
+export async function createServiceAction(input: {
+  name: string;
+  durationMinutes: number;
+  bufferMinutes: number;
+}) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
   return services(context.prisma).create({
@@ -124,7 +149,11 @@ export async function toggleServiceAction(serviceId: string, active: boolean) {
   );
 }
 
-export async function saveWorkingHoursAction(input: { dayOfWeek: number; openMinute: number; closeMinute: number }) {
+export async function saveWorkingHoursAction(input: {
+  dayOfWeek: number;
+  openMinute: number;
+  closeMinute: number;
+}) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
   return workingHours(context.prisma).upsert(
@@ -144,7 +173,11 @@ export async function removeWorkingHoursAction(dayOfWeek: number) {
   );
 }
 
-export async function createStaffAction(input: { displayName: string; email?: string; phone?: string }) {
+export async function createStaffAction(input: {
+  displayName: string;
+  email?: string;
+  phone?: string;
+}) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
   return staff(context.prisma).create({
@@ -154,7 +187,10 @@ export async function createStaffAction(input: { displayName: string; email?: st
   });
 }
 
-export async function setStaffStatusAction(staffId: string, status: "ACTIVE" | "INACTIVE") {
+export async function setStaffStatusAction(
+  staffId: string,
+  status: "ACTIVE" | "INACTIVE",
+) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
   return staff(context.prisma).setStatus(
@@ -162,5 +198,23 @@ export async function setStaffStatusAction(staffId: string, status: "ACTIVE" | "
     context.tenantContext,
     staffId,
     status,
+  );
+}
+
+export async function updateStaffProfileAction(
+  staffId: string,
+  input: { displayName: string; phone?: string },
+) {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+
+  return staff(context.prisma).updateProfile(
+    context.identity,
+    context.tenantContext,
+    staffId,
+    {
+      displayName: input.displayName,
+      phone: input.phone,
+    },
   );
 }

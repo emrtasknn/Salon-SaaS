@@ -12,11 +12,20 @@ import {
   saveWorkingHoursAction,
   setStaffStatusAction,
   toggleServiceAction,
+  updateStaffProfileAction,
 } from "./actions";
 
 type Props = { initialData: Awaited<ReturnType<typeof listAdminData>> };
 
-const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+const days = [
+  "Pazar",
+  "Pazartesi",
+  "Salı",
+  "Çarşamba",
+  "Perşembe",
+  "Cuma",
+  "Cumartesi",
+];
 
 function message(status: string) {
   const map: Record<string, string> = {
@@ -47,18 +56,29 @@ export function AdminManagement({ initialData }: Props) {
     router.refresh();
   }
 
-  const refresh = () => startTransition(async () => {
-    const next = await listAdminData();
-    setData(next);
-  });
+  const refresh = () =>
+    startTransition(async () => {
+      const next = await listAdminData();
+      setData(next);
+    });
 
   if (data.status === "UNAUTHORIZED") {
-    return <main className="mx-auto max-w-3xl p-6"><h1 className="text-2xl font-semibold">Yetkisiz erişim</h1><p className="mt-2 text-sm text-zinc-600">Bu alan yalnızca işletme yöneticilerine açıktır.</p></main>;
+    return (
+      <main className="mx-auto max-w-3xl p-6">
+        <h1 className="text-2xl font-semibold">Yetkisiz erişim</h1>
+        <p className="mt-2 text-sm text-zinc-600">
+          Bu alan yalnızca işletme yöneticilerine açıktır.
+        </p>
+      </main>
+    );
   }
 
-  const services = data.services.status === "listed" ? data.services.services : [];
-  const hours = data.workingHours.status === "listed" ? data.workingHours.workingHours : [];
-  const staff = data.staff.status === "listed" && data.staff.staff ? data.staff.staff : [];
+  const services =
+    data.services.status === "listed" ? data.services.services : [];
+  const hours =
+    data.workingHours.status === "listed" ? data.workingHours.workingHours : [];
+  const staff =
+    data.staff.status === "listed" && data.staff.staff ? data.staff.staff : [];
 
   return (
     <main className="min-h-screen bg-zinc-100 text-zinc-900">
@@ -66,73 +86,248 @@ export function AdminManagement({ initialData }: Props) {
         <header className="mb-8 flex items-end justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-zinc-500">Salon-SaaS</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">İşletme yönetimi</h1>
-            <p className="mt-2 max-w-2xl text-sm text-zinc-600">Bugünün operasyonu için personel, hizmet ve çalışma saatlerini yönetin.</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight">
+              İşletme yönetimi
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-zinc-600">
+              Bugünün operasyonu için personel, hizmet ve çalışma saatlerini
+              yönetin.
+            </p>
           </div>
           <div className="flex gap-2">
-            <button className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" onClick={refresh} disabled={busy}>{busy ? "Yenileniyor…" : "Yenile"}</button>
-            <button className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" onClick={handleLogout}>Çıkış yap</button>
+            <button
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+              onClick={refresh}
+              disabled={busy}
+            >
+              {busy ? "Yenileniyor…" : "Yenile"}
+            </button>
+            <button
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+              onClick={handleLogout}
+            >
+              Çıkış yap
+            </button>
           </div>
         </header>
 
-        {feedback && <p role="status" className="mb-5 rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900 shadow-sm">{feedback}</p>}
+        {feedback && (
+          <p
+            role="status"
+            className="mb-5 rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900 shadow-sm"
+          >
+            {feedback}
+          </p>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-3">
           <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold">Personel</h2>
-            <form className="mt-4 space-y-3" action={(formData) => startTransition(async () => {
-              const result = await createStaffAction({
-                displayName: String(formData.get("displayName") ?? ""),
-                email: String(formData.get("email") ?? ""),
-              });
-              setFeedback(result.status === "created" ? "Personel oluşturuldu." : message(result.status));
-              if (result.status === "created") refresh();
-            })}>
-              <input name="displayName" required placeholder="Ad soyad" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
-              <input name="email" type="email" placeholder="E-posta" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
-              <button disabled={busy} className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white">Personel ekle</button>
+            <form
+              className="mt-4 space-y-3"
+              action={(formData) =>
+                startTransition(async () => {
+                  const result = await createStaffAction({
+                    displayName: String(formData.get("displayName") ?? ""),
+                    email: String(formData.get("email") ?? ""),
+                    phone: String(formData.get("phone") ?? ""),
+                  });
+                  setFeedback(
+                    result.status === "created"
+                      ? "Personel oluşturuldu."
+                      : message(result.status),
+                  );
+                  if (result.status === "created") refresh();
+                })
+              }
+            >
+              <input
+                name="displayName"
+                required
+                placeholder="Ad soyad"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+              />
+              <input
+                name="email"
+                type="email"
+                placeholder="E-posta"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+              />
+              <input
+                name="phone"
+                type="tel"
+                placeholder="Telefon"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+              />
+              <button
+                disabled={busy}
+                className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white"
+              >
+                Personel ekle
+              </button>
             </form>
             <div className="mt-5 space-y-2">
-              {staff.length === 0 ? <p className="text-sm text-zinc-500">Henüz personel yok.</p> : staff.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm">
-                  <span className="truncate font-mono text-xs">{item.id}</span>
-                  <button className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200" onClick={() => startTransition(async () => {
-                    const result = await setStaffStatusAction(item.id, item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE");
-                    setFeedback(message(result.status));
-                    if (result.status === "updated") refresh();
-                  })}>{item.status === "ACTIVE" ? "Pasifleştir" : "Aktifleştir"}</button>
-                </div>
-              ))}
+              {staff.length === 0 ? (
+                <p className="text-sm text-zinc-500">Henüz personel yok.</p>
+              ) : (
+                staff.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{item.displayName}</p>
+                        <p className="text-xs text-zinc-500">
+                          {item.phone || "Telefon belirtilmemiş"}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {item.status === "ACTIVE" ? "Aktif" : "Pasif"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="shrink-0 rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200"
+                        onClick={() =>
+                          startTransition(async () => {
+                            const result = await setStaffStatusAction(
+                              item.id,
+                              item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                            );
+                            setFeedback(message(result.status));
+                            if (result.status === "updated") refresh();
+                          })
+                        }
+                      >
+                        {item.status === "ACTIVE" ? "Pasifleştir" : "Aktifleştir"}
+                      </button>
+                    </div>
+                    <form
+                      className="space-y-2 border-t border-zinc-200 pt-3"
+                      action={(formData) =>
+                        startTransition(async () => {
+                          const result = await updateStaffProfileAction(item.id, {
+                            displayName: String(formData.get("displayName") ?? ""),
+                            phone: String(formData.get("phone") ?? ""),
+                          });
+                          setFeedback(
+                            result.status === "updated"
+                              ? "Personel bilgileri güncellendi."
+                              : message(result.status),
+                          );
+                          if (result.status === "updated") refresh();
+                        })
+                      }
+                    >
+                      <input
+                        name="displayName"
+                        required
+                        defaultValue={item.displayName}
+                        aria-label="Personel adı"
+                        placeholder="Ad soyad"
+                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                      />
+                      <input
+                        name="phone"
+                        type="tel"
+                        defaultValue={item.phone ?? ""}
+                        aria-label="Personel telefonu"
+                        placeholder="Telefon"
+                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                      />
+                      <button
+                        disabled={busy}
+                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-900 hover:bg-zinc-100"
+                      >
+                        Bilgileri kaydet
+                      </button>
+                    </form>
+                  </div>
+                ))
+              )}
             </div>
           </section>
 
           <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold">Hizmetler</h2>
-            <form className="mt-4 space-y-3" action={(formData) => startTransition(async () => {
-              const result = await createServiceAction({
-                name: String(formData.get("name") ?? ""),
-                durationMinutes: Number(formData.get("durationMinutes") ?? 0),
-                bufferMinutes: Number(formData.get("bufferMinutes") ?? 0),
-              });
-              setFeedback(message(result.status));
-              if (result.status === "created") refresh();
-            })}>
-              <input name="name" required placeholder="Hizmet adı" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
-              <input name="durationMinutes" required type="number" min="1" placeholder="Süre (dk)" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
-              <input name="bufferMinutes" type="number" min="0" placeholder="Ara (dk)" className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" />
-              <button disabled={busy} className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white">Hizmet ekle</button>
+            <form
+              className="mt-4 space-y-3"
+              action={(formData) =>
+                startTransition(async () => {
+                  const result = await createServiceAction({
+                    name: String(formData.get("name") ?? ""),
+                    durationMinutes: Number(
+                      formData.get("durationMinutes") ?? 0,
+                    ),
+                    bufferMinutes: Number(formData.get("bufferMinutes") ?? 0),
+                  });
+                  setFeedback(message(result.status));
+                  if (result.status === "created") refresh();
+                })
+              }
+            >
+              <input
+                name="name"
+                required
+                placeholder="Hizmet adı"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+              />
+              <input
+                name="durationMinutes"
+                required
+                type="number"
+                min="1"
+                placeholder="Süre (dk)"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+              />
+              <input
+                name="bufferMinutes"
+                type="number"
+                min="0"
+                placeholder="Ara (dk)"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+              />
+              <button
+                disabled={busy}
+                className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white"
+              >
+                Hizmet ekle
+              </button>
             </form>
             <div className="mt-5 space-y-2">
-              {services.length === 0 ? <p className="text-sm text-zinc-500">Henüz hizmet yok.</p> : services.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm">
-                  <div><p className="font-medium">{item.name}</p><p className="text-xs text-zinc-500">{item.durationMinutes} dk · {item.bufferMinutes} dk ara</p></div>
-                  <button className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200" onClick={() => startTransition(async () => {
-                    const result = await toggleServiceAction(item.id, !item.active);
-                    setFeedback(message(result.status));
-                    if (result.status === "updated") refresh();
-                  })}>{item.active ? "Pasifleştir" : "Aktifleştir"}</button>
-                </div>
-              ))}
+              {services.length === 0 ? (
+                <p className="text-sm text-zinc-500">Henüz hizmet yok.</p>
+              ) : (
+                services.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm"
+                  >
+                    <div>
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-xs text-zinc-500">
+                        {item.durationMinutes} dk · {item.bufferMinutes} dk ara
+                      </p>
+                    </div>
+                    <button
+                      className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200"
+                      onClick={() =>
+                        startTransition(async () => {
+                          const result = await toggleServiceAction(
+                            item.id,
+                            !item.active,
+                          );
+                          setFeedback(message(result.status));
+                          if (result.status === "updated") refresh();
+                        })
+                      }
+                    >
+                      {item.active ? "Pasifleştir" : "Aktifleştir"}
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </section>
 
@@ -141,18 +336,76 @@ export function AdminManagement({ initialData }: Props) {
             <div className="mt-4 space-y-2">
               {days.map((day, index) => {
                 const item = hours.find((value) => value.dayOfWeek === index);
-                return <div key={day} className="rounded-lg border border-zinc-300 bg-zinc-50 p-3">
-                  <div className="flex items-center justify-between"><span className="text-sm font-medium">{day}</span>{item && <button className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200" onClick={() => startTransition(async () => { const result = await removeWorkingHoursAction(index); setFeedback(message(result.status)); if (result.status === "removed") refresh(); })}>Kaldır</button>}</div>
-                  <form className="mt-2 flex gap-2" action={(formData) => startTransition(async () => {
-                    const result = await saveWorkingHoursAction({ dayOfWeek: index, openMinute: Number(formData.get("openMinute") ?? 0), closeMinute: Number(formData.get("closeMinute") ?? 0) });
-                    setFeedback(message(result.status));
-                    if (result.status === "created" || result.status === "updated") refresh();
-                  })}>
-                    <input name="openMinute" type="number" min="0" max="1439" defaultValue={item?.openMinute ?? 540} className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" aria-label={day + " açılış"} />
-                    <input name="closeMinute" type="number" min="1" max="1440" defaultValue={item?.closeMinute ?? 1080} className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200" aria-label={day + " kapanış"} />
-                    <button disabled={busy} className="rounded bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-zinc-800">Kaydet</button>
-                  </form>
-                </div>;
+                return (
+                  <div
+                    key={day}
+                    className="rounded-lg border border-zinc-300 bg-zinc-50 p-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{day}</span>
+                      {item && (
+                        <button
+                          className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200"
+                          onClick={() =>
+                            startTransition(async () => {
+                              const result =
+                                await removeWorkingHoursAction(index);
+                              setFeedback(message(result.status));
+                              if (result.status === "removed") refresh();
+                            })
+                          }
+                        >
+                          Kaldır
+                        </button>
+                      )}
+                    </div>
+                    <form
+                      className="mt-2 flex gap-2"
+                      action={(formData) =>
+                        startTransition(async () => {
+                          const result = await saveWorkingHoursAction({
+                            dayOfWeek: index,
+                            openMinute: Number(formData.get("openMinute") ?? 0),
+                            closeMinute: Number(
+                              formData.get("closeMinute") ?? 0,
+                            ),
+                          });
+                          setFeedback(message(result.status));
+                          if (
+                            result.status === "created" ||
+                            result.status === "updated"
+                          )
+                            refresh();
+                        })
+                      }
+                    >
+                      <input
+                        name="openMinute"
+                        type="number"
+                        min="0"
+                        max="1439"
+                        defaultValue={item?.openMinute ?? 540}
+                        className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                        aria-label={day + " açılış"}
+                      />
+                      <input
+                        name="closeMinute"
+                        type="number"
+                        min="1"
+                        max="1440"
+                        defaultValue={item?.closeMinute ?? 1080}
+                        className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                        aria-label={day + " kapanış"}
+                      />
+                      <button
+                        disabled={busy}
+                        className="rounded bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-zinc-800"
+                      >
+                        Kaydet
+                      </button>
+                    </form>
+                  </div>
+                );
               })}
             </div>
           </section>

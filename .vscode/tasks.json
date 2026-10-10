@@ -1,0 +1,31 @@
+
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Salon SaaS: Test",
+      "type": "npm",
+      "script": "test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Salon SaaS: Typecheck",
+      "type": "npm",
+      "script": "typecheck",
+      "problemMatcher": []
+    },
+    {
+      "label": "Salon SaaS: Lint",
+      "type": "npm",
+      "script": "lint",
+      "problemMatcher": []
+    },
+    {
+      "label": "Salon SaaS: Build",
+      "type": "npm",
+      "script": "build",
+      "problemMatcher": []
+    }
+  ]
+}
