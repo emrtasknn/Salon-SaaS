@@ -149,6 +149,24 @@ export async function toggleServiceAction(serviceId: string, active: boolean) {
   );
 }
 
+export async function updateServiceAction(
+  serviceId: string,
+  input: {
+    name?: string;
+    durationMinutes?: number;
+    bufferMinutes?: number;
+  },
+) {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+  return services(context.prisma).update({
+    identity: context.identity,
+    tenantContext: context.tenantContext,
+    serviceId,
+    ...input,
+  });
+}
+
 export async function saveWorkingHoursAction(input: {
   dayOfWeek: number;
   openMinute: number;

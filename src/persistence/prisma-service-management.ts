@@ -1,6 +1,5 @@
 import type { ServiceRepository } from "../application/service-management";
 import type { ServiceRecord } from "../domain/service";
-import type { TenantContext } from "../domain/tenant-context";
 import {
   withPrismaTenantContext,
   type PrismaTenantClient,

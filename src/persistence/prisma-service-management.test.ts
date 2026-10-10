@@ -108,4 +108,31 @@ describe("prisma service repository", () => {
       }),
     ).resolves.toBe("conflict");
   });
+
+  it("does not update a service when the record is absent from the tenant", async () => {
+    const { prisma, tx } = makePrisma();
+    tx.service.findUnique.mockResolvedValue(null);
+
+    await expect(
+      createPrismaServiceRepository(prisma).update(tenantContext, "service-other", {
+        name: "Intruder Name",
+      }),
+    ).resolves.toBe("not_found");
+
+    expect(tx.service.findUnique).toHaveBeenCalledWith({
+      where: { tenantId_id: { tenantId: "tenant-1", id: "service-other" } },
+    });
+    expect(tx.service.update).not.toHaveBeenCalled();
+  });
+
+  it("maps unique violations on update to conflict", async () => {
+    const { prisma, tx } = makePrisma();
+    tx.service.update.mockRejectedValue({ code: "P2002" });
+
+    await expect(
+      createPrismaServiceRepository(prisma).update(tenantContext, "service-1", {
+        name: "Existing Name",
+      }),
+    ).resolves.toBe("conflict");
+  });
 });

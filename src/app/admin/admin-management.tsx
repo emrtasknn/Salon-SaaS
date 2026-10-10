@@ -12,6 +12,7 @@ import {
   saveWorkingHoursAction,
   setStaffStatusAction,
   toggleServiceAction,
+  updateServiceAction,
   updateStaffProfileAction,
 } from "./actions";
 
@@ -302,29 +303,98 @@ export function AdminManagement({ initialData }: Props) {
                 services.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm"
+                    className="rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm"
                   >
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-xs text-zinc-500">
-                        {item.durationMinutes} dk · {item.bufferMinutes} dk ara
-                      </p>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{item.name}</p>
+                        <p className="text-xs text-zinc-500">
+                          {item.durationMinutes} dk · {item.bufferMinutes} dk ara
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {item.active ? "Aktif" : "Pasif"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="shrink-0 rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200"
+                        onClick={() =>
+                          startTransition(async () => {
+                            const result = await toggleServiceAction(
+                              item.id,
+                              !item.active,
+                            );
+                            setFeedback(message(result.status));
+                            if (result.status === "updated") refresh();
+                          })
+                        }
+                      >
+                        {item.active ? "Pasifleştir" : "Aktifleştir"}
+                      </button>
                     </div>
-                    <button
-                      className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200"
-                      onClick={() =>
+                    <form
+                      className="space-y-2 border-t border-zinc-200 pt-3"
+                      action={(formData) =>
                         startTransition(async () => {
-                          const result = await toggleServiceAction(
-                            item.id,
-                            !item.active,
+                          const result = await updateServiceAction(item.id, {
+                            name: String(formData.get("name") ?? ""),
+                            durationMinutes: Number(
+                              formData.get("durationMinutes") ?? 0,
+                            ),
+                            bufferMinutes: Number(
+                              formData.get("bufferMinutes") ?? 0,
+                            ),
+                          });
+                          setFeedback(
+                            result.status === "updated"
+                              ? "Hizmet bilgileri güncellendi."
+                              : message(result.status),
                           );
-                          setFeedback(message(result.status));
                           if (result.status === "updated") refresh();
                         })
                       }
                     >
-                      {item.active ? "Pasifleştir" : "Aktifleştir"}
-                    </button>
+                      <input
+                        name="name"
+                        required
+                        defaultValue={item.name}
+                        aria-label="Hizmet adı"
+                        placeholder="Hizmet adı"
+                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                      />
+                      <div className="flex gap-2">
+                        <div className="w-1/2">
+                          <input
+                            name="durationMinutes"
+                            required
+                            type="number"
+                            min="1"
+                            defaultValue={item.durationMinutes}
+                            aria-label="Hizmet süresi (dk)"
+                            placeholder="Süre (dk)"
+                            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                          />
+                        </div>
+                        <div className="w-1/2">
+                          <input
+                            name="bufferMinutes"
+                            type="number"
+                            min="0"
+                            defaultValue={item.bufferMinutes}
+                            aria-label="Ara süresi (dk)"
+                            placeholder="Ara (dk)"
+                            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        disabled={busy}
+                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-900 hover:bg-zinc-100"
+                      >
+                        Bilgileri kaydet
+                      </button>
+                    </form>
                   </div>
                 ))
               )}

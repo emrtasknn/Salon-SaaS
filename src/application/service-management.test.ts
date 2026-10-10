@@ -118,4 +118,111 @@ describe("service management", () => {
 
     expect(result.status).toBe("PERSISTENCE_FAILURE");
   });
+
+  it("fails closed when unauthorized to update a service", async () => {
+    const d = deps();
+    d.authorizer.authorize.mockResolvedValue(false);
+
+    const result = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "service-1",
+      name: "Updated Name",
+    });
+
+    expect(result.status).toBe("UNAUTHORIZED");
+    expect(d.repository.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects update with invalid duration or buffer", async () => {
+    const d = deps();
+
+    const invalidDuration = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "service-1",
+      durationMinutes: 0,
+    });
+    expect(invalidDuration.status).toBe("INVALID_INPUT");
+
+    const invalidBuffer = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "service-1",
+      bufferMinutes: -5,
+    });
+    expect(invalidBuffer.status).toBe("INVALID_INPUT");
+
+    const emptyName = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "service-1",
+      name: "   ",
+    });
+    expect(emptyName.status).toBe("INVALID_INPUT");
+
+    const emptyServiceId = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "   ",
+      name: "Valid Name",
+    });
+    expect(emptyServiceId.status).toBe("INVALID_INPUT");
+
+    const emptyPatch = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "service-1",
+    });
+    expect(emptyPatch.status).toBe("INVALID_INPUT");
+
+    expect(d.repository.update).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when updating a service that does not exist", async () => {
+    const d = deps();
+    d.repository.update.mockResolvedValue("not_found");
+
+    const result = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "service-missing",
+      name: "Updated Name",
+    });
+
+    expect(result.status).toBe("NOT_FOUND");
+    expect(d.repository.update).toHaveBeenCalledWith(
+      tenantContext,
+      "service-missing",
+      { name: "Updated Name" },
+    );
+  });
+
+  it("returns conflict when service update conflicts with existing name", async () => {
+    const d = deps();
+    d.repository.update.mockResolvedValue("conflict");
+
+    const result = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "service-1",
+      name: "Duplicate Name",
+    });
+
+    expect(result.status).toBe("CONFLICT");
+  });
+
+  it("maps update persistence failure to PERSISTENCE_FAILURE", async () => {
+    const d = deps();
+    d.repository.update.mockRejectedValue(new Error("db down"));
+
+    const result = await createServiceManager(d).update({
+      identity,
+      tenantContext,
+      serviceId: "service-1",
+      name: "New Name",
+    });
+
+    expect(result.status).toBe("PERSISTENCE_FAILURE");
+  });
 });
