@@ -440,7 +440,11 @@ export function AdminManagement({ initialData }: Props) {
                               formData.get("closeMinute") ?? 0,
                             ),
                           });
-                          setFeedback(message(result.status));
+                          setFeedback(
+                            result.status === "INVALID_INPUT"
+                              ? "Çalışma saatlerini kontrol edin (kapanış en geç 23:59 olmalı)."
+                              : message(result.status),
+                          );
                           if (
                             result.status === "created" ||
                             result.status === "updated"
@@ -462,7 +466,7 @@ export function AdminManagement({ initialData }: Props) {
                         name="closeMinute"
                         type="number"
                         min="1"
-                        max="1440"
+                        max="1439"
                         defaultValue={item?.closeMinute ?? 1080}
                         className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
                         aria-label={day + " kapanış"}
