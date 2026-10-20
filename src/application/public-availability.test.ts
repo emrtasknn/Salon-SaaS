@@ -58,6 +58,29 @@ describe("public availability", () => {
     expect(result).toEqual({ status: "PERSISTENCE_FAILURE", slots: [] });
   });
 
+  it("fails closed when the tenant timezone is invalid", async () => {
+    const repository = {
+      read: vi.fn().mockResolvedValue({
+        status: "ok",
+        timeZone: "Invalid/Timezone",
+        durationMinutes: 30,
+        bufferMinutes: 0,
+        workingHours,
+        appointments: [],
+        serviceActive: true,
+        staffActive: true,
+      }),
+    };
+
+    const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
+      serviceId: "svc",
+      staffId: "staff",
+      dateIso: "2026-10-12",
+    });
+
+    expect(result).toEqual({ status: "PERSISTENCE_FAILURE", slots: [] });
+  });
+
   it("does not expose inactive resources as available", async () => {
     const repository = {
       read: vi.fn().mockResolvedValue({
