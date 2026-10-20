@@ -44,7 +44,9 @@ export function createPrismaBookingRepository(prisma: PrismaTenantClient): Booki
     async createAppointment(tenantContext, input) {
       try {
         return await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
-          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenantContext.tenantId + ":" + input.staffId + ":" + input.startAt.toISOString()}, 0))`;
+          // Serialize booking attempts per tenant + staff, not per exact start time.
+          // Different start times can still overlap when service durations differ.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenantContext.tenantId + ":" + input.staffId}, 0))`;
           const [service, staff] = await Promise.all([
             tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId } } }),
             tx.staff.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.staffId } } }),
