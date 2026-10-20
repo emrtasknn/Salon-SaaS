@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBookingEngine } from "./booking-engine";
 import { createAuthenticatedIdentity } from "../domain/auth-identity";
+import { localWallTimeToUtc } from "../domain/availability";
 
 function nextMondayIso(): string {
   const date = new Date();
@@ -30,11 +31,27 @@ describe("booking engine", () => {
     expect(result.slots.length).toBeGreaterThan(0);
   });
 
-  it("requires server-side availability before creating", async () => {
+  it("requires current server-side availability before creating", async () => {
+    repository.createAppointment.mockClear();
+    const startAt = localWallTimeToUtc(availabilityDate, 9 * 60, "Europe/Istanbul");
     const result = await createBookingEngine({ repository, authorizer }).create(identity, tenant, {
-      serviceId: "svc", staffId: "staff", customerProfileId: "p", startAt: new Date("2026-10-05T06:00:00.000Z"),
+      serviceId: "svc", staffId: "staff", customerProfileId: "p", startAt,
     });
     expect(result.status).toBe("created");
+    expect(repository.createAppointment).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a past slot before asking persistence to create an appointment", async () => {
+    repository.createAppointment.mockClear();
+    const previousMonday = new Date(`${availabilityDate}T00:00:00.000Z`);
+    previousMonday.setUTCDate(previousMonday.getUTCDate() - 7);
+    const pastDateIso = previousMonday.toISOString().slice(0, 10);
+    const startAt = localWallTimeToUtc(pastDateIso, 9 * 60, "Europe/Istanbul");
+    const result = await createBookingEngine({ repository, authorizer }).create(identity, tenant, {
+      serviceId: "svc", staffId: "staff", customerProfileId: "p", startAt,
+    });
+    expect(result.status).toBe("SLOT_UNAVAILABLE");
+    expect(repository.createAppointment).not.toHaveBeenCalled();
   });
 
   it("uses staff decision authorization for confirm/reject", async () => {
