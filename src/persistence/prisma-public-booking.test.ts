@@ -66,7 +66,10 @@ describe("public booking repository", () => {
       email: "other@example.com",
     })).resolves.toBe("slot_unavailable");
 
-    expect(transaction.$executeRaw.mock.calls.map((call) => call[1])).toEqual(["tenant-a:staff-a", "tenant-a:staff-a"]);
+    const lockKeys = transaction.$executeRaw.mock.calls
+      .filter((call) => String(call[0]).includes("pg_advisory_xact_lock"))
+      .map((call) => call[1]);
+    expect(lockKeys).toEqual(["tenant-a:staff-a", "tenant-a:staff-a"]);
     expect(transaction.appointment.create).toHaveBeenCalledOnce();
   });
 
