@@ -45,6 +45,17 @@ export function dateDayOfWeek(dateIso: string): number {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
+function assertValidTimeZone(timeZone: string): void {
+  if (typeof timeZone !== "string" || timeZone.length === 0) {
+    throw new TypeError("Timezone is invalid");
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date(0));
+  } catch {
+    throw new TypeError("Timezone is invalid");
+  }
+}
+
 export function calculateAvailability(input: {
   dateIso: string;
   timeZone: string;
@@ -56,6 +67,7 @@ export function calculateAvailability(input: {
   now?: Date;
   slotIntervalMinutes?: number;
 }): ReadonlyArray<AvailabilitySlot> {
+  assertValidTimeZone(input.timeZone);
   const day = dateDayOfWeek(input.dateIso);
   const hours = input.workingHours.find((h) => h.dayOfWeek === day);
   if (!hours) return [];

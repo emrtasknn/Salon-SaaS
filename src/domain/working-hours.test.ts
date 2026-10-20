@@ -13,12 +13,14 @@ describe("working hours domain", () => {
     expect(createWorkingHoursDay(6)).toBe(6);
     expect(createWorkingHoursOpenMinute(9 * 60)).toBe(540);
     expect(createWorkingHoursCloseMinute(18 * 60)).toBe(1080);
+    expect(createWorkingHoursCloseMinute(1439)).toBe(1439);
   });
 
   it("rejects invalid day and minute values", () => {
     expect(() => createWorkingHoursDay(-1)).toThrow();
     expect(() => createWorkingHoursDay(7)).toThrow();
     expect(() => createWorkingHoursOpenMinute(1440)).toThrow();
+    expect(() => createWorkingHoursCloseMinute(1440)).toThrow();
     expect(() => createWorkingHoursCloseMinute(-1)).toThrow();
   });
 

@@ -1,6 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { createPublicAvailability } from "./public-availability";
 
+function nextMondayIso(): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  const daysUntilMonday = (8 - date.getUTCDay()) % 7 || 7;
+  date.setUTCDate(date.getUTCDate() + daysUntilMonday);
+  return date.toISOString().slice(0, 10);
+}
+
+const availabilityDate = nextMondayIso();
 const workingHours = [{
   id: "wh",
   tenantId: "t",
@@ -27,12 +36,12 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "svc",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: availabilityDate,
     });
 
     expect(result.status).toBe("ok");
     expect(result.slots.length).toBeGreaterThan(0);
-    expect(result.slots[0]?.startAtIso).toBe("2026-10-12T06:00:00.000Z");
+    expect(result.slots[0]?.startAtIso).toBe(`${availabilityDate}T06:00:00.000Z`);
   });
 
   it("rejects malformed input before persistence", async () => {
@@ -40,7 +49,7 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: availabilityDate,
     });
 
     expect(result).toEqual({ status: "INVALID_INPUT", slots: [] });
@@ -52,7 +61,30 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "svc",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: availabilityDate,
+    });
+
+    expect(result).toEqual({ status: "PERSISTENCE_FAILURE", slots: [] });
+  });
+
+  it("fails closed when the tenant timezone is invalid", async () => {
+    const repository = {
+      read: vi.fn().mockResolvedValue({
+        status: "ok",
+        timeZone: "Invalid/Timezone",
+        durationMinutes: 30,
+        bufferMinutes: 0,
+        workingHours,
+        appointments: [],
+        serviceActive: true,
+        staffActive: true,
+      }),
+    };
+
+    const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
+      serviceId: "svc",
+      staffId: "staff",
+      dateIso: availabilityDate,
     });
 
     expect(result).toEqual({ status: "PERSISTENCE_FAILURE", slots: [] });
@@ -75,7 +107,7 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "svc",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: availabilityDate,
     });
 
     expect(result).toEqual({ status: "INVALID_RESOURCE", slots: [] });

@@ -14,12 +14,28 @@ describe("working hours management", () => {
     expect(repository.upsert).toHaveBeenCalledWith(tenantContext, { dayOfWeek: 1, openMinute: 540, closeMinute: 1080 });
   });
 
-  it("rejects invalid and unauthorized changes", async () => {
+  it("rejects invalid and unauthorized changes without writing", async () => {
     const repository = { upsert: vi.fn(), remove: vi.fn(), list: vi.fn() };
     const manager = createWorkingHoursManager({ authorizer: { authorize: vi.fn().mockResolvedValue(false) }, repository });
     await expect(manager.upsert(identity, tenantContext, { dayOfWeek: 7, openMinute: 1, closeMinute: 2 })).resolves.toEqual({ status: "UNAUTHORIZED" });
     const authorized = createWorkingHoursManager({ authorizer: { authorize: vi.fn().mockResolvedValue(true) }, repository });
     await expect(authorized.upsert(identity, tenantContext, { dayOfWeek: 1, openMinute: 100, closeMinute: 100 })).resolves.toEqual({ status: "INVALID_INPUT" });
+    await expect(authorized.upsert(identity, tenantContext, { dayOfWeek: 1, openMinute: 540, closeMinute: 1440 })).resolves.toEqual({ status: "INVALID_INPUT" });
+    expect(repository.upsert).not.toHaveBeenCalled();
+  });
+
+  it("maps repository errors to persistence failure", async () => {
+    const repository = { upsert: vi.fn().mockRejectedValue(new Error("database unavailable")), remove: vi.fn(), list: vi.fn() };
+    const manager = createWorkingHoursManager({ authorizer: { authorize: vi.fn().mockResolvedValue(true) }, repository });
+    await expect(manager.upsert(identity, tenantContext, { dayOfWeek: 1, openMinute: 540, closeMinute: 1080 }))
+      .resolves.toEqual({ status: "PERSISTENCE_FAILURE" });
+  });
+
+  it("accepts 23:59 as the latest closing minute", async () => {
+    const repository = { upsert: vi.fn().mockResolvedValue("created"), remove: vi.fn(), list: vi.fn() };
+    const manager = createWorkingHoursManager({ authorizer: { authorize: vi.fn().mockResolvedValue(true) }, repository });
+    await expect(manager.upsert(identity, tenantContext, { dayOfWeek: 1, openMinute: 540, closeMinute: 1439 }))
+      .resolves.toEqual({ status: "created" });
   });
 
   it("removes a closed day and lists tenant hours", async () => {

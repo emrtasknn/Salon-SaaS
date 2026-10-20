@@ -31,4 +31,12 @@ describe("availability", () => {
   it("returns no slots on a closed day", () => {
     expect(calculateAvailability({ ...base, dateIso: "2026-10-04" })).toEqual([]);
   });
+
+  it("rejects an invalid timezone even when the day is closed", () => {
+    expect(() => calculateAvailability({
+      ...base,
+      dateIso: "2026-10-04",
+      timeZone: "Invalid/Timezone",
+    })).toThrow("Timezone is invalid");
+  });
 });
