@@ -50,6 +50,7 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
       const available = calculateAvailability({
         dateIso, timeZone: context.timezone, workingHours: context.workingHours, staffId: context.staff.id,
         appointments: context.appointments, durationMinutes: context.service.durationMinutes, bufferMinutes: context.service.bufferMinutes,
+        now: new Date(),
       }).some((slot) => slot.startAt.getTime() === input.startAt.getTime());
       if (!available) return { status: "SLOT_UNAVAILABLE" as const };
       const result = await dependencies.repository.createAppointment(tenantContext, { ...input, endAt });
