@@ -43,17 +43,26 @@ export function createWorkingHoursManager(dependencies: Readonly<{
       input: Readonly<{ dayOfWeek: unknown; openMinute: unknown; closeMinute: unknown }>,
     ): Promise<WorkingHoursResult> {
       if (!(await dependencies.authorizer.authorize(identity, tenantContext, "TENANT_ADMIN"))) return { status: "UNAUTHORIZED" };
+
+      let dayOfWeek: number;
+      let openMinute: number;
+      let closeMinute: number;
       try {
-        const dayOfWeek = createWorkingHoursDay(input.dayOfWeek);
-        const openMinute = createWorkingHoursOpenMinute(input.openMinute);
-        const closeMinute = createWorkingHoursCloseMinute(input.closeMinute);
+        dayOfWeek = createWorkingHoursDay(input.dayOfWeek);
+        openMinute = createWorkingHoursOpenMinute(input.openMinute);
+        closeMinute = createWorkingHoursCloseMinute(input.closeMinute);
         if (closeMinute <= openMinute) return { status: "INVALID_INPUT" };
+      } catch {
+        return { status: "INVALID_INPUT" };
+      }
+
+      try {
         const result = await dependencies.repository.upsert(tenantContext, { dayOfWeek, openMinute, closeMinute });
         if (result === "created") return { status: "created" };
         if (result === "updated") return { status: "updated" };
         return { status: "CONFLICT" };
       } catch {
-        return { status: "INVALID_INPUT" };
+        return { status: "PERSISTENCE_FAILURE" };
       }
     },
 
