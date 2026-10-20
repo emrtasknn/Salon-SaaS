@@ -33,7 +33,9 @@ describe("prisma booking repository", () => {
       startAt: new Date("2026-10-26T06:15:00.000Z"), endAt: new Date("2026-10-26T07:30:00.000Z"),
     })).resolves.toBe("conflict");
 
-    const lockKeys = executeRaw.mock.calls.map((call) => call[1]);
+    const lockKeys = executeRaw.mock.calls
+      .filter((call) => String(call[0]).includes("pg_advisory_xact_lock"))
+      .map((call) => call[1]);
     expect(lockKeys).toEqual(["t:s", "t:s"]);
     expect(tx.appointment.create).toHaveBeenCalledOnce();
   });
