@@ -13,6 +13,12 @@ type Tx = PrismaTenantTransactionClient & {
   appointment: { findMany(args: { where: { tenantId: string; staffId: string; startAt: { lt: Date }; endAt: { gt: Date } } }): Promise<AppointmentRecord[]> };
 };
 
+function nextCalendarDate(dateIso: string): string {
+  const [year, month, day] = dateIso.split("-").map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + 1));
+  return `${next.getUTCFullYear().toString().padStart(4, "0")}-${(next.getUTCMonth() + 1).toString().padStart(2, "0")}-${next.getUTCDate().toString().padStart(2, "0")}`;
+}
+
 export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantClient): PublicAvailabilityRepository {
   return {
     async read(tenantContext: TenantContext, input) {
@@ -26,13 +32,14 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
           ]);
           if (!tenant || !service || !staff) return { status: "invalid_resource" as const };
 
+          // Compute each local midnight independently: a timezone day may be 23 or 25 hours across DST.
           const dayStart = localWallTimeToUtc(input.dateIso, 0, tenant.timezone);
-          const nextDay = new Date(dayStart.getTime() + 24 * 60 * 60_000);
+          const nextDayStart = localWallTimeToUtc(nextCalendarDate(input.dateIso), 0, tenant.timezone);
           const appointments = await tx.appointment.findMany({
             where: {
               tenantId: tenantContext.tenantId,
               staffId: input.staffId,
-              startAt: { lt: nextDay },
+              startAt: { lt: nextDayStart },
               endAt: { gt: dayStart },
             },
           });
