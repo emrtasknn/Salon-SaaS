@@ -2,6 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import { createBookingEngine } from "./booking-engine";
 import { createAuthenticatedIdentity } from "../domain/auth-identity";
 
+function nextMondayIso(): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  const daysUntilMonday = (8 - date.getUTCDay()) % 7 || 7;
+  date.setUTCDate(date.getUTCDate() + daysUntilMonday);
+  return date.toISOString().slice(0, 10);
+}
+
+const availabilityDate = nextMondayIso();
 const identity = createAuthenticatedIdentity("u", "p");
 const tenant = { tenantId: "t" as never };
 const service = { id: "svc", tenantId: "t", name: "Cut", durationMinutes: 60, bufferMinutes: 15, active: true };
@@ -16,7 +25,7 @@ const authorizer = { authorize: vi.fn().mockResolvedValue(true), authorizeStaffD
 
 describe("booking engine", () => {
   it("calculates availability from server-owned resources", async () => {
-    const result = await createBookingEngine({ repository, authorizer }).availability(identity, tenant, { serviceId: "svc", staffId: "staff", dateIso: "2026-10-26" });
+    const result = await createBookingEngine({ repository, authorizer }).availability(identity, tenant, { serviceId: "svc", staffId: "staff", dateIso: availabilityDate });
     expect(result.status).toBe("ok");
     expect(result.slots.length).toBeGreaterThan(0);
   });
