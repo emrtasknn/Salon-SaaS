@@ -1,6 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { createPrismaPublicBookingRepository } from "./prisma-public-booking";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
+import { localWallTimeToUtc } from "../domain/availability";
+
+function nextMondayIso(): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  const daysUntilMonday = (8 - date.getUTCDay()) % 7 || 7;
+  date.setUTCDate(date.getUTCDate() + daysUntilMonday);
+  return date.toISOString().slice(0, 10);
+}
 
 function makeTransaction(overrides: Readonly<{
   service?: unknown;
@@ -28,7 +37,7 @@ function makePrisma(transaction: ReturnType<typeof makeTransaction>) {
 const validInput = {
   serviceId: "svc-a",
   staffId: "staff-a",
-  startAt: new Date("2026-10-05T06:00:00Z"),
+  startAt: localWallTimeToUtc(nextMondayIso(), 9 * 60, "Europe/Istanbul"),
   displayName: "Customer",
   email: "c@example.com",
   phone: null,
@@ -39,6 +48,39 @@ describe("public booking repository", () => {
     const transaction = makeTransaction();
     await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("created");
     expect(transaction.$executeRaw).toHaveBeenCalled();
+  });
+
+  it("uses one lock for overlapping appointments with different start times", async () => {
+    const transaction = makeTransaction();
+    const existingAppointment = {
+      id: "a", tenantId: "tenant-a", staffId: "staff-a", serviceId: "svc-a", customerProfileId: "c",
+      startAt: validInput.startAt, endAt: new Date(validInput.startAt.getTime() + 75 * 60_000), status: "PENDING" as const,
+    };
+    transaction.appointment.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([existingAppointment]);
+
+    const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
+    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("created");
+    await expect(repository.create({ tenantId: "tenant-a" as never }, {
+      ...validInput,
+      startAt: new Date(validInput.startAt.getTime() + 15 * 60_000),
+      email: "other@example.com",
+    })).resolves.toBe("slot_unavailable");
+
+    expect(transaction.$executeRaw.mock.calls.map((call) => call[1])).toEqual(["tenant-a:staff-a", "tenant-a:staff-a"]);
+    expect(transaction.appointment.create).toHaveBeenCalledOnce();
+  });
+
+  it("rejects past booking times before profile or appointment persistence", async () => {
+    const transaction = makeTransaction();
+    const previousMonday = new Date(`${nextMondayIso()}T00:00:00.000Z`);
+    previousMonday.setUTCDate(previousMonday.getUTCDate() - 7);
+    const pastStartAt = localWallTimeToUtc(previousMonday.toISOString().slice(0, 10), 9 * 60, "Europe/Istanbul");
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, {
+      ...validInput,
+      startAt: pastStartAt,
+    })).resolves.toBe("slot_unavailable");
+    expect(transaction.profile.create).not.toHaveBeenCalled();
+    expect(transaction.appointment.create).not.toHaveBeenCalled();
   });
 
   it("rejects a directly supplied resource identifier that is not owned by the tenant", async () => {
