@@ -27,12 +27,12 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "svc",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: "2026-10-26",
     });
 
     expect(result.status).toBe("ok");
     expect(result.slots.length).toBeGreaterThan(0);
-    expect(result.slots[0]?.startAtIso).toBe("2026-10-12T06:00:00.000Z");
+    expect(result.slots[0]?.startAtIso).toBe("2026-10-26T06:00:00.000Z");
   });
 
   it("rejects malformed input before persistence", async () => {
@@ -40,7 +40,7 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: "2026-10-26",
     });
 
     expect(result).toEqual({ status: "INVALID_INPUT", slots: [] });
@@ -52,7 +52,7 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "svc",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: "2026-10-26",
     });
 
     expect(result).toEqual({ status: "PERSISTENCE_FAILURE", slots: [] });
@@ -75,7 +75,7 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "svc",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: "2026-10-26",
     });
 
     expect(result).toEqual({ status: "PERSISTENCE_FAILURE", slots: [] });
@@ -98,7 +98,7 @@ describe("public availability", () => {
     const result = await createPublicAvailability(repository).list({ tenantId: "t" as never }, {
       serviceId: "svc",
       staffId: "staff",
-      dateIso: "2026-10-12",
+      dateIso: "2026-10-26",
     });
 
     expect(result).toEqual({ status: "INVALID_RESOURCE", slots: [] });
