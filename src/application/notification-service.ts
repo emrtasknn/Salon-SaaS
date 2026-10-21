@@ -23,16 +23,17 @@ export function createNotificationService(dependencies: Readonly<{ repository: N
       const recipients = await dependencies.repository.recipients(tenantContext, appointmentId, eventType);
       const results: Array<{ profileId: string; status: string }> = [];
       for (const recipient of recipients) {
-        if (!recipient.phone) {
-          await dependencies.repository.markFailed(tenantContext, { appointmentId, eventType, channel: "WHATSAPP", recipientProfileId: recipient.profileId, errorCode: "RECIPIENT_PHONE_MISSING" });
-          results.push({ profileId: recipient.profileId, status: "FAILED" });
-          continue;
-        }
         const claim = await dependencies.repository.claim(tenantContext, {
           appointmentId, eventType, channel: "WHATSAPP", recipientProfileId: recipient.profileId, templateKey: recipient.templateKey,
         });
         if (claim !== "claimed") {
           results.push({ profileId: recipient.profileId, status: claim === "already_sent" ? "SENT" : "PENDING" });
+          continue;
+        }
+        // Claim first so markFailed can persist missing-phone failures against an existing delivery row.
+        if (!recipient.phone) {
+          await dependencies.repository.markFailed(tenantContext, { appointmentId, eventType, channel: "WHATSAPP", recipientProfileId: recipient.profileId, errorCode: "RECIPIENT_PHONE_MISSING" });
+          results.push({ profileId: recipient.profileId, status: "FAILED" });
           continue;
         }
         try {
