@@ -90,5 +90,6 @@ export async function decideStaffAppointment(
   if (!context) return { status: "UNAUTHORIZED" as const };
   const checked = await staffAppointments(context.prisma, context.reader).decide(context.identity, context.tenantContext, appointment.id, to);
   if (checked.status !== "AUTHORIZED") return checked;
-  return booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, appointment, to);
+  // Use the server-loaded appointment that was authorized, not the client-supplied object.
+  return booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, checked.appointment, to);
 }
