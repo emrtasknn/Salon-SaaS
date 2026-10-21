@@ -28,11 +28,33 @@ export function utcToLocalDateAndMinute(date: Date, timeZone: string): { dateIso
   return { dateIso: `${p.year.toString().padStart(4,"0")}-${p.month.toString().padStart(2,"0")}-${p.day.toString().padStart(2,"0")}`, minute: p.hour * 60 + p.minute };
 }
 
+function parseAndValidateDateIso(dateIso: string): { year: number; month: number; day: number } {
+  if (typeof dateIso !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) {
+    throw new TypeError("Date is invalid");
+  }
+  const [year, month, day] = dateIso.split("-").map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    throw new TypeError("Date is invalid");
+  }
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (year >= 0 && year < 100) {
+    parsed.setUTCFullYear(year);
+  }
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() + 1 !== month ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new TypeError("Date is invalid");
+  }
+  return { year, month, day };
+}
+
 export function localWallTimeToUtc(dateIso: string, minute: number, timeZone: string): Date {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) throw new TypeError("Date is invalid");
+  const { year, month, day } = parseAndValidateDateIso(dateIso);
   if (!Number.isInteger(minute) || minute < 0 || minute >= 1440) throw new TypeError("Minute is invalid");
   try { new Intl.DateTimeFormat("en-US", { timeZone }).format(); } catch { throw new TypeError("Timezone is invalid"); }
-  const [year, month, day] = dateIso.split("-").map(Number);
   const wallUtc = Date.UTC(year, month - 1, day, Math.floor(minute / 60), minute % 60);
   let utc = wallUtc - offsetMinutes(new Date(wallUtc), timeZone) * 60000;
   const correctedOffset = offsetMinutes(new Date(utc), timeZone);
@@ -41,8 +63,12 @@ export function localWallTimeToUtc(dateIso: string, minute: number, timeZone: st
 }
 
 export function dateDayOfWeek(dateIso: string): number {
-  const [year, month, day] = dateIso.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const { year, month, day } = parseAndValidateDateIso(dateIso);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (year >= 0 && year < 100) {
+    parsed.setUTCFullYear(year);
+  }
+  return parsed.getUTCDay();
 }
 
 function assertValidTimeZone(timeZone: string): void {

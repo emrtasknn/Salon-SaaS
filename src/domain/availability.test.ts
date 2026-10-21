@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateAvailability, localWallTimeToUtc } from "./availability";
+import { calculateAvailability, dateDayOfWeek, localWallTimeToUtc } from "./availability";
 
 const hours = [{ id: "wh", tenantId: "t", dayOfWeek: 1, openMinute: 9 * 60, closeMinute: 18 * 60 }];
 const base = {
@@ -38,5 +38,34 @@ describe("availability", () => {
       dateIso: "2026-10-04",
       timeZone: "Invalid/Timezone",
     })).toThrow("Timezone is invalid");
+  });
+
+  describe("calendar date validation", () => {
+    it("rejects non-existent dates such as 2026-02-31 and 2026-13-01 in dateDayOfWeek", () => {
+      expect(() => dateDayOfWeek("2026-02-31")).toThrow(new TypeError("Date is invalid"));
+      expect(() => dateDayOfWeek("2026-13-01")).toThrow(new TypeError("Date is invalid"));
+    });
+
+    it("accepts valid leap year date 2024-02-29 and 2026-02-28 in dateDayOfWeek", () => {
+      expect(dateDayOfWeek("2024-02-29")).toBe(4);
+      expect(dateDayOfWeek("2026-02-28")).toBe(6);
+    });
+
+    it("rejects non-existent dates in localWallTimeToUtc", () => {
+      expect(() => localWallTimeToUtc("2026-02-31", 540, "Europe/Istanbul")).toThrow(new TypeError("Date is invalid"));
+      expect(() => localWallTimeToUtc("2026-13-01", 540, "Europe/Istanbul")).toThrow(new TypeError("Date is invalid"));
+    });
+
+    it("accepts valid dates in localWallTimeToUtc", () => {
+      expect(localWallTimeToUtc("2024-02-29", 540, "Europe/Istanbul")).toBeInstanceOf(Date);
+      expect(localWallTimeToUtc("2026-02-28", 540, "Europe/Istanbul")).toBeInstanceOf(Date);
+    });
+
+    it("rejects invalid dates in calculateAvailability without silent normalization", () => {
+      expect(() => calculateAvailability({ ...base, dateIso: "2026-02-31" })).toThrow(new TypeError("Date is invalid"));
+      expect(() => calculateAvailability({ ...base, dateIso: "2026-13-01" })).toThrow(new TypeError("Date is invalid"));
+      expect(() => calculateAvailability({ ...base, dateIso: "2024-02-29" })).not.toThrow();
+      expect(() => calculateAvailability({ ...base, dateIso: "2026-02-28" })).not.toThrow();
+    });
   });
 });
