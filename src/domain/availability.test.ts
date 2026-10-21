@@ -32,6 +32,25 @@ describe("availability", () => {
     expect(calculateAvailability({ ...base, dateIso: "2026-10-04" })).toEqual([]);
   });
 
+  it("skips ambiguous wall-clock slots on the autumn DST transition", () => {
+    const transitionHours = [{ id: "wh", tenantId: "t", dayOfWeek: 0, openMinute: 60, closeMinute: 240 }];
+    const slots = calculateAvailability({
+      ...base,
+      dateIso: "2026-10-25",
+      timeZone: "Europe/Berlin",
+      workingHours: transitionHours,
+      durationMinutes: 15,
+      bufferMinutes: 0,
+      slotIntervalMinutes: 30,
+    });
+    expect(slots.map((slot) => slot.startAt.toISOString())).toEqual([
+      "2026-10-24T23:00:00.000Z",
+      "2026-10-24T23:30:00.000Z",
+      "2026-10-25T02:00:00.000Z",
+      "2026-10-25T02:30:00.000Z",
+    ]);
+  });
+
   it("rejects an invalid timezone even when the day is closed", () => {
     expect(() => calculateAvailability({
       ...base,
@@ -59,6 +78,23 @@ describe("availability", () => {
     it("accepts valid dates in localWallTimeToUtc", () => {
       expect(localWallTimeToUtc("2024-02-29", 540, "Europe/Istanbul")).toBeInstanceOf(Date);
       expect(localWallTimeToUtc("2026-02-28", 540, "Europe/Istanbul")).toBeInstanceOf(Date);
+    });
+
+    it("rejects nonexistent local wall times during the spring DST gap", () => {
+      expect(() => localWallTimeToUtc("2026-03-29", 2 * 60 + 30, "Europe/Berlin"))
+        .toThrow(new RangeError("Local time does not exist in this timezone"));
+    });
+
+    it("rejects ambiguous local wall times during the autumn DST fold", () => {
+      expect(() => localWallTimeToUtc("2026-10-25", 2 * 60 + 30, "Europe/Berlin"))
+        .toThrow(new RangeError("Local time is ambiguous in this timezone"));
+    });
+
+    it("converts valid wall times correctly on both sides of DST transitions", () => {
+      expect(localWallTimeToUtc("2026-03-29", 1 * 60 + 30, "Europe/Berlin").toISOString())
+        .toBe("2026-03-29T00:30:00.000Z");
+      expect(localWallTimeToUtc("2026-10-25", 3 * 60 + 30, "Europe/Berlin").toISOString())
+        .toBe("2026-10-25T02:30:00.000Z");
     });
 
     it("rejects invalid dates in calculateAvailability without silent normalization", () => {
