@@ -92,7 +92,7 @@ describe("notification service", () => {
       recipients: vi.fn().mockResolvedValue([
         { profileId: "customer-1", displayName: "Customer", phone: null, templateKey: "appointment-rejected-customer", body: "Randevu talebiniz onaylanmadı.", templateParameters: [] },
       ]),
-      claim: vi.fn(),
+      claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn(),
       markFailed: vi.fn().mockResolvedValue(undefined),
     };
