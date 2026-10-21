@@ -24,6 +24,33 @@ export function AdminCalendar({ initialDate, initialData }: Props) {
     });
   }
 
+  function transition(appointmentId: string, to: "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED") {
+    startTransition(async () => {
+      const result = await transitionAdminAppointment(appointmentId, to);
+      const messages: Record<string, string> = {
+        CONFIRMED: "Randevu onaylandı.",
+        REJECTED: "Randevu reddedildi.",
+        CANCELLED: "Randevu iptal edildi.",
+        COMPLETED: "Randevu tamamlandı.",
+      };
+      if (result.status === "updated") {
+        setFeedback(messages[to]);
+        const refreshed = await listAdminAppointments(date);
+        setData(refreshed);
+      } else if (result.status === "INVALID_TRANSITION") {
+        setFeedback("Bu randevu için bu işlem artık geçerli değil. Takvim yenilendi.");
+        setData(await listAdminAppointments(date));
+      } else if (result.status === "UNAUTHORIZED") {
+        setFeedback("Bu işlem için yetkiniz yok.");
+      } else if (result.status === "NOT_FOUND") {
+        setFeedback("Randevu bulunamadı. Takvim yenilendi.");
+        setData(await listAdminAppointments(date));
+      } else {
+        setFeedback("İşlem gerçekleştirilemedi.");
+      }
+    });
+  }
+
   if (data.status === "UNAUTHORIZED") return <main className="mx-auto max-w-5xl p-6"><h1 className="text-2xl font-semibold">Yetkisiz erişim</h1></main>;
 
   const appointments = data.status === "ok" ? data.appointments : [];
@@ -41,8 +68,12 @@ export function AdminCalendar({ initialDate, initialData }: Props) {
           <span className="rounded-full border px-2 py-1 text-xs">{labels[a.status] ?? a.status}</span>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {a.status === "CONFIRMED" && <button disabled={busy} onClick={() => startTransition(async () => { const r = await transitionAdminAppointment(a, "COMPLETED"); setFeedback(r.status === "updated" ? "Randevu tamamlandı." : "İşlem gerçekleştirilemedi."); if (r.status === "updated") refresh(); })} className="rounded-lg bg-black px-3 py-2 text-xs text-white">Tamamlandı</button>}
-          {(a.status === "PENDING" || a.status === "CONFIRMED") && <button disabled={busy} onClick={() => startTransition(async () => { const r = await transitionAdminAppointment(a, "CANCELLED"); setFeedback(r.status === "updated" ? "Randevu iptal edildi." : "İşlem gerçekleştirilemedi."); if (r.status === "updated") refresh(); })} className="rounded-lg border px-3 py-2 text-xs">İptal et</button>}
+          {a.status === "PENDING" && <>
+            <button disabled={busy} onClick={() => transition(a.id, "CONFIRMED")} className="rounded-lg bg-black px-3 py-2 text-xs text-white">Onayla</button>
+            <button disabled={busy} onClick={() => transition(a.id, "REJECTED")} className="rounded-lg border border-red-300 px-3 py-2 text-xs text-red-700">Reddet</button>
+          </>}
+          {a.status === "CONFIRMED" && <button disabled={busy} onClick={() => transition(a.id, "COMPLETED")} className="rounded-lg bg-black px-3 py-2 text-xs text-white">Tamamlandı</button>}
+          {(a.status === "PENDING" || a.status === "CONFIRMED") && <button disabled={busy} onClick={() => transition(a.id, "CANCELLED")} className="rounded-lg border px-3 py-2 text-xs">İptal et</button>}
         </div>
       </article>)}</div>}
   </div></main>;
