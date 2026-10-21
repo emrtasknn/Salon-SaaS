@@ -6,14 +6,21 @@ import { enforceServerAuthorization } from "../../application/server-authorizati
 import { createPrismaCalendarCrmRepository } from "../../persistence/prisma-calendar-crm";
 import { createPrismaBookingRepository } from "../../persistence/prisma-booking-engine";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
+import { withPrismaTenantContext, type PrismaTenantTransactionClient } from "../../persistence/prisma-tenant-context";
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
 import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import { localWallTimeToUtc } from "../../domain/availability";
-import { createAuthenticatedIdentity, type ApplicationIdentity } from "../../domain/auth-identity";
-import type { AppointmentStatus } from "../../domain/appointment";
+import { createAuthenticatedIdentity } from "../../domain/auth-identity";
+import type { AppointmentRecord, AppointmentStatus } from "../../domain/appointment";
+
+type AppointmentLookupTx = PrismaTenantTransactionClient & {
+  appointment: {
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<AppointmentRecord | null>;
+  };
+};
 
 async function getAdminContext() {
   const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
@@ -48,6 +55,8 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
         return result.authorization.status === "allowed";
       },
       async authorizeStaffDecision(identity, tenantContext, appointment) {
+        const adminResult = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
+        if (adminResult.authorization.status === "allowed") return true;
         if (identity.state !== "authenticated") return false;
         const membership = await reader.readMembership({ tenantContext, identity });
         if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
@@ -68,14 +77,24 @@ export async function listAdminAppointments(dateIso: string, staffId?: string) {
   if (!tenant) return { status: "NOT_FOUND" as const };
   const startAt = localWallTimeToUtc(dateIso, 0, tenant.timezone);
   const endAt = localWallTimeToUtc(dateIso, 1439, tenant.timezone);
-  return calendar(context.prisma, context.reader).calendar(context.identity, context.tenantContext, { startAt, endAt });
+  return calendar(context.prisma, context.reader).calendar(context.identity, context.tenantContext, { startAt, endAt, staffId });
 }
 
-export async function transitionAdminAppointment(
-  appointment: Readonly<{ id: string; tenantId: string; staffId: string; serviceId: string; customerProfileId: string; startAt: Date; endAt: Date; status: AppointmentStatus }>,
-  to: AppointmentStatus,
-) {
+export async function transitionAdminAppointment(appointmentId: string, to: AppointmentStatus) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
+  if (typeof appointmentId !== "string" || !appointmentId.trim() || appointmentId.length > 100 || /[\u0000-\u001f\u007f]/.test(appointmentId)) {
+    return { status: "INVALID_INPUT" as const };
+  }
+
+  const appointment = await withPrismaTenantContext(
+    context.prisma,
+    context.tenantContext,
+    async (tx: AppointmentLookupTx) => tx.appointment.findUnique({
+      where: { tenantId_id: { tenantId: context.tenantContext.tenantId, id: appointmentId } },
+    }),
+  );
+  if (!appointment) return { status: "NOT_FOUND" as const };
+
   return booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, appointment, to);
 }
