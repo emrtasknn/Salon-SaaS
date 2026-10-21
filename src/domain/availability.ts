@@ -54,12 +54,33 @@ function parseAndValidateDateIso(dateIso: string): { year: number; month: number
 export function localWallTimeToUtc(dateIso: string, minute: number, timeZone: string): Date {
   const { year, month, day } = parseAndValidateDateIso(dateIso);
   if (!Number.isInteger(minute) || minute < 0 || minute >= 1440) throw new TypeError("Minute is invalid");
-  try { new Intl.DateTimeFormat("en-US", { timeZone }).format(); } catch { throw new TypeError("Timezone is invalid"); }
+  assertValidTimeZone(timeZone);
+
   const wallUtc = Date.UTC(year, month - 1, day, Math.floor(minute / 60), minute % 60);
-  let utc = wallUtc - offsetMinutes(new Date(wallUtc), timeZone) * 60000;
-  const correctedOffset = offsetMinutes(new Date(utc), timeZone);
-  utc = wallUtc - correctedOffset * 60000;
-  return new Date(utc);
+  // Sample offsets around the requested wall time instead of assuming a fixed offset.
+  const offsets = new Set<number>();
+  for (let hours = -36; hours <= 36; hours += 6) {
+    offsets.add(offsetMinutes(new Date(wallUtc + hours * 60 * 60_000), timeZone));
+  }
+
+  const candidates = [...offsets]
+    .map((offset) => new Date(wallUtc - offset * 60_000))
+    .filter((candidate) => {
+      const local = partsInTimeZone(candidate, timeZone);
+      return local.year === year &&
+        local.month === month &&
+        local.day === day &&
+        local.hour === Math.floor(minute / 60) &&
+        local.minute === minute % 60;
+    });
+
+  if (candidates.length === 0) {
+    throw new RangeError("Local time does not exist in this timezone");
+  }
+  if (candidates.length > 1) {
+    throw new RangeError("Local time is ambiguous in this timezone");
+  }
+  return candidates[0];
 }
 
 export function dateDayOfWeek(dateIso: string): number {
@@ -102,7 +123,16 @@ export function calculateAvailability(input: {
   const requiredMinutes = input.durationMinutes + input.bufferMinutes;
   const slots: AvailabilitySlot[] = [];
   for (let minute = hours.openMinute; minute + requiredMinutes <= hours.closeMinute; minute += interval) {
-    const startAt = localWallTimeToUtc(input.dateIso, minute, input.timeZone);
+    let startAt: Date;
+    try {
+      startAt = localWallTimeToUtc(input.dateIso, minute, input.timeZone);
+    } catch (error) {
+      if (error instanceof RangeError && (
+        error.message === "Local time does not exist in this timezone" ||
+        error.message === "Local time is ambiguous in this timezone"
+      )) continue;
+      throw error;
+    }
     const endAt = new Date(startAt.getTime() + requiredMinutes * 60_000);
     if (input.now && startAt <= input.now) continue;
     const conflicts = input.appointments.some((a) =>
