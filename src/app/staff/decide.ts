@@ -1,5 +1,13 @@
 "use server";
 import { decideStaffAppointment } from "./actions";
 import { publishAppointmentNotification } from "../notification-runtime";
-import type { AppointmentRecord } from "../../domain/appointment";
-export async function decideAndNotify(appointment:AppointmentRecord,to:"CONFIRMED"|"REJECTED"){const result=await decideStaffAppointment(appointment,to);if(result.status==="updated")await publishAppointmentNotification({tenantId:appointment.tenantId as never},appointment.id,to==="CONFIRMED"?"APPOINTMENT_CONFIRMED":"APPOINTMENT_REJECTED");return result;}
+import type { NotificationEventType } from "../../domain/notification";
+
+export async function decideAndNotify(appointmentId: string, to: "CONFIRMED" | "REJECTED") {
+  const result = await decideStaffAppointment(appointmentId, to);
+  if (result.status === "updated") {
+    const eventType: NotificationEventType = to === "CONFIRMED" ? "APPOINTMENT_CONFIRMED" : "APPOINTMENT_REJECTED";
+    await publishAppointmentNotification({ tenantId: result.tenantId as never }, appointmentId, eventType);
+  }
+  return result;
+}
