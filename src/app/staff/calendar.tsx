@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { decideStaffAppointment, listStaffAppointments } from "./actions";
+import { listStaffAppointments } from "./actions";
+import { decideAndNotify } from "./decide";
 
 type Props = { initialDate: string; initialData: Awaited<ReturnType<typeof listStaffAppointments>> };
 
@@ -26,7 +27,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
 
   function decide(appointmentId: string, to: "CONFIRMED" | "REJECTED") {
     startTransition(async () => {
-      const result = await decideStaffAppointment(appointmentId, to);
+      const result = await decideAndNotify(appointmentId, to);
       if (result.status === "updated") {
         setFeedback(to === "CONFIRMED" ? "Randevu onaylandı." : "Randevu reddedildi.");
         setData(await listStaffAppointments(date));
