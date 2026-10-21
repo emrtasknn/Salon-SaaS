@@ -22,7 +22,7 @@ type Tx = PrismaTenantTransactionClient & {
 
 export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient): PublicBookingRepository {
   return {
-    async create(tenantContext, input) {
+    async create(tenantContext: TenantContext, input) {
       try {
         return await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
           // Serialize booking attempts per tenant + staff so overlapping start times cannot race.

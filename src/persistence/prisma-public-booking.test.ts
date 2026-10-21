@@ -107,4 +107,36 @@ describe("public booking repository", () => {
     await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("invalid_resource");
     expect(transaction.appointment.create).not.toHaveBeenCalled();
   });
+
+  it("blocks booking when an overlapping appointment is CONFIRMED", async () => {
+    const transaction = makeTransaction();
+    const confirmedAppointment = {
+      id: "a-confirmed", tenantId: "tenant-a", staffId: "staff-a", serviceId: "svc-a", customerProfileId: "c",
+      startAt: validInput.startAt, endAt: new Date(validInput.startAt.getTime() + 75 * 60_000), status: "CONFIRMED" as const,
+    };
+    transaction.appointment.findMany.mockResolvedValueOnce([confirmedAppointment]);
+
+    const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
+    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("slot_unavailable");
+    expect(transaction.appointment.create).not.toHaveBeenCalled();
+  });
+
+  it("allows booking when overlapping appointments are CANCELLED or REJECTED", async () => {
+    const transaction = makeTransaction();
+    const inactiveAppointments = [
+      {
+        id: "a-cancelled", tenantId: "tenant-a", staffId: "staff-a", serviceId: "svc-a", customerProfileId: "c1",
+        startAt: validInput.startAt, endAt: new Date(validInput.startAt.getTime() + 75 * 60_000), status: "CANCELLED" as const,
+      },
+      {
+        id: "a-rejected", tenantId: "tenant-a", staffId: "staff-a", serviceId: "svc-a", customerProfileId: "c2",
+        startAt: validInput.startAt, endAt: new Date(validInput.startAt.getTime() + 75 * 60_000), status: "REJECTED" as const,
+      },
+    ];
+    transaction.appointment.findMany.mockResolvedValueOnce(inactiveAppointments);
+
+    const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
+    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("created");
+    expect(transaction.appointment.create).toHaveBeenCalledOnce();
+  });
 });
