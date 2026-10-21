@@ -22,10 +22,11 @@ type Tx = PrismaTenantTransactionClient & {
 
 export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient): PublicBookingRepository {
   return {
-    async create(tenantContext, input) {
+    async create(tenantContext: TenantContext, input) {
       try {
         return await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
-          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenantContext.tenantId + ":" + input.staffId + ":" + input.startAt.toISOString()}, 0))`;
+          // Serialize booking attempts per tenant + staff so overlapping start times cannot race.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenantContext.tenantId + ":" + input.staffId}, 0))`;
           const [tenant, service, staff, workingHours] = await Promise.all([
             tx.tenant.findUnique({ where: { id: tenantContext.tenantId } }),
             tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId } } }),
@@ -43,6 +44,7 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
             appointments: [],
             durationMinutes: service.durationMinutes,
             bufferMinutes: service.bufferMinutes,
+            now: new Date(),
           }).find((candidate) => candidate.startAt.getTime() === input.startAt.getTime());
           if (!slot) return "slot_unavailable";
           const conflicts = await tx.appointment.findMany({
