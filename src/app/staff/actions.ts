@@ -93,5 +93,6 @@ export async function decideStaffAppointment(
   }
   const checked = await staffAppointments(context.prisma, context.reader).decide(context.identity, context.tenantContext, appointmentId, to);
   if (checked.status !== "AUTHORIZED") return checked;
-  return booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, checked.appointment, to);
+  const result = await booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, checked.appointment, to);
+  return result.status === "updated" ? { ...result, tenantId: context.tenantContext.tenantId } : result;
 }
