@@ -106,7 +106,7 @@ describe("notification service", () => {
       { tenantId: "tenant-1" },
       expect.objectContaining({ errorCode: "RECIPIENT_PHONE_MISSING" }),
     );
-    expect(repository.claim).not.toHaveBeenCalled();
+    expect(repository.claim).toHaveBeenCalledOnce();
     expect(provider.send).not.toHaveBeenCalled();
   });
 
