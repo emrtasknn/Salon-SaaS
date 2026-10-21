@@ -11,8 +11,8 @@ import { createNextSupabaseServerClient } from "../../infrastructure/auth/supaba
 import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
-import { createAuthenticatedIdentity, type ApplicationIdentity } from "../../domain/auth-identity";
-import type { AppointmentRecord, AppointmentStatus } from "../../domain/appointment";
+import { createAuthenticatedIdentity } from "../../domain/auth-identity";
+import type { AppointmentStatus } from "../../domain/appointment";
 
 async function getStaffContext() {
   const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
@@ -41,7 +41,7 @@ function staffAppointments(prisma: ReturnType<typeof getPrisma>, reader: ReturnT
         const membership = await reader.readMembership({ tenantContext, identity });
         if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
         const staff = await prisma.staff.findUnique({ where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId: membership.membership.profileId } } });
-        return !!staff && staff.status === "ACTIVE" && staff.id === appointment.staffId && appointment.tenantId === tenantContext.tenantId;
+        return !!staff && staff.status === "ACTIVE" && staff.id === appointment.staffId && appointment.tenantId === tenantContext.tenantId && appointment.status === "PENDING";
       },
       async authorizeAdmin(identity, tenantContext) {
         const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
@@ -83,13 +83,15 @@ export async function listStaffAppointments(dateIso: string) {
 }
 
 export async function decideStaffAppointment(
-  appointment: AppointmentRecord,
+  appointmentId: string,
   to: Extract<AppointmentStatus, "CONFIRMED" | "REJECTED">,
 ) {
   const context = await getStaffContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
-  const checked = await staffAppointments(context.prisma, context.reader).decide(context.identity, context.tenantContext, appointment.id, to);
+  if (typeof appointmentId !== "string" || !appointmentId.trim() || appointmentId.length > 100 || /[\u0000-\u001f\u007f]/.test(appointmentId)) {
+    return { status: "INVALID_INPUT" as const };
+  }
+  const checked = await staffAppointments(context.prisma, context.reader).decide(context.identity, context.tenantContext, appointmentId, to);
   if (checked.status !== "AUTHORIZED") return checked;
-  // Use the server-loaded appointment that was authorized, not the client-supplied object.
   return booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, checked.appointment, to);
 }
