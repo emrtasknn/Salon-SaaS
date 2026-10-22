@@ -50,9 +50,25 @@ describe("prisma calendar crm repository", () => {
       },
     });
   });
-  
+
   it("loads tenant-scoped service and staff names for customer history", async () => {
-    const appointment = { findMany: vi.fn().mockResolvedValue([]) };
+    const startAt = new Date("2026-10-20T10:00:00Z");
+    const endAt = new Date("2026-10-20T10:30:00Z");
+    const appointmentRecord = {
+      id: "appointment-a",
+      tenantId: "tenant-a",
+      staffId: "staff-a",
+      serviceId: "service-a",
+      customerProfileId: "customer-a",
+      startAt,
+      endAt,
+      status: "CONFIRMED" as const,
+      staff: { profile: { displayName: "Merve Yılmaz" } },
+      service: { name: "Saç kesimi" },
+    };
+    const appointment = {
+      findMany: vi.fn().mockResolvedValue([appointmentRecord]),
+    };
     const profile = {
       findUnique: vi.fn().mockResolvedValue({
         id: "customer-a",
@@ -81,7 +97,27 @@ describe("prisma calendar crm repository", () => {
       "customer-a",
     );
 
-    expect(result).toMatchObject({ id: "customer-a", appointments: [], notes: [] });
+    expect(result).toMatchObject({
+      id: "customer-a",
+      appointments: [
+        {
+          id: "appointment-a",
+          tenantId: "tenant-a",
+          staffId: "staff-a",
+          serviceId: "service-a",
+          customerProfileId: "customer-a",
+          startAt,
+          endAt,
+          status: "CONFIRMED",
+          staffDisplayName: "Merve Yılmaz",
+          serviceName: "Saç kesimi",
+        },
+      ],
+      notes: [],
+    });
+    expect(profile.findUnique).toHaveBeenCalledWith({
+      where: { tenantId_id: { tenantId: "tenant-a", id: "customer-a" } },
+    });
     expect(appointment.findMany).toHaveBeenCalledWith({
       where: { tenantId: "tenant-a", customerProfileId: "customer-a" },
       orderBy: { startAt: "desc" },
@@ -90,6 +126,45 @@ describe("prisma calendar crm repository", () => {
         service: { select: { name: true } },
       },
     });
+    expect(customerNote.findMany).toHaveBeenCalledWith({
+      where: { tenantId: "tenant-a", customerProfileId: "customer-a" },
+      orderBy: { createdAt: "desc" },
+    });
   });
 
+  it("does not query history or notes for a customer outside the tenant", async () => {
+    const appointment = { findMany: vi.fn() };
+    const profile = { findUnique: vi.fn().mockResolvedValue(null) };
+    const customerNote = { findMany: vi.fn(), create: vi.fn() };
+    const transaction = {
+      $executeRaw: vi.fn().mockResolvedValue(0),
+      tenantMembership: { findUnique: vi.fn() },
+      appointment,
+      profile,
+      customerNote,
+    };
+    const prisma = {
+      $transaction: vi.fn(
+        async (callback: (value: typeof transaction) => Promise<unknown>) =>
+          callback(transaction),
+      ),
+    } as unknown as PrismaTenantClient;
+
+    const result = await createPrismaCalendarCrmRepository(prisma).customerCard(
+      { tenantId: "tenant-a" as never },
+      "customer-from-tenant-b",
+    );
+
+    expect(result).toBeNull();
+    expect(profile.findUnique).toHaveBeenCalledWith({
+      where: {
+        tenantId_id: {
+          tenantId: "tenant-a",
+          id: "customer-from-tenant-b",
+        },
+      },
+    });
+    expect(appointment.findMany).not.toHaveBeenCalled();
+    expect(customerNote.findMany).not.toHaveBeenCalled();
+  });
 });
