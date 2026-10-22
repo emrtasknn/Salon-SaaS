@@ -1,6 +1,6 @@
 # W11 — Pilot Readiness & Production Hardening
 
-Status: ARCHITECT PLAN — HUMAN APPROVAL REQUIRED BEFORE BUILDER IMPLEMENTATION
+Status: IN PROGRESS — progress checkpoint updated 2026-10-22. This document records merged work and remaining gates; it is not a production-readiness approval.
 
 ## 1. Objective
 
@@ -17,6 +17,33 @@ Validated baseline:
 - current product flow: Tenant → Staff → Services → Working Hours → Public Vitrin → Customer Booking → Admin Calendar → Staff Decision → Appointment Lifecycle → Customer History → WhatsApp boundary
 
 W10 completion is not production readiness. Real Supabase, real Meta WhatsApp, pilot security validation, UX hardening, PWA/Web Push, and production preparation remain.
+
+## 2A. Progress checkpoint — 2026-10-22
+
+### Merged implementation evidence
+
+- **PR #97 (merged):** corrected the tenant-aware setup/cleanup for forced-RLS integration fixtures and expanded RLS coverage to include WhatsAppIntegration. GitHub Actions ran on isolated PostgreSQL 17; 52 test files and 241 tests passed, including all 5 RLS integration tests. This validates that CI suite, not the full real-pilot two-tenant acceptance journey.
+- **PR #98 (merged):** staff provisioning binds the newly created Auth user to the trusted tenant using the existing server-side binding adapter; binding/persistence failure paths fail closed and compensate/rollback as covered by automated tests. The existing Pilot Staff account still requires a separate controlled repair; no automatic real-account repair is implied.
+- **PR #99 (merged):** admin calendar entries show staff/customer/service display names and admin management links to the calendar. Local validation reported typecheck passed, 237 tests passed, 5 RLS integration tests skipped, and diff check passed. The calendar UI and appointment completion action were manually exercised in the local browser.
+
+### W11 status — do not infer completion from merged PRs alone
+
+| Workstream | Current status | Remaining gate |
+|---|---|---|
+| W11.1 Architecture audit | Findings and guardrails documented in the existing W11/architecture documents | Reconfirm current main/CI and resolve any audit blockers before scope-sensitive work |
+| W11.2 Public booking UX | Existing booking path is operational enough for the documented real pilot booking; full UX-hardening scope is not declared complete here | Catalog-driven flow, timezone clarity, conflict/error states, and server-result fidelity need explicit acceptance evidence |
+| W11.3 CRM list/search | Existing customer history/notes foundation is present | Full list → search → detail → history → notes acceptance remains to be verified |
+| W11.4 Real Supabase | Final closeout with one documented blocker | Create second real tenant through the supported provisioning boundary and validate authenticated cross-tenant public booking; do not manually seed tenant records |
+| W11.5 Real Meta WhatsApp | Real-provider validation is not evidenced by PRs #97–#99 | Validate approved templates, outbound delivery, provider IDs, failure behavior, idempotency, and staff/customer recipients against real Meta |
+| W11.6 Webhook routing | OPEN; C3 decision required before implementation/migration | Human approval of tenant-scoped integration and status mapping; READ remains non-mutating |
+| W11.7 Two-tenant regression | PR #97's RLS integration suite is green in CI; full W11.7 application-level acceptance is not claimed complete | Verify the complete Tenant A/B matrix across application surfaces, direct IDs, staff actions, public booking, and missing/inactive context |
+| W11.10 PWA | Planned; completion not established by these PRs | Complete approved PWA foundation and responsive/mobile QA |
+| W11.11 Web Push | Architecture-gated planned work | C3 approval before persistence/routing implementation, then tenant/profile/RLS regression |
+| W11.8 Pilot acceptance | BLOCKED until prerequisites and real-device/provider evidence are available | Run the full acceptance matrix; BLOCKED scenarios cannot be marked PASS |
+| W11.9 Production readiness | NOT APPROVED | All production gates plus explicit human production approval |
+
+The local PR #99 test run skipped the five RLS integration tests; use the successful CI run from PR #97 as the relevant evidence for that suite. Neither result substitutes for real Supabase cross-tenant pilot acceptance or real Meta delivery validation.
+
 
 ## 3. Governing constraints
 

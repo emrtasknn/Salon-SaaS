@@ -41,6 +41,26 @@ The foundation establishes the security and tenancy boundary required before pro
 
 The current project has substantially completed this foundation and has completed the real Supabase pilot work documented in the repository.
 
+## Current Implementation Checkpoint — 2026-10-22
+
+This checkpoint records merged implementation and validation evidence. It does not override the detailed W11 plans or imply pilot/production readiness.
+
+### Recently completed and merged
+
+- **PR #97 — RLS integration test harness:** fixed tenant-context-aware fixture setup/cleanup and expanded WhatsAppIntegration coverage for tenant read isolation, missing tenant context, and cross-tenant mutation. GitHub Actions validated on isolated PostgreSQL 17: 52 test files passed and 241 tests passed, including all 5 RLS integration tests. This is CI database evidence, not proof that the full two-real-tenant pilot scenario has passed.
+- **PR #98 — staff Auth/tenant binding:** staff provisioning now binds the new Auth user to the trusted tenant through the existing server-side adapter, fails closed and compensates when binding fails, and rolls back a new binding when staff persistence conflicts. This does not automatically repair the existing Pilot Staff account; that remains a separate controlled follow-up.
+- **PR #99 — admin calendar display names:** the admin calendar now displays staff, customer, and service names instead of raw IDs, and admin management links to the calendar. Local typecheck and test evidence was reported; 237 tests passed and 5 RLS integration tests were skipped in that local run. The calendar workflow was manually exercised in the local browser, including completing an appointment.
+
+### Remaining W11 gates
+
+- **W11.4:** real Supabase pilot work is at final closeout, but the documented two-real-tenant cross-tenant pilot scenario and authenticated cross-tenant public-booking scenario remain blocked until a second tenant is created through the supported provisioning boundary.
+- **W11.5:** real Meta WhatsApp outbound template, delivery, failure, idempotency, and recipient-routing validation must be supported by real-provider evidence; mocks/CI alone are insufficient.
+- **W11.6:** webhook status persistence remains gated on explicit C3 approval of tenant routing. Do not generate/apply its migration before approval; READ remains non-mutating and providerMessageId must not become globally unique without a separate decision.
+- **W11.7:** PR #97 improves and validates the database/RLS integration suite, but the full application-level two-tenant security regression acceptance has not been declared complete.
+- **W11.10 / W11.11:** PWA foundation and Web Push remain planned work subject to their documented architecture gates.
+- **W11.8:** end-to-end pilot acceptance remains blocked by the mandatory external prerequisites and real-device evidence.
+- **W11.9:** production readiness/deployment is not approved; all listed gates and explicit human approval remain mandatory.
+
 ## MVP Product Critical Path
 
 ```
