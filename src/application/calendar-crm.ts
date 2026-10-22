@@ -39,7 +39,7 @@ export type CalendarRepository = Readonly<{
     displayName: string;
     email: string | null;
     phone: string | null;
-    appointments: ReadonlyArray<AppointmentRecord>;
+    appointments: ReadonlyArray<AppointmentRecord & Readonly<{ staffDisplayName: string; serviceName: string }>>;
     notes: ReadonlyArray<
       Readonly<{ id: string; body: string; createdAt: Date }>
     >;
