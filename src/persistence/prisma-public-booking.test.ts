@@ -46,7 +46,7 @@ const validInput = {
 describe("public booking repository", () => {
   it("uses tenant context, advisory lock and creates a pending appointment", async () => {
     const transaction = makeTransaction();
-    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("created");
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toEqual({ status: "created", appointmentId: "a" });
     expect(transaction.$executeRaw).toHaveBeenCalled();
   });
 
@@ -59,7 +59,7 @@ describe("public booking repository", () => {
     transaction.appointment.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([existingAppointment]);
 
     const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
-    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("created");
+    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toEqual({ status: "created", appointmentId: "a" });
     await expect(repository.create({ tenantId: "tenant-a" as never }, {
       ...validInput,
       startAt: new Date(validInput.startAt.getTime() + 15 * 60_000),
@@ -136,7 +136,7 @@ describe("public booking repository", () => {
     transaction.appointment.findMany.mockResolvedValueOnce(inactiveAppointments);
 
     const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
-    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("created");
+    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toEqual({ status: "created", appointmentId: "a" });
     expect(transaction.appointment.create).toHaveBeenCalledOnce();
   });
 });
