@@ -7,6 +7,7 @@ import {
   type StaffStatus,
 } from "../domain/staff";
 import type { AuthAdminProvisioner } from "../infrastructure/auth/supabase-admin-auth";
+import type { TenantAdminAuthBinding } from "./tenant-admin-auth-binding";
 
 type StaffManageRole = Extract<TenantRole, "TENANT_ADMIN" | "SUPER_ADMIN">;
 
@@ -72,6 +73,8 @@ export type StaffManagementResult =
         | "UNAUTHORIZED"
         | "INVALID_INPUT"
         | "AUTH_PROVISIONING_FAILED"
+        | "AUTH_BINDING_FAILED"
+        | "AUTH_BINDING_ROLLBACK_FAILED"
         | "PERSISTENCE_FAILURE"
         | "COMPENSATION_FAILED"
         | "NOT_FOUND"
@@ -91,6 +94,7 @@ export function createStaffManager(
   dependencies: Readonly<{
     authorizer: StaffManagementAuthorizer;
     authProvisioner: AuthAdminProvisioner;
+    authBinding: TenantAdminAuthBinding;
     repository: StaffRepository;
   }>,
 ) {
@@ -126,6 +130,19 @@ export function createStaffManager(
       if (auth.status === "failed")
         return { status: "AUTH_PROVISIONING_FAILED" };
 
+      const binding = await dependencies.authBinding.bindTenant(
+        auth.subjectId,
+        input.tenantContext.tenantId,
+      );
+      if (binding.status === "failed") {
+        const compensation = await dependencies.authProvisioner.compensate(
+          auth.subjectId,
+        );
+        return compensation.status === "failed"
+          ? { status: "COMPENSATION_FAILED" }
+          : { status: "AUTH_BINDING_FAILED" };
+      }
+
       const persisted = await dependencies.repository.create({
         tenantId: input.tenantContext.tenantId,
         subjectId: auth.subjectId,
@@ -134,6 +151,15 @@ export function createStaffManager(
         phone,
       });
       if (persisted.status === "created") return persisted;
+
+      if (binding.status === "bound") {
+        const rollback = await dependencies.authBinding.rollbackTenantBinding(
+          auth.subjectId,
+          input.tenantContext.tenantId,
+        );
+        if (rollback.status === "failed")
+          return { status: "AUTH_BINDING_ROLLBACK_FAILED" };
+      }
 
       const compensation = await dependencies.authProvisioner.compensate(
         auth.subjectId,
