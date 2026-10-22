@@ -50,4 +50,46 @@ describe("prisma calendar crm repository", () => {
       },
     });
   });
+  
+  it("loads tenant-scoped service and staff names for customer history", async () => {
+    const appointment = { findMany: vi.fn().mockResolvedValue([]) };
+    const profile = {
+      findUnique: vi.fn().mockResolvedValue({
+        id: "customer-a",
+        displayName: "Ada",
+        email: null,
+        phone: null,
+      }),
+    };
+    const customerNote = { findMany: vi.fn().mockResolvedValue([]), create: vi.fn() };
+    const transaction = {
+      $executeRaw: vi.fn().mockResolvedValue(0),
+      tenantMembership: { findUnique: vi.fn() },
+      appointment,
+      profile,
+      customerNote,
+    };
+    const prisma = {
+      $transaction: vi.fn(
+        async (callback: (value: typeof transaction) => Promise<unknown>) =>
+          callback(transaction),
+      ),
+    } as unknown as PrismaTenantClient;
+
+    const result = await createPrismaCalendarCrmRepository(prisma).customerCard(
+      { tenantId: "tenant-a" as never },
+      "customer-a",
+    );
+
+    expect(result).toMatchObject({ id: "customer-a", appointments: [], notes: [] });
+    expect(appointment.findMany).toHaveBeenCalledWith({
+      where: { tenantId: "tenant-a", customerProfileId: "customer-a" },
+      orderBy: { startAt: "desc" },
+      include: {
+        staff: { include: { profile: { select: { displayName: true } } } },
+        service: { select: { name: true } },
+      },
+    });
+  });
+
 });
