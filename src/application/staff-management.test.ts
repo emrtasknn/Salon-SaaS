@@ -20,6 +20,10 @@ function deps() {
       }),
       compensate: vi.fn().mockResolvedValue({ status: "compensated" }),
     },
+    authBinding: {
+      bindTenant: vi.fn().mockResolvedValue({ status: "bound" }),
+      rollbackTenantBinding: vi.fn().mockResolvedValue({ status: "rolled_back" }),
+    },
     repository: {
       create: vi.fn().mockResolvedValue({
         status: "created",
@@ -55,9 +59,11 @@ describe("staff management", () => {
       displayName: "Ada",
       tenantId: "tenant-1",
     });
+    expect(d.authBinding.bindTenant).toHaveBeenCalledWith("subject-2", "tenant-1");
     expect(d.repository.create).toHaveBeenCalledWith(
       expect.objectContaining({ subjectId: "subject-2" }),
     );
+    expect(d.authBinding.rollbackTenantBinding).toHaveBeenCalledWith("subject-2", "tenant-1");
     expect(d.authProvisioner.compensate).toHaveBeenCalledWith("subject-2");
   });
 
@@ -73,6 +79,25 @@ describe("staff management", () => {
     });
 
     expect(result.status).toBe("COMPENSATION_FAILED");
+    expect(d.authProvisioner.compensate).toHaveBeenCalledWith("subject-2");
+  });
+
+  it("compensates the auth user and does not persist when tenant binding fails", async () => {
+    const d = deps();
+    d.authBinding.bindTenant.mockResolvedValue({
+      status: "failed",
+      reason: "PROVIDER_REJECTED",
+    });
+
+    const result = await createStaffManager(d).create({
+      identity,
+      tenantContext,
+      displayName: "Ada",
+      email: "ada@example.com",
+    });
+
+    expect(result.status).toBe("AUTH_BINDING_FAILED");
+    expect(d.repository.create).not.toHaveBeenCalled();
     expect(d.authProvisioner.compensate).toHaveBeenCalledWith("subject-2");
   });
 
