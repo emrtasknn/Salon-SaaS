@@ -136,7 +136,7 @@ describe("public booking repository", () => {
     transaction.appointment.findMany.mockResolvedValueOnce(inactiveAppointments);
 
     const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
-    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("created");
+    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toEqual({ status: "created", appointmentId: "a" });
     expect(transaction.appointment.create).toHaveBeenCalledOnce();
   });
 });
