@@ -9,9 +9,9 @@ const validInput = {
 
 describe("public booking", () => {
   it("validates customer input before persistence", async () => {
-    const repository = { create: vi.fn().mockResolvedValue("created") };
+    const repository = { create: vi.fn().mockResolvedValue({ status: "created", appointmentId: "appointment-a" }) };
     const result = await createPublicBooking(repository).create(tenant, validInput);
-    expect(result).toEqual({ status: "created" });
+    expect(result).toEqual({ status: "created", appointmentId: "appointment-a" });
     expect(repository.create).toHaveBeenCalled();
   });
 
