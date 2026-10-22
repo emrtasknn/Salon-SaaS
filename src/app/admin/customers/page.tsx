@@ -39,9 +39,17 @@ export default async function CustomerPage({
             {result.customer.appointments.length ? (
               <div className="mt-4 space-y-2">
                 {result.customer.appointments.map((appointment) => (
-                  <div key={appointment.id} className="flex justify-between rounded-lg border p-3 text-sm">
-                    <span>{new Date(appointment.startAt).toLocaleString("tr-TR")}</span>
-                    <span>{appointment.status}</span>
+                  <div key={appointment.id} className="rounded-lg border p-3 text-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <span className="font-medium">{appointment.serviceName}</span>
+                      <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs">{appointment.status}</span>
+                    </div>
+                    <div className="mt-2 text-zinc-600">
+                      {new Date(appointment.startAt).toLocaleString("tr-TR")}
+                    </div>
+                    <div className="mt-1 text-zinc-500">
+                      Personel: {appointment.staffDisplayName}
+                    </div>
                   </div>
                 ))}
               </div>
