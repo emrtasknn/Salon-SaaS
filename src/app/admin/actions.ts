@@ -14,6 +14,7 @@ import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-au
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
 import { createSupabaseAdminAuthProvisioner } from "../../infrastructure/auth/supabase-admin-auth";
+import { createSupabaseTenantAdminAuthBinding } from "../../infrastructure/auth/supabase-tenant-admin-binding";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 
 async function getAdminContext() {
@@ -99,6 +100,10 @@ function staff(prisma: ReturnType<typeof getPrisma>) {
       },
     },
     authProvisioner: createSupabaseAdminAuthProvisioner({
+      url,
+      serviceRoleKey,
+    }),
+    authBinding: createSupabaseTenantAdminAuthBinding({
       url,
       serviceRoleKey,
     }),
