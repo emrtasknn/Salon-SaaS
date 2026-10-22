@@ -26,6 +26,16 @@ type CalendarAppointmentResult = AppointmentRecord & {
   serviceName: string;
 };
 
+type CustomerHistoryAppointmentRecord = AppointmentRecord & {
+  staff: { profile: { displayName: string } };
+  service: { name: string };
+};
+
+type CustomerHistoryAppointmentResult = AppointmentRecord & {
+  staffDisplayName: string;
+  serviceName: string;
+};
+
 type Tx = PrismaTenantTransactionClient & {
   appointment: {
     findMany(args: {
@@ -237,6 +247,14 @@ export function createPrismaCalendarCrmRepository(
               customerProfileId,
             },
             orderBy: { startAt: "desc" },
+            include: {
+              staff: {
+                include: {
+                  profile: { select: { displayName: true } },
+                },
+              },
+              service: { select: { name: true } },
+            },
           }),
           tx.customerNote.findMany({
             where: {
@@ -247,7 +265,26 @@ export function createPrismaCalendarCrmRepository(
           }),
         ]);
 
-        return { ...profile, appointments, notes };
+        const history: CustomerHistoryAppointmentResult[] = appointments.map((appointment) => {
+          if (!("staff" in appointment) || !("service" in appointment)) {
+            throw new Error("Customer history relations were not loaded");
+          }
+          const related = appointment as CustomerHistoryAppointmentRecord;
+          return {
+            id: related.id,
+            tenantId: related.tenantId,
+            staffId: related.staffId,
+            serviceId: related.serviceId,
+            customerProfileId: related.customerProfileId,
+            startAt: related.startAt,
+            endAt: related.endAt,
+            status: related.status,
+            staffDisplayName: related.staff.profile.displayName,
+            serviceName: related.service.name,
+          };
+        });
+
+        return { ...profile, appointments: history, notes };
       });
     },
 
