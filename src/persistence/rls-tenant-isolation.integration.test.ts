@@ -287,8 +287,21 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
 
       if (roleCreated) {
         try {
+          for (const table of [
+            "Profile",
+            "TenantMembership",
+            "Staff",
+            "Service",
+            "WorkingHours",
+            "Appointment",
+            "CustomerNote",
+            "NotificationDelivery",
+            "WhatsAppIntegration",
+          ]) {
+            await pool.query(`REVOKE SELECT, UPDATE, DELETE ON "${table}" FROM "${role}"`);
+          }
+          await pool.query(`REVOKE USAGE ON SCHEMA public FROM "${role}"`);
           await pool.query(`REVOKE "${role}" FROM CURRENT_USER`);
-          await pool.query(`DROP OWNED BY "${role}"`);
           await pool.query(`DROP ROLE IF EXISTS "${role}"`);
         } catch (error) {
           cleanupErrors.push(`test role cleanup failed: ${String(error)}`);
