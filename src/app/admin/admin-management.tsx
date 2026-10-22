@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
 import {
@@ -95,6 +96,12 @@ export function AdminManagement({ initialData }: Props) {
               yönetin.
             </p>
           </div>
+          <Link
+            href="/admin/calendar"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+          >
+            Randevu takvimi
+          </Link>
           <div className="flex gap-2">
             <button
               className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
@@ -178,7 +185,9 @@ export function AdminManagement({ initialData }: Props) {
                   >
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{item.displayName}</p>
+                        <p className="truncate font-medium">
+                          {item.displayName}
+                        </p>
                         <p className="text-xs text-zinc-500">
                           {item.phone || "Telefon belirtilmemiş"}
                         </p>
@@ -201,17 +210,24 @@ export function AdminManagement({ initialData }: Props) {
                           })
                         }
                       >
-                        {item.status === "ACTIVE" ? "Pasifleştir" : "Aktifleştir"}
+                        {item.status === "ACTIVE"
+                          ? "Pasifleştir"
+                          : "Aktifleştir"}
                       </button>
                     </div>
                     <form
                       className="space-y-2 border-t border-zinc-200 pt-3"
                       action={(formData) =>
                         startTransition(async () => {
-                          const result = await updateStaffProfileAction(item.id, {
-                            displayName: String(formData.get("displayName") ?? ""),
-                            phone: String(formData.get("phone") ?? ""),
-                          });
+                          const result = await updateStaffProfileAction(
+                            item.id,
+                            {
+                              displayName: String(
+                                formData.get("displayName") ?? "",
+                              ),
+                              phone: String(formData.get("phone") ?? ""),
+                            },
+                          );
                           setFeedback(
                             result.status === "updated"
                               ? "Personel bilgileri güncellendi."
@@ -309,7 +325,8 @@ export function AdminManagement({ initialData }: Props) {
                       <div className="min-w-0">
                         <p className="truncate font-medium">{item.name}</p>
                         <p className="text-xs text-zinc-500">
-                          {item.durationMinutes} dk · {item.bufferMinutes} dk ara
+                          {item.durationMinutes} dk · {item.bufferMinutes} dk
+                          ara
                         </p>
                         <p className="text-xs text-zinc-500">
                           {item.active ? "Aktif" : "Pasif"}
