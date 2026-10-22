@@ -54,7 +54,7 @@ This checkpoint records merged implementation and validation evidence. It does n
 ### Remaining W11 gates
 
 - **W11.4:** real Supabase pilot work is at final closeout, but the documented two-real-tenant cross-tenant pilot scenario and authenticated cross-tenant public-booking scenario remain blocked until a second tenant is created through the supported provisioning boundary.
-- **W11.5:** real Meta WhatsApp outbound template, delivery, failure, idempotency, and recipient-routing validation must be supported by real-provider evidence; mocks/CI alone are insufficient.
+- **W11.5:** real Meta WhatsApp outbound template, delivery, failure, idempotency, and recipient-routing validation must be supported by real-provider evidence; mocks/CI alone are insufficient. Validate the approved Randevu'N shared-account direction only after the provider architecture decision is reconciled with ADR-042.
 - **W11.6:** webhook status persistence remains gated on explicit C3 approval of tenant routing. Do not generate/apply its migration before approval; READ remains non-mutating and providerMessageId must not become globally unique without a separate decision.
 - **W11.7:** PR #97 improves and validates the database/RLS integration suite, but the full application-level two-tenant security regression acceptance has not been declared complete.
 - **W11.10 / W11.11:** PWA foundation and Web Push remain planned work subject to their documented architecture gates.
@@ -286,11 +286,21 @@ MVP v1 is reached only after the real-salon journey is usable and the critical s
 - calendar UX
 - customer UX
 - notification improvements
-- WhatsApp
+- configurable WhatsApp appointment reminders (business-configurable timing, rescheduling/cancellation handling, idempotency, and visible delivery status)
+- business-customizable WhatsApp message templates, dynamic placeholders, preview/testing, and Meta template approval/status lifecycle
 - SMS
 - review requests
 - operational polish
 - real-user bug fixing
+
+### WhatsApp product direction — agreed, implementation not yet authorized by this roadmap edit
+
+- **Initial account model:** use one platform-managed Randevu'N WhatsApp Business account/number to send appointment notifications to the relevant staff member, salon owner, and customer. A separate WhatsApp Business account for every salon is not an MVP prerequisite under this product direction.
+- **Initial template scope:** use centrally managed, Meta-approved templates with dynamic appointment/tenant-specific parameters. Resolve recipients and message parameters server-side from trusted appointment and tenant data.
+- **Tenant isolation:** persist and resolve each tenant's notification configuration, template mapping, delivery records, and idempotency keys in tenant scope. A template mapping/configuration for one tenant must never be selected for another tenant. Never trust client-supplied tenant IDs, recipient numbers, or template identifiers for authorization.
+- **Post-MVP:** allow each salon to customize message content and manage template submission/review/approval states. Do not send a template that is not approved and enabled for the applicable send.
+- **Reminder scheduling:** business-configurable reminder timing and reminder lifecycle/status visibility are productization work, separate from the initial event-notification flow. Appointment changes/cancellations must safely reschedule or suppress pending reminders.
+- **Architecture dependency:** this shared platform-managed account direction conflicts with the current tenant-owned WhatsApp assets assumption in `docs/ADR-042-META-WHATSAPP-CLOUD-API.md`. Reconcile ADR-042 through architecture review before implementing account ownership/onboarding changes. This roadmap update does not itself approve provider credentials, webhook routing, schema migrations, or other C2/C3 changes.
 
 Principle:
 
