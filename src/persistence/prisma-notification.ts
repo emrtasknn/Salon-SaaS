@@ -35,7 +35,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
         const time = new Intl.DateTimeFormat("tr-TR", { timeZone: tenant.timezone, dateStyle: "short", timeStyle: "short" }).format(appointment.startAt);
         if (eventType === "APPOINTMENT_CREATED") return [
           { profileId: staff.profileId, displayName: staff.displayName, phone: staff.phone, templateKey: "appointment-created-staff", body: `Yeni randevu talebi: ${customer.displayName} — ${serviceName} — ${time}. Onay bekliyor.`, templateParameters: [customer.displayName, serviceName, time] },
-          { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [serviceName, time] },
+          { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [serviceName, time, staff.displayName] },
         ];
         return [{ profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone,
           templateKey: eventType === "APPOINTMENT_CONFIRMED" ? "appointment-confirmed-customer" : "appointment-rejected-customer",
