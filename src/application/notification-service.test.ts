@@ -4,49 +4,110 @@ import { createMockWhatsAppProvider } from "../infrastructure/notifications";
 
 describe("notification service", () => {
   it("sends created notifications to staff and customer", async () => {
-    const calls: Array<Readonly<{ to: string; body: string; templateKey: string; templateParameters: ReadonlyArray<string> }>> = [];
+    const calls: Array<
+      Readonly<{
+        to: string;
+        body: string;
+        templateKey: string;
+        templateParameters: ReadonlyArray<string>;
+      }>
+    > = [];
     const repository = {
       recipients: vi.fn().mockResolvedValue([
-        { profileId: "s", displayName: "Staff", phone: "+90555", templateKey: "staff", body: "pending", templateParameters: [] },
-        { profileId: "c", displayName: "Customer", phone: "+90556", templateKey: "customer", body: "created", templateParameters: [] },
+        {
+          profileId: "s",
+          displayName: "Staff",
+          phone: "+90555",
+          templateKey: "staff",
+          body: "pending",
+          templateParameters: [],
+        },
+        {
+          profileId: "c",
+          displayName: "Customer",
+          phone: "+90556",
+          templateKey: "customer",
+          body: "created",
+          templateParameters: [],
+        },
       ]),
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn(),
     };
-    const result = await createNotificationService({ repository, provider: createMockWhatsAppProvider(calls) })
-      .publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CREATED");
-    expect(result.results).toEqual([{ profileId: "s", status: "SENT" }, { profileId: "c", status: "SENT" }]);
+    const result = await createNotificationService({
+      repository,
+      provider: createMockWhatsAppProvider(calls),
+    }).publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CREATED");
+    expect(result.results).toEqual([
+      { profileId: "s", status: "SENT" },
+      { profileId: "c", status: "SENT" },
+    ]);
     expect(calls).toHaveLength(2);
   });
 
   it("does not duplicate an already sent delivery", async () => {
     const provider = { channel: "WHATSAPP" as const, send: vi.fn() };
     const repository = {
-      recipients: vi.fn().mockResolvedValue([{ profileId: "c", displayName: "C", phone: "+1", templateKey: "x", body: "x", templateParameters: [] }]),
+      recipients: vi.fn().mockResolvedValue([
+        {
+          profileId: "c",
+          displayName: "C",
+          phone: "+1",
+          templateKey: "x",
+          body: "x",
+          templateParameters: [],
+        },
+      ]),
       claim: vi.fn().mockResolvedValue("already_sent"),
-      markSent: vi.fn(), markFailed: vi.fn(),
+      markSent: vi.fn(),
+      markFailed: vi.fn(),
     };
-    const result = await createNotificationService({ repository, provider }).publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CONFIRMED");
+    const result = await createNotificationService({
+      repository,
+      provider,
+    }).publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CONFIRMED");
     expect(result.results).toEqual([{ profileId: "c", status: "SENT" }]);
     expect(provider.send).not.toHaveBeenCalled();
   });
 
   it("sends a rejected-appointment notification to the customer", async () => {
-    const calls: Array<Readonly<{ to: string; body: string; templateKey: string; templateParameters: ReadonlyArray<string> }>> = [];
+    const calls: Array<
+      Readonly<{
+        to: string;
+        body: string;
+        templateKey: string;
+        templateParameters: ReadonlyArray<string>;
+      }>
+    > = [];
     const repository = {
       recipients: vi.fn().mockResolvedValue([
-        { profileId: "customer-1", displayName: "Customer", phone: "+905551112233", templateKey: "appointment-rejected-customer", body: "Randevu talebiniz onaylanmadı.", templateParameters: ["Kesim", "21.10.2026 14:00"] },
+        {
+          profileId: "customer-1",
+          displayName: "Customer",
+          phone: "+905551112233",
+          templateKey: "appointment-rejected-customer",
+          body: "Randevu talebiniz onaylanmadı.",
+          templateParameters: ["Kesim", "21.10.2026 14:00"],
+        },
       ]),
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn().mockResolvedValue(undefined),
     };
 
-    const result = await createNotificationService({ repository, provider: createMockWhatsAppProvider(calls) })
-      .publish({ tenantId: "tenant-1" as never }, "appointment-1", "APPOINTMENT_REJECTED");
+    const result = await createNotificationService({
+      repository,
+      provider: createMockWhatsAppProvider(calls),
+    }).publish(
+      { tenantId: "tenant-1" as never },
+      "appointment-1",
+      "APPOINTMENT_REJECTED",
+    );
 
-    expect(result.results).toEqual([{ profileId: "customer-1", status: "SENT" }]);
+    expect(result.results).toEqual([
+      { profileId: "customer-1", status: "SENT" },
+    ]);
     expect(repository.recipients).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
       "appointment-1",
@@ -56,25 +117,47 @@ describe("notification service", () => {
     expect(calls[0].templateKey).toBe("appointment-rejected-customer");
     expect(repository.markSent).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
-      expect.objectContaining({ appointmentId: "appointment-1", eventType: "APPOINTMENT_REJECTED", recipientProfileId: "customer-1" }),
+      expect.objectContaining({
+        appointmentId: "appointment-1",
+        eventType: "APPOINTMENT_REJECTED",
+        recipientProfileId: "customer-1",
+      }),
     );
   });
 
   it("marks a rejected-appointment delivery failed when the provider throws", async () => {
     const repository = {
       recipients: vi.fn().mockResolvedValue([
-        { profileId: "customer-1", displayName: "Customer", phone: "+905551112233", templateKey: "appointment-rejected-customer", body: "Randevu talebiniz onaylanmadı.", templateParameters: [] },
+        {
+          profileId: "customer-1",
+          displayName: "Customer",
+          phone: "+905551112233",
+          templateKey: "appointment-rejected-customer",
+          body: "Randevu talebiniz onaylanmadı.",
+          templateParameters: [],
+        },
       ]),
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn(),
       markFailed: vi.fn().mockResolvedValue(undefined),
     };
-    const provider = { channel: "WHATSAPP" as const, send: vi.fn().mockRejectedValue(new Error("provider unavailable")) };
+    const provider = {
+      channel: "WHATSAPP" as const,
+      send: vi.fn().mockRejectedValue(new Error("provider unavailable")),
+    };
 
-    const result = await createNotificationService({ repository, provider })
-      .publish({ tenantId: "tenant-1" as never }, "appointment-1", "APPOINTMENT_REJECTED");
+    const result = await createNotificationService({
+      repository,
+      provider,
+    }).publish(
+      { tenantId: "tenant-1" as never },
+      "appointment-1",
+      "APPOINTMENT_REJECTED",
+    );
 
-    expect(result.results).toEqual([{ profileId: "customer-1", status: "FAILED" }]);
+    expect(result.results).toEqual([
+      { profileId: "customer-1", status: "FAILED" },
+    ]);
     expect(repository.markFailed).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
       expect.objectContaining({
@@ -90,7 +173,14 @@ describe("notification service", () => {
   it("reports a missing recipient phone without calling the provider", async () => {
     const repository = {
       recipients: vi.fn().mockResolvedValue([
-        { profileId: "customer-1", displayName: "Customer", phone: null, templateKey: "appointment-rejected-customer", body: "Randevu talebiniz onaylanmadı.", templateParameters: [] },
+        {
+          profileId: "customer-1",
+          displayName: "Customer",
+          phone: null,
+          templateKey: "appointment-rejected-customer",
+          body: "Randevu talebiniz onaylanmadı.",
+          templateParameters: [],
+        },
       ]),
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn(),
@@ -98,10 +188,18 @@ describe("notification service", () => {
     };
     const provider = { channel: "WHATSAPP" as const, send: vi.fn() };
 
-    const result = await createNotificationService({ repository, provider })
-      .publish({ tenantId: "tenant-1" as never }, "appointment-1", "APPOINTMENT_REJECTED");
+    const result = await createNotificationService({
+      repository,
+      provider,
+    }).publish(
+      { tenantId: "tenant-1" as never },
+      "appointment-1",
+      "APPOINTMENT_REJECTED",
+    );
 
-    expect(result.results).toEqual([{ profileId: "customer-1", status: "FAILED" }]);
+    expect(result.results).toEqual([
+      { profileId: "customer-1", status: "FAILED" },
+    ]);
     expect(repository.markFailed).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
       expect.objectContaining({ errorCode: "RECIPIENT_PHONE_MISSING" }),
@@ -109,5 +207,42 @@ describe("notification service", () => {
     expect(repository.claim).toHaveBeenCalledOnce();
     expect(provider.send).not.toHaveBeenCalled();
   });
+  it("does not mark a delivery failed when persistence fails after provider acceptance", async () => {
+    const repository = {
+      recipients: vi.fn().mockResolvedValue([
+        {
+          profileId: "customer-1",
+          displayName: "Customer",
+          phone: "+905551112233",
+          templateKey: "appointment-confirmed-customer",
+          body: "Randevunuz onaylandı.",
+          templateParameters: [],
+        },
+      ]),
+      claim: vi.fn().mockResolvedValue("claimed"),
+      markSent: vi.fn().mockRejectedValue(new Error("database unavailable")),
+      markFailed: vi.fn().mockResolvedValue(undefined),
+    };
 
+    const provider = {
+      channel: "WHATSAPP" as const,
+      send: vi.fn().mockResolvedValue({
+        providerMessageId: "wamid.test",
+      }),
+    };
+
+    const service = createNotificationService({ repository, provider });
+
+    await expect(
+      service.publish(
+        { tenantId: "tenant-1" as never },
+        "appointment-1",
+        "APPOINTMENT_CONFIRMED",
+      ),
+    ).rejects.toThrow("database unavailable");
+
+    expect(provider.send).toHaveBeenCalledOnce();
+    expect(repository.markSent).toHaveBeenCalledOnce();
+    expect(repository.markFailed).not.toHaveBeenCalled();
+  });
 });
