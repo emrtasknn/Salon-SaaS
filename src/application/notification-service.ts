@@ -3,52 +3,128 @@ import type { NotificationEventType } from "../domain/notification";
 import type { NotificationProvider } from "../infrastructure/notifications";
 
 export type NotificationRepository = Readonly<{
-  recipients(tenantContext: TenantContext, appointmentId: string, eventType: NotificationEventType): Promise<ReadonlyArray<{
-    profileId: string; displayName: string; phone: string | null; templateKey: string; body: string; templateParameters: ReadonlyArray<string>;
-  }>>;
-  claim(tenantContext: TenantContext, input: Readonly<{
-    appointmentId: string; eventType: NotificationEventType; channel: "WHATSAPP"; recipientProfileId: string; templateKey: string;
-  }>): Promise<"claimed" | "already_sent" | "already_pending">;
-  markSent(tenantContext: TenantContext, input: Readonly<{
-    appointmentId: string; eventType: NotificationEventType; channel: "WHATSAPP"; recipientProfileId: string; providerMessageId: string;
-  }>): Promise<void>;
-  markFailed(tenantContext: TenantContext, input: Readonly<{
-    appointmentId: string; eventType: NotificationEventType; channel: "WHATSAPP"; recipientProfileId: string; errorCode: string;
-  }>): Promise<void>;
+  recipients(
+    tenantContext: TenantContext,
+    appointmentId: string,
+    eventType: NotificationEventType,
+  ): Promise<
+    ReadonlyArray<{
+      profileId: string;
+      displayName: string;
+      phone: string | null;
+      templateKey: string;
+      body: string;
+      templateParameters: ReadonlyArray<string>;
+    }>
+  >;
+  claim(
+    tenantContext: TenantContext,
+    input: Readonly<{
+      appointmentId: string;
+      eventType: NotificationEventType;
+      channel: "WHATSAPP";
+      recipientProfileId: string;
+      templateKey: string;
+    }>,
+  ): Promise<"claimed" | "already_sent" | "already_pending">;
+  markSent(
+    tenantContext: TenantContext,
+    input: Readonly<{
+      appointmentId: string;
+      eventType: NotificationEventType;
+      channel: "WHATSAPP";
+      recipientProfileId: string;
+      providerMessageId: string;
+    }>,
+  ): Promise<void>;
+  markFailed(
+    tenantContext: TenantContext,
+    input: Readonly<{
+      appointmentId: string;
+      eventType: NotificationEventType;
+      channel: "WHATSAPP";
+      recipientProfileId: string;
+      errorCode: string;
+    }>,
+  ): Promise<void>;
 }>;
 
-export function createNotificationService(dependencies: Readonly<{ repository: NotificationRepository; provider: NotificationProvider }>) {
+export function createNotificationService(
+  dependencies: Readonly<{
+    repository: NotificationRepository;
+    provider: NotificationProvider;
+  }>,
+) {
   return {
-    async publish(tenantContext: TenantContext, appointmentId: string, eventType: NotificationEventType) {
-      const recipients = await dependencies.repository.recipients(tenantContext, appointmentId, eventType);
+    async publish(
+      tenantContext: TenantContext,
+      appointmentId: string,
+      eventType: NotificationEventType,
+    ) {
+      const recipients = await dependencies.repository.recipients(
+        tenantContext,
+        appointmentId,
+        eventType,
+      );
       const results: Array<{ profileId: string; status: string }> = [];
       for (const recipient of recipients) {
         const claim = await dependencies.repository.claim(tenantContext, {
-          appointmentId, eventType, channel: "WHATSAPP", recipientProfileId: recipient.profileId, templateKey: recipient.templateKey,
+          appointmentId,
+          eventType,
+          channel: "WHATSAPP",
+          recipientProfileId: recipient.profileId,
+          templateKey: recipient.templateKey,
         });
         if (claim !== "claimed") {
-          results.push({ profileId: recipient.profileId, status: claim === "already_sent" ? "SENT" : "PENDING" });
+          results.push({
+            profileId: recipient.profileId,
+            status: claim === "already_sent" ? "SENT" : "PENDING",
+          });
           continue;
         }
         // Claim first so markFailed can persist missing-phone failures against an existing delivery row.
         if (!recipient.phone) {
-          await dependencies.repository.markFailed(tenantContext, { appointmentId, eventType, channel: "WHATSAPP", recipientProfileId: recipient.profileId, errorCode: "RECIPIENT_PHONE_MISSING" });
+          await dependencies.repository.markFailed(tenantContext, {
+            appointmentId,
+            eventType,
+            channel: "WHATSAPP",
+            recipientProfileId: recipient.profileId,
+            errorCode: "RECIPIENT_PHONE_MISSING",
+          });
           results.push({ profileId: recipient.profileId, status: "FAILED" });
           continue;
         }
+
+        let sent: Awaited<ReturnType<NotificationProvider["send"]>>;
         try {
-          const sent = await dependencies.provider.send({
+          sent = await dependencies.provider.send({
             to: recipient.phone,
             body: recipient.body,
             templateKey: recipient.templateKey,
             templateParameters: recipient.templateParameters,
           });
-          await dependencies.repository.markSent(tenantContext, { appointmentId, eventType, channel: "WHATSAPP", recipientProfileId: recipient.profileId, providerMessageId: sent.providerMessageId });
-          results.push({ profileId: recipient.profileId, status: "SENT" });
         } catch {
-          await dependencies.repository.markFailed(tenantContext, { appointmentId, eventType, channel: "WHATSAPP", recipientProfileId: recipient.profileId, errorCode: "PROVIDER_SEND_FAILED" });
+          await dependencies.repository.markFailed(tenantContext, {
+            appointmentId,
+            eventType,
+            channel: "WHATSAPP",
+            recipientProfileId: recipient.profileId,
+            errorCode: "PROVIDER_SEND_FAILED",
+          });
           results.push({ profileId: recipient.profileId, status: "FAILED" });
+          continue;
         }
+
+        // Provider accepted the message. Persistence errors must not be
+        // classified as provider send failures.
+        await dependencies.repository.markSent(tenantContext, {
+          appointmentId,
+          eventType,
+          channel: "WHATSAPP",
+          recipientProfileId: recipient.profileId,
+          providerMessageId: sent.providerMessageId,
+        });
+        results.push({ profileId: recipient.profileId, status: "SENT" });
       }
       return { status: "processed" as const, results };
     },
