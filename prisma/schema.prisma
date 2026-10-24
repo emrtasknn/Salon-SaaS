@@ -81,6 +81,7 @@ enum NotificationDeliveryStatus {
   SENT
   DELIVERED
   FAILED
+  UNKNOWN
 }
 
 model TenantMembership {

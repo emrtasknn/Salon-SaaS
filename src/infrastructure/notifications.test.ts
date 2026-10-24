@@ -61,4 +61,38 @@ describe("Meta WhatsApp provider", () => {
     await expect(provider.send({ to: "+1", body: "x", templateKey: "x", templateParameters: [] }))
       .rejects.toThrow("WHATSAPP_PROVIDER_HTTP_401:invalid token");
   });
+  it("surfaces a network error when the provider request fails", async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    const provider = createMetaWhatsAppProvider({
+      accessToken: "secret",
+      phoneNumberId: "123",
+      apiVersion: "v23.0",
+      templates: { x: { name: "x", languageCode: "tr" } },
+      fetchImpl,
+    });
+
+    await expect(
+      provider.send({ to: "+1", body: "x", templateKey: "x", templateParameters: [] }),
+    ).rejects.toThrow("fetch failed");
+
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a successful HTTP response without a provider message ID", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({ messages: [{}] }), { status: 200 }));
+    const provider = createMetaWhatsAppProvider({
+      accessToken: "secret",
+      phoneNumberId: "123",
+      apiVersion: "v23.0",
+      templates: { x: { name: "x", languageCode: "tr" } },
+      fetchImpl,
+    });
+
+    await expect(
+      provider.send({ to: "+1", body: "x", templateKey: "x", templateParameters: [] }),
+    ).rejects.toThrow("WHATSAPP_PROVIDER_MESSAGE_ID_MISSING");
+
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
 });

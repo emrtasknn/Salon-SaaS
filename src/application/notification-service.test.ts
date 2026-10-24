@@ -34,6 +34,7 @@ describe("notification service", () => {
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn(),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
     };
     const result = await createNotificationService({
       repository,
@@ -62,6 +63,7 @@ describe("notification service", () => {
       claim: vi.fn().mockResolvedValue("already_sent"),
       markSent: vi.fn(),
       markFailed: vi.fn(),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
     };
     const result = await createNotificationService({
       repository,
@@ -94,6 +96,7 @@ describe("notification service", () => {
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn().mockResolvedValue(undefined),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
     };
 
     const result = await createNotificationService({
@@ -125,7 +128,7 @@ describe("notification service", () => {
     );
   });
 
-  it("marks a rejected-appointment delivery failed when the provider throws", async () => {
+  it("marks a rejected-appointment delivery unknown when the provider outcome is uncertain", async () => {
     const repository = {
       recipients: vi.fn().mockResolvedValue([
         {
@@ -140,6 +143,7 @@ describe("notification service", () => {
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn(),
       markFailed: vi.fn().mockResolvedValue(undefined),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
     };
     const provider = {
       channel: "WHATSAPP" as const,
@@ -156,15 +160,15 @@ describe("notification service", () => {
     );
 
     expect(result.results).toEqual([
-      { profileId: "customer-1", status: "FAILED" },
+      { profileId: "customer-1", status: "UNKNOWN" },
     ]);
-    expect(repository.markFailed).toHaveBeenCalledWith(
+    expect(repository.markUnknown).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
       expect.objectContaining({
         appointmentId: "appointment-1",
         eventType: "APPOINTMENT_REJECTED",
         recipientProfileId: "customer-1",
-        errorCode: "PROVIDER_SEND_FAILED",
+        errorCode: "PROVIDER_OUTCOME_UNKNOWN",
       }),
     );
     expect(repository.markSent).not.toHaveBeenCalled();
@@ -185,6 +189,7 @@ describe("notification service", () => {
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn(),
       markFailed: vi.fn().mockResolvedValue(undefined),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
     };
     const provider = { channel: "WHATSAPP" as const, send: vi.fn() };
 
@@ -222,6 +227,7 @@ describe("notification service", () => {
       claim: vi.fn().mockResolvedValue("claimed"),
       markSent: vi.fn().mockRejectedValue(new Error("database unavailable")),
       markFailed: vi.fn().mockResolvedValue(undefined),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
     };
 
     const provider = {
@@ -244,5 +250,46 @@ describe("notification service", () => {
     expect(provider.send).toHaveBeenCalledOnce();
     expect(repository.markSent).toHaveBeenCalledOnce();
     expect(repository.markFailed).not.toHaveBeenCalled();
+  });
+  it("does not classify an ambiguous provider network error as a definite failure", async () => {
+    const repository = {
+      recipients: vi.fn().mockResolvedValue([
+        {
+          profileId: "customer-1",
+          displayName: "Customer",
+          phone: "+905551112233",
+          templateKey: "appointment-confirmed-customer",
+          body: "Randevunuz onaylandı.",
+          templateParameters: [],
+        },
+      ]),
+      claim: vi.fn().mockResolvedValue("claimed"),
+      markSent: vi.fn(),
+      markFailed: vi.fn().mockResolvedValue(undefined),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const provider = {
+      channel: "WHATSAPP" as const,
+      send: vi.fn().mockRejectedValue(new TypeError("fetch failed")),
+    };
+
+    const service = createNotificationService({
+      repository,
+      provider,
+    });
+
+    const result = await service.publish(
+      { tenantId: "tenant-1" as never },
+      "appointment-1",
+      "APPOINTMENT_CONFIRMED",
+    );
+
+    expect(result.results).toEqual([
+      { profileId: "customer-1", status: "UNKNOWN" },
+    ]);
+    expect(repository.markUnknown).toHaveBeenCalledOnce();
+    expect(repository.markFailed).not.toHaveBeenCalled();
+    expect(provider.send).toHaveBeenCalledOnce();
   });
 });

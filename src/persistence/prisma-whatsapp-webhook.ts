@@ -27,10 +27,10 @@ export async function applyWhatsAppWebhookStatuses(
     for (const status of statuses) {
       if (status.status === "read") continue;
       const count = status.status === "sent"
-        ? await tx.$executeRaw`UPDATE "NotificationDelivery" SET "status" = 'SENT', "updatedAt" = CURRENT_TIMESTAMP WHERE "tenantId" = ${tenantContext.tenantId} AND "providerMessageId" = ${status.providerMessageId} AND "status" = 'PENDING'`
+        ? await tx.$executeRaw`UPDATE "NotificationDelivery" SET "status" = 'SENT', "updatedAt" = CURRENT_TIMESTAMP WHERE "tenantId" = ${tenantContext.tenantId} AND "providerMessageId" = ${status.providerMessageId} AND "status" IN ('PENDING', 'UNKNOWN')`
         : status.status === "delivered"
-          ? await tx.$executeRaw`UPDATE "NotificationDelivery" SET "status" = 'DELIVERED', "updatedAt" = CURRENT_TIMESTAMP WHERE "tenantId" = ${tenantContext.tenantId} AND "providerMessageId" = ${status.providerMessageId} AND "status" IN ('PENDING', 'SENT')`
-          : await tx.$executeRaw`UPDATE "NotificationDelivery" SET "status" = 'FAILED', "lastErrorCode" = ${status.errorCode ?? "WHATSAPP_PROVIDER_FAILED"}, "updatedAt" = CURRENT_TIMESTAMP WHERE "tenantId" = ${tenantContext.tenantId} AND "providerMessageId" = ${status.providerMessageId} AND "status" IN ('PENDING', 'SENT')`;
+          ? await tx.$executeRaw`UPDATE "NotificationDelivery" SET "status" = 'DELIVERED', "updatedAt" = CURRENT_TIMESTAMP WHERE "tenantId" = ${tenantContext.tenantId} AND "providerMessageId" = ${status.providerMessageId} AND "status" IN ('PENDING', 'SENT', 'UNKNOWN')`
+          : await tx.$executeRaw`UPDATE "NotificationDelivery" SET "status" = 'FAILED', "lastErrorCode" = ${status.errorCode ?? "WHATSAPP_PROVIDER_FAILED"}, "updatedAt" = CURRENT_TIMESTAMP WHERE "tenantId" = ${tenantContext.tenantId} AND "providerMessageId" = ${status.providerMessageId} AND "status" IN ('PENDING', 'SENT', 'UNKNOWN')`;
       updatedCount += Number(count);
     }
     return updatedCount;
