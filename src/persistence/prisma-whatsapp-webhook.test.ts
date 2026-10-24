@@ -38,4 +38,82 @@ describe("WhatsApp webhook tenant routing", () => {
     expect(count).toBe(0);
     expect(prisma.executeRaw).toHaveBeenCalledTimes(1);
   });
+
+  it("uses the sent status update only for pending deliveries", async () => {
+    const prisma = fakePrisma();
+    const tenantId = createTenantId("tenant-a");
+    if (!tenantId.ok) throw new Error("test tenant id must be valid");
+
+    const count = await applyWhatsAppWebhookStatuses(
+      prisma as never,
+      { tenantId: tenantId.value },
+      [{ providerMessageId: "wamid.sent", status: "sent" }],
+    );
+
+    expect(count).toBe(1);
+    expect(prisma.executeRaw).toHaveBeenCalledTimes(2);
+    const statusQuery = prisma.executeRaw.mock.calls[1];
+    expect(statusQuery[0].join("?")).toContain("status");
+    expect(statusQuery[0].join("?")).toContain("'PENDING'");
+    expect(statusQuery.slice(1)).toContain("tenant-a");
+    expect(statusQuery.slice(1)).toContain("wamid.sent");
+  });
+
+  it("uses the failed status update and a default error code when none is supplied", async () => {
+    const prisma = fakePrisma();
+    const tenantId = createTenantId("tenant-a");
+    if (!tenantId.ok) throw new Error("test tenant id must be valid");
+
+    const count = await applyWhatsAppWebhookStatuses(
+      prisma as never,
+      { tenantId: tenantId.value },
+      [{ providerMessageId: "wamid.failed", status: "failed" }],
+    );
+
+    expect(count).toBe(1);
+    expect(prisma.executeRaw).toHaveBeenCalledTimes(2);
+    const statusQuery = prisma.executeRaw.mock.calls[1];
+    expect(statusQuery[0].join("?")).toContain("'FAILED'");
+    expect(statusQuery.slice(1)).toContain("WHATSAPP_PROVIDER_FAILED");
+    expect(statusQuery.slice(1)).toContain("tenant-a");
+    expect(statusQuery.slice(1)).toContain("wamid.failed");
+  });
+
+  it("sums updated rows across multiple webhook status events", async () => {
+    const prisma = fakePrisma();
+    prisma.executeRaw
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3);
+    const tenantId = createTenantId("tenant-a");
+    if (!tenantId.ok) throw new Error("test tenant id must be valid");
+
+    const count = await applyWhatsAppWebhookStatuses(
+      prisma as never,
+      { tenantId: tenantId.value },
+      [
+        { providerMessageId: "wamid.sent", status: "sent" },
+        { providerMessageId: "wamid.delivered", status: "delivered" },
+      ],
+    );
+
+    expect(count).toBe(5);
+    expect(prisma.executeRaw).toHaveBeenCalledTimes(3);
+  });
 });
+
+  it("does not allow a failed webhook event to downgrade a delivered delivery", async () => {
+    const prisma = fakePrisma();
+    const tenantId = createTenantId("tenant-a");
+    if (!tenantId.ok) throw new Error("test tenant id must be valid");
+
+    await applyWhatsAppWebhookStatuses(
+      prisma as never,
+      { tenantId: tenantId.value },
+      [{ providerMessageId: "wamid.late-failure", status: "failed" }],
+    );
+
+    const statusQuery = prisma.executeRaw.mock.calls[1];
+    expect(statusQuery[0].join("?")).toContain("'PENDING', 'SENT'");
+    expect(statusQuery.slice(1)).toContain("wamid.late-failure");
+  });
