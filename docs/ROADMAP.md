@@ -41,11 +41,15 @@ The foundation establishes the security and tenancy boundary required before pro
 
 The current project has substantially completed this foundation and has completed the real Supabase pilot work documented in the repository.
 
-## Current Implementation Checkpoint — 2026-10-22
+## Current Implementation Checkpoint — 2026-10-25
 
 This checkpoint records merged implementation and validation evidence. It does not override the detailed W11 plans or imply pilot/production readiness.
 
 ### Recently completed and merged
+
+### Local validation checkpoint — 2026-10-25 (not yet merged)
+
+- **W11.5 outbound smoke test:** two real WhatsApp messages for one new `APPOINTMENT_CREATED` booking were received on the pilot device (staff and customer templates). The two matching delivery records were `SENT`, each had a provider message ID, `attemptCount = 1`, and no error code. Earlier `UNKNOWN` deliveries were left unchanged. This is local test evidence; the corresponding diagnostic code changes remain to be reconciled with the local working tree and reviewed before committing. It does not complete webhook status persistence, full W11.5 negative/idempotency scenarios, W11.4, W11.7, pilot acceptance, or production readiness.
 
 - **PR #97 — RLS integration test harness:** fixed tenant-context-aware fixture setup/cleanup and expanded WhatsAppIntegration coverage for tenant read isolation, missing tenant context, and cross-tenant mutation. GitHub Actions validated on isolated PostgreSQL 17: 52 test files passed and 241 tests passed, including all 5 RLS integration tests. This is CI database evidence, not proof that the full two-real-tenant pilot scenario has passed.
 - **PR #98 — staff Auth/tenant binding:** staff provisioning now binds the new Auth user to the trusted tenant through the existing server-side adapter, fails closed and compensates when binding fails, and rolls back a new binding when staff persistence conflicts. This does not automatically repair the existing Pilot Staff account; that remains a separate controlled follow-up.
@@ -54,7 +58,7 @@ This checkpoint records merged implementation and validation evidence. It does n
 ### Remaining W11 gates
 
 - **W11.4:** real Supabase pilot work is at final closeout, but the documented two-real-tenant cross-tenant pilot scenario and authenticated cross-tenant public-booking scenario remain blocked until a second tenant is created through the supported provisioning boundary.
-- **W11.5:** real Meta WhatsApp outbound template, delivery, failure, idempotency, and recipient-routing validation must be supported by real-provider evidence; mocks/CI alone are insufficient. Validate whether the proposed multi-tenant Randevu'N shared sender is permitted under the applicable Meta/provider terms before treating it as production-approved. Reconcile the hybrid account policy with ADR-042 before implementation.
+- **W11.5:** a local real-Meta test has now confirmed `APPOINTMENT_CREATED` messages for staff and customer on the pilot device; both corresponding `NotificationDelivery` records were `SENT`, had provider message IDs, and had `attemptCount = 1`. This is evidence for the CREATED outbound path only, not completion of all W11.5 exit criteria. The diagnostic changes and this local test evidence have not yet been reconciled/committed from the local working tree to GitHub main. Still verify failure behavior, idempotency/duplicate behavior, CONFIRMED/REJECTED events, and recipient/tenant boundaries. Do not treat the shared sender as production-approved until applicable Meta/provider terms are validated; reconcile the hybrid account policy with ADR-042 before implementation.
 - **W11.6:** webhook status persistence remains gated on explicit C3 approval of tenant routing. Do not generate/apply its migration before approval; READ remains non-mutating and providerMessageId must not become globally unique without a separate decision.
 - **W11.7:** PR #97 improves and validates the database/RLS integration suite, but the full application-level two-tenant security regression acceptance has not been declared complete.
 - **W11.10 / W11.11:** PWA foundation and Web Push remain planned work subject to their documented architecture gates.
