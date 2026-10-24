@@ -1,6 +1,6 @@
 export type NotificationEventType = "APPOINTMENT_CREATED" | "APPOINTMENT_CONFIRMED" | "APPOINTMENT_REJECTED";
 export type NotificationChannel = "WHATSAPP";
-export type NotificationDeliveryStatus = "PENDING" | "SENT" | "DELIVERED" | "FAILED";
+export type NotificationDeliveryStatus = "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN";
 
 export type NotificationRecipient = Readonly<{
   profileId: string;

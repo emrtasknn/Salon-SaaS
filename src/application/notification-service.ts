@@ -26,7 +26,9 @@ export type NotificationRepository = Readonly<{
       recipientProfileId: string;
       templateKey: string;
     }>,
-  ): Promise<"claimed" | "already_sent" | "already_pending">;
+  ): Promise<
+    "claimed" | "already_sent" | "already_pending" | "already_unknown"
+  >;
   markSent(
     tenantContext: TenantContext,
     input: Readonly<{
@@ -38,6 +40,16 @@ export type NotificationRepository = Readonly<{
     }>,
   ): Promise<void>;
   markFailed(
+    tenantContext: TenantContext,
+    input: Readonly<{
+      appointmentId: string;
+      eventType: NotificationEventType;
+      channel: "WHATSAPP";
+      recipientProfileId: string;
+      errorCode: string;
+    }>,
+  ): Promise<void>;
+  markUnknown(
     tenantContext: TenantContext,
     input: Readonly<{
       appointmentId: string;
@@ -67,6 +79,7 @@ export function createNotificationService(
         eventType,
       );
       const results: Array<{ profileId: string; status: string }> = [];
+
       for (const recipient of recipients) {
         const claim = await dependencies.repository.claim(tenantContext, {
           appointmentId,
@@ -75,14 +88,19 @@ export function createNotificationService(
           recipientProfileId: recipient.profileId,
           templateKey: recipient.templateKey,
         });
+
         if (claim !== "claimed") {
-          results.push({
-            profileId: recipient.profileId,
-            status: claim === "already_sent" ? "SENT" : "PENDING",
-          });
+          const status =
+            claim === "already_sent"
+              ? "SENT"
+              : claim === "already_unknown"
+                ? "UNKNOWN"
+                : "PENDING";
+
+          results.push({ profileId: recipient.profileId, status });
           continue;
         }
-        // Claim first so markFailed can persist missing-phone failures against an existing delivery row.
+
         if (!recipient.phone) {
           await dependencies.repository.markFailed(tenantContext, {
             appointmentId,
@@ -96,6 +114,7 @@ export function createNotificationService(
         }
 
         let sent: Awaited<ReturnType<NotificationProvider["send"]>>;
+
         try {
           sent = await dependencies.provider.send({
             to: recipient.phone,
@@ -104,19 +123,18 @@ export function createNotificationService(
             templateParameters: recipient.templateParameters,
           });
         } catch {
-          await dependencies.repository.markFailed(tenantContext, {
+          await dependencies.repository.markUnknown(tenantContext, {
             appointmentId,
             eventType,
             channel: "WHATSAPP",
             recipientProfileId: recipient.profileId,
-            errorCode: "PROVIDER_SEND_FAILED",
+            errorCode: "PROVIDER_OUTCOME_UNKNOWN",
           });
-          results.push({ profileId: recipient.profileId, status: "FAILED" });
+          results.push({ profileId: recipient.profileId, status: "UNKNOWN" });
           continue;
         }
 
-        // Provider accepted the message. Persistence errors must not be
-        // classified as provider send failures.
+        // Sağlayıcı mesajı kabul etti. DB hatası, gönderim başarısızlığı anlamına gelmez.
         await dependencies.repository.markSent(tenantContext, {
           appointmentId,
           eventType,
@@ -124,8 +142,10 @@ export function createNotificationService(
           recipientProfileId: recipient.profileId,
           providerMessageId: sent.providerMessageId,
         });
+
         results.push({ profileId: recipient.profileId, status: "SENT" });
       }
+
       return { status: "processed" as const, results };
     },
   };
