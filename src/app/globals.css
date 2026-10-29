@@ -17,3 +17,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* PWA / mobil uyumlandırma */
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  }
+}
+
+/* Servis çalışanı durum goşeni — tarayıcı desteği olmadığında sıfır etkili */
+@media (display-mode: standalone) {
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(23, 23, 23, 0.04);
+    pointer-events: none;
+    z-index: 0;
+  }
+}
+

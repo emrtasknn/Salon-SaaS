@@ -35,7 +35,7 @@ W10 completion is not production readiness. Real Supabase, real Meta WhatsApp, p
 | W11.3 CRM list/search | Existing customer history/notes foundation is present | Full list → search → detail → history → notes acceptance remains to be verified |
 | W11.4 Real Supabase | Final closeout with one documented blocker | Create second real tenant through the supported provisioning boundary and validate authenticated cross-tenant public booking; do not manually seed tenant records |
 | W11.5 Real Meta WhatsApp | Real-provider validation is not evidenced by PRs #97–#99 | Validate approved templates, outbound delivery, provider IDs, failure behavior, idempotency, and staff/customer recipients against real Meta |
-| W11.6 Webhook routing | OPEN; C3 decision required before implementation/migration | Human approval of tenant-scoped integration and status mapping; READ remains non-mutating |
+| W11.6 Webhook routing | Code-level webhook persistence and UNKNOWN status implemented by PR #110; production tenant-routing integration scope remains C3-gated | Human approval of production tenant-scoped integration and status mapping; READ remains non-mutating; providerMessageId not globally unique |
 | W11.7 Two-tenant regression | PR #97's RLS integration suite is green in CI; full W11.7 application-level acceptance is not claimed complete | Verify the complete Tenant A/B matrix across application surfaces, direct IDs, staff actions, public booking, and missing/inactive context |
 | W11.10 PWA | Planned; completion not established by these PRs | Complete approved PWA foundation and responsive/mobile QA |
 | W11.11 Web Push | Architecture-gated planned work | C3 approval before persistence/routing implementation, then tenant/profile/RLS regression |
@@ -135,7 +135,7 @@ Do not claim production delivery readiness from mock-provider tests alone.
 
 ### W11.6 — WhatsApp webhook tenant routing
 
-C3 architectural decision before implementation.
+Code-level webhook persistence (signature verification, status parsing, tenantId resolution via phone_number_id → WhatsAppIntegration → resolve_whatsapp_tenant_id, tenant-scoped sent/delivered/failed updates, UNKNOWN recoverable, read skipped) was implemented by PR #110. Production tenant-routing integration scope remains C3-gated; no new production migration applied yet.
 
 Target routing concept:
 
@@ -256,7 +256,7 @@ Push subscriptions and WhatsApp integrations are tenant-sensitive infrastructure
 ## 7. Migration policy
 
 Expected migration impact:
-- W11.1–W11.5: no planned schema migration unless an explicitly approved gap is discovered
+- W11.1–W11.4: no planned schema migration unless an explicitly approved gap is discovered; W11.5: UNKNOWN delivery status added by PR #110 migration (with legacy FAILED→UNKNOWN backfill); no further W11.5 migration planned
 - W11.6: possible WhatsAppIntegration migration, C3 approval required
 - W11.11: possible PushSubscription migration, C3 approval required
 
