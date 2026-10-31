@@ -362,6 +362,10 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
         'UPDATE "WorkingHours" SET "openMinute" = $1 WHERE "id" = $2',
         [600, fixtureA.workingHoursId],
       );
+      const membershipUpdate = await client.query(
+        'UPDATE "TenantMembership" SET "subjectId" = $1 WHERE "id" = $2',
+        [`cross-tenant-attempt-${randomUUID()}`, fixtureA.membershipId],
+      );
 
       return [
         profileUpdate.rowCount,
@@ -372,10 +376,11 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
         staffUpdate.rowCount,
         serviceUpdate.rowCount,
         workingHoursUpdate.rowCount,
+        membershipUpdate.rowCount,
       ];
     });
 
-    expect(result).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(result).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
   it("blocks access when tenant context is absent", async () => {
@@ -450,6 +455,10 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
       const workingHoursUpdate = await client.query(
         'UPDATE "WorkingHours" SET "openMinute" = $1 WHERE "id" = $2',
         [600, fixtureB.workingHoursId],
+      );
+      const membershipUpdate = await client.query(
+        'UPDATE "TenantMembership" SET "subjectId" = $1 WHERE "id" = $2',
+        [`cross-tenant-attempt-${randomUUID()}`, fixtureB.membershipId],
       );
 
       return [
