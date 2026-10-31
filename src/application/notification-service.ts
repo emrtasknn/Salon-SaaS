@@ -1,6 +1,6 @@
 import type { TenantContext } from "../domain/tenant-context";
-import type { NotificationEventType } from "../domain/notification";
-import { NotificationProviderError, type NotificationProvider } from "../infrastructure/notifications";
+import { NotificationProviderError, type NotificationEventType } from "../domain/notification";
+import type { NotificationProvider } from "../infrastructure/notifications";
 
 export type NotificationRepository = Readonly<{
   recipients(
