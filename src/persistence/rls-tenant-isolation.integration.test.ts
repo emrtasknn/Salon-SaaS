@@ -470,6 +470,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
         staffUpdate.rowCount,
         serviceUpdate.rowCount,
         workingHoursUpdate.rowCount,
+        membershipUpdate.rowCount,
       ];
     });
 
