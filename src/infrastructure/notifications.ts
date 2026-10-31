@@ -4,8 +4,9 @@ export class NotificationProviderError extends Error {
   constructor(
     readonly errorCode: string,
     readonly outcome: "rejected" | "unknown",
+    message = errorCode,
   ) {
-    super(errorCode);
+    super(message);
     this.name = "NotificationProviderError";
   }
 }
@@ -66,7 +67,11 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
       const template = config.templates[input.templateKey];
       if (!template) {
         console.error("whatsapp_template_not_configured", { templateKey: input.templateKey });
-        throw new NotificationProviderError("WHATSAPP_TEMPLATE_NOT_CONFIGURED", "rejected");
+        throw new NotificationProviderError(
+          "WHATSAPP_TEMPLATE_NOT_CONFIGURED",
+          "rejected",
+          `WHATSAPP_TEMPLATE_NOT_CONFIGURED:${input.templateKey}`,
+        );
       }
 
       const url = `https://graph.facebook.com/${encodeURIComponent(config.apiVersion)}/${encodeURIComponent(config.phoneNumberId)}/messages`;
