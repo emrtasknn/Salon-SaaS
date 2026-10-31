@@ -182,4 +182,61 @@ describeDatabase("Prisma CRM customer history integration", () => {
 
     expect(result).toBeNull();
   });
+
+  it("keeps customer search and calendar results isolated in both tenant directions", async () => {
+    if (!prisma) throw new Error("Prisma client was not initialized");
+    const repository = createPrismaCalendarCrmRepository(
+      prisma as unknown as PrismaTenantClient,
+    );
+    const contextA = { tenantId: tenantA.tenantId as never };
+    const contextB = { tenantId: tenantB.tenantId as never };
+    const range = {
+      startAt: new Date(startAt.getTime() - 60 * 60_000),
+      endAt: new Date(endAt.getTime() + 60 * 60_000),
+    };
+
+    const [customersA, customersB, appointmentsA, appointmentsB] = await Promise.all([
+      repository.listCustomers(contextA, "Customer"),
+      repository.listCustomers(contextB, "Customer"),
+      repository.listAppointments(contextA, range),
+      repository.listAppointments(contextB, range),
+    ]);
+
+    expect(customersA.map((customer) => customer.id)).toEqual([tenantA.customerId]);
+    expect(customersB.map((customer) => customer.id)).toEqual([tenantB.customerId]);
+    expect(appointmentsA.map((appointment) => appointment.id)).toEqual([tenantA.appointmentId]);
+    expect(appointmentsB.map((appointment) => appointment.id)).toEqual([tenantB.appointmentId]);
+    expect(appointmentsA.every((appointment) => appointment.tenantId === tenantA.tenantId)).toBe(true);
+    expect(appointmentsB.every((appointment) => appointment.tenantId === tenantB.tenantId)).toBe(true);
+  });
+
+  it("rejects cross-tenant customer-note mutation and preserves each tenant's notes", async () => {
+    if (!prisma) throw new Error("Prisma client was not initialized");
+    const repository = createPrismaCalendarCrmRepository(
+      prisma as unknown as PrismaTenantClient,
+    );
+    const contextA = { tenantId: tenantA.tenantId as never };
+    const contextB = { tenantId: tenantB.tenantId as never };
+
+    await expect(
+      repository.addCustomerNote(contextA, tenantB.customerId, "Cross-tenant write attempt"),
+    ).resolves.toBe("not_found");
+
+    await expect(
+      repository.addCustomerNote(contextA, tenantA.customerId, "Tenant A follow-up"),
+    ).resolves.toBe("created");
+
+    const [cardA, cardB] = await Promise.all([
+      repository.customerCard(contextA, tenantA.customerId),
+      repository.customerCard(contextB, tenantB.customerId),
+    ]);
+
+    expect(cardA?.notes.map((note) => note.body)).toEqual([
+      "Tenant A follow-up",
+      "Private note A",
+    ]);
+    expect(cardB?.notes.map((note) => note.body)).toEqual(["Private note B"]);
+    expect(cardB?.notes.some((note) => note.body === "Cross-tenant write attempt")).toBe(false);
+  });
+
 });
