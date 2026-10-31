@@ -42,7 +42,6 @@ function safeParseMetaError(raw: string) {
     return {
       code: typeof e.code === "number" ? e.code : null,
       error_subcode: typeof e.error_subcode === "number" ? e.error_subcode : null,
-      type: typeof e.type === "string" ? e.type : null,
     };
   } catch {
     return null;
@@ -99,7 +98,6 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
           status: response.status,
           metaErrorCode: metaError?.code ?? null,
           metaErrorSubcode: metaError?.error_subcode ?? null,
-          metaErrorType: metaError?.type ?? null,
           errorCode: "WHATSAPP_PROVIDER_HTTP_ERROR",
         });
         throw new Error(`WHATSAPP_PROVIDER_HTTP_${response.status}`);
