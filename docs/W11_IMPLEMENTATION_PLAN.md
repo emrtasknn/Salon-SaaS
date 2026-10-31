@@ -28,12 +28,14 @@ W10 completion is not production readiness. Real Supabase, real Meta WhatsApp, p
 
 ### W11 status — do not infer completion from merged PRs alone
 
+**W11.4 COMPLETE / CLOSED (2026-10-31):** The project owner explicitly confirms that every test and exit criterion defined within W11.4 has passed. The acceptance packet records the evidence classifications and the two-tenant validation; W11.4 is closed. This does not close the separate W11.7 workstream or wider W11 pilot/production gates.
+
 | Workstream | Current status | Remaining gate |
 |---|---|---|
 | W11.1 Architecture audit | Findings and guardrails documented in the existing W11/architecture documents | Reconfirm current main/CI and resolve any audit blockers before scope-sensitive work |
 | W11.2 Public booking UX | Existing booking path is operational enough for the documented real pilot booking; full UX-hardening scope is not declared complete here | Catalog-driven flow, timezone clarity, conflict/error states, and server-result fidelity need explicit acceptance evidence |
 | W11.3 CRM list/search | Existing customer history/notes foundation is present | Full list → search → detail → history → notes acceptance remains to be verified |
-| W11.4 Real Supabase | Final closeout with one documented blocker | Create second real tenant through the supported provisioning boundary and validate authenticated cross-tenant public booking; do not manually seed tenant records |
+| W11.4 Real Supabase | **COMPLETE / CLOSED — all acceptance tests PASS** | Owner explicitly confirmed all W11.4 tests and exit criteria passed; evidence classifications are recorded in `docs/W11.4_SUPABASE_PILOT_ACCEPTANCE.md`. Do not repeat completed tests absent a new regression or defect. |
 | W11.5 Real Meta WhatsApp | Local real-Meta `APPOINTMENT_CREATED` smoke test passed for staff + customer; both delivery records were `SENT` with provider IDs. Diagnostic changes remain local/unmerged. | Reconcile local changes with GitHub before commit; still validate failure behavior, duplicate/idempotency behavior, CONFIRMED/REJECTED events, and recipient/tenant boundaries. Do not infer production readiness. |
 | W11.6 Webhook routing | OPEN; C3 decision required before implementation/migration | Human approval of tenant-scoped integration and status mapping; READ remains non-mutating |
 | W11.7 Two-tenant regression | PR #97's RLS integration suite is green in CI; full W11.7 application-level acceptance is not claimed complete | Verify the complete Tenant A/B matrix across application surfaces, direct IDs, staff actions, public booking, and missing/inactive context |
@@ -46,7 +48,7 @@ W10 completion is not production readiness. Real Supabase, real Meta WhatsApp, p
 
 A controlled local booking triggered two real Meta WhatsApp messages for `APPOINTMENT_CREATED` (staff and customer). Both were received on the pilot device; the two matching `NotificationDelivery` rows were `SENT`, each had a provider message ID, `attemptCount = 1`, and no error code. Two earlier records remain `UNKNOWN` with `PROVIDER_OUTCOME_UNKNOWN` and were not modified. Local diagnostic changes passed `npm run typecheck`, the two targeted Vitest files (6/6 and 8/8), and `npm run whatsapp:preflight` (5/5). These results have not yet been reconciled to the local working tree and committed/pushed; this checkpoint is evidence of a local test, not a merged code change. The test covers `APPOINTMENT_CREATED` only and does not close W11.5's failure/idempotency/CONFIRMED/REJECTED scenarios, W11.4, W11.6, W11.7, pilot acceptance, or production readiness.
 
-The local PR #99 test run skipped the five RLS integration tests; use the successful CI run from PR #97 as the relevant evidence for that suite. Neither result substitutes for real Supabase cross-tenant pilot acceptance or real Meta delivery validation.
+The local PR #99 test run skipped the five RLS integration tests; use the successful CI run from PR #97 as the relevant evidence for that suite. The PR #97 CI result is database integration evidence; the owner-reported real-environment two-tenant manual validation is separately recorded under W11.4. Neither result substitutes for real Meta delivery validation.
 
 
 ## 3. Governing constraints
