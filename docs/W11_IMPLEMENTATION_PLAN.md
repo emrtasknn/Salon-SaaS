@@ -93,16 +93,21 @@ The proposed tenant-scoped WhatsAppIntegration routing and status mapping remain
 
 ### W11.7 — Two-tenant security regression
 
-**Status: IN PROGRESS — significant RLS and application-level coverage merged; public-booking integration coverage is under review.**
+**Status: READY FOR MERGE — full documented application/security matrix is covered; PR #119 CI #371 passed. W11.7 closure is pending PR merge and successful post-merge main CI.**
 
 Merged:
 - PR #116 adds reciprocal Tenant A/B RLS read and direct-ID mutation coverage.
 - PR #118 adds reciprocal CRM customer search/calendar isolation, cross-tenant customer-note mutation denial, and staff appointment authorization regression coverage.
 
-Under review:
-- PR #119 adds PostgreSQL-backed public-booking and public-availability resource-boundary tests in both tenant directions, direct-ID RLS mutation checks across all nine tenant-owned tables, Tenant A/B integration coverage for service/staff/working-hours management repositories, and tenant-scoped notification recipient resolution.
+PR #119 adds:
+- PostgreSQL-backed public-booking and public-availability resource-boundary tests in both tenant directions.
+- Direct-ID RLS mutation checks across all nine tenant-owned tables.
+- Tenant A/B integration coverage for service/staff/working-hours management repositories.
+- Tenant-scoped notification recipient resolution.
 
-The broader W11.7 matrix remains open until all supported application surfaces and exit criteria have been audited and evidenced. Do not infer W11.7 closure from PR #119 alone.
+The final PR #119 quality-gates run #371 passed migration, lint, typecheck, the full test suite, and build. The application-surface audit found coverage for records, appointments, customers, notes, notifications, staff actions, public booking/availability, direct identifiers, missing tenant context, and inactive staff/membership authorization.
+
+Do not mark W11.7 COMPLETE until PR #119 is merged and post-merge main CI is green.
 
 ## 3. Governing constraints
 
