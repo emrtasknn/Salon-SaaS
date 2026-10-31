@@ -111,6 +111,15 @@ describeDatabase("Prisma public booking tenant isolation integration", () => {
       [tenantId, email],
     );
     expect(profiles.rows).toHaveLength(0);
+    const appointments = await pool.query(
+      `SELECT "id" FROM "Appointment"
+       WHERE "tenantId" = $1
+         AND "customerProfileId" IN (
+           SELECT "id" FROM "Profile" WHERE "tenantId" = $1 AND "email" = $2
+         )`,
+      [tenantId, email],
+    );
+    expect(appointments.rows).toHaveLength(0);
   };
 
   beforeAll(async () => {
@@ -194,11 +203,22 @@ describeDatabase("Prisma public booking tenant isolation integration", () => {
     await expectNoCustomerOrAppointment(tenantA.tenantId, email);
   });
 
-  it("enforces the same resource boundary from Tenant B to Tenant A", async () => {
-    const email = `reverse-cross-tenant-${randomUUID()}@example.test`;
+  it("rejects Tenant A's service ID in Tenant B context without creating a customer", async () => {
+    const email = `reverse-cross-service-${randomUUID()}@example.test`;
     const result = await createRepository().create(
       { tenantId: tenantB.tenantId as never },
-      bookingInput(tenantA.serviceId, tenantA.staffId, email),
+      bookingInput(tenantA.serviceId, tenantB.staffId, email),
+    );
+
+    expect(result).toBe("invalid_resource");
+    await expectNoCustomerOrAppointment(tenantB.tenantId, email);
+  });
+
+  it("rejects Tenant A's staff ID in Tenant B context without creating a customer", async () => {
+    const email = `reverse-cross-staff-${randomUUID()}@example.test`;
+    const result = await createRepository().create(
+      { tenantId: tenantB.tenantId as never },
+      bookingInput(tenantB.serviceId, tenantA.staffId, email),
     );
 
     expect(result).toBe("invalid_resource");
