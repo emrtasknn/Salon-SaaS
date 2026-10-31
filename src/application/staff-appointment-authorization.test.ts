@@ -19,7 +19,7 @@ const appointment = {
 
 function dependencies(options: Readonly<{
   membership?: "found" | "not_found" | "error";
-  role?: "STAFF" | "TENANT_ADMIN" | "SUPER_ADMIN";
+  role?: "STAFF" | "TENANT_ADMIN" | "SUPER_ADMIN" | "CUSTOMER";
   staff?: { id: string; tenantId: string; profileId: string; status: "ACTIVE" | "INACTIVE" } | null;
 }> = {}) {
   const readMembership = vi.fn().mockResolvedValue(
@@ -90,11 +90,13 @@ describe("authorizeStaffDecision tenant boundary", () => {
   });
 
   it("denies non-staff roles and inactive staff", async () => {
-    const adminMembership = dependencies({ role: "TENANT_ADMIN" });
-    await expect(
-      authorizeStaffDecision(adminMembership.value, identity, tenantContext, appointment),
-    ).resolves.toBe(false);
-    expect(adminMembership.findByProfileId).not.toHaveBeenCalled();
+    for (const role of ["TENANT_ADMIN", "CUSTOMER", "SUPER_ADMIN"] as const) {
+      const nonStaffMembership = dependencies({ role });
+      await expect(
+        authorizeStaffDecision(nonStaffMembership.value, identity, tenantContext, appointment),
+      ).resolves.toBe(false);
+      expect(nonStaffMembership.findByProfileId).not.toHaveBeenCalled();
+    }
 
     const inactiveStaff = dependencies({
       staff: { id: "staff-a", tenantId: "tenant-a", profileId: "profile-a", status: "INACTIVE" },
