@@ -1,4 +1,4 @@
-import type { NotificationChannel } from "../domain/notification";
+import { NotificationProviderError, type NotificationChannel } from "../domain/notification";
 
 export type NotificationProvider = Readonly<{
   channel: NotificationChannel;
@@ -56,7 +56,11 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
       const template = config.templates[input.templateKey];
       if (!template) {
         console.error("whatsapp_template_not_configured", { templateKey: input.templateKey });
-        throw new Error(`WHATSAPP_TEMPLATE_NOT_CONFIGURED:${input.templateKey}`);
+        throw new NotificationProviderError(
+          "WHATSAPP_TEMPLATE_NOT_CONFIGURED",
+          "rejected",
+          `WHATSAPP_TEMPLATE_NOT_CONFIGURED:${input.templateKey}`,
+        );
       }
 
       const url = `https://graph.facebook.com/${encodeURIComponent(config.apiVersion)}/${encodeURIComponent(config.phoneNumberId)}/messages`;
@@ -87,7 +91,7 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
         console.error("whatsapp_provider_network_error", {
           errorCode: "WHATSAPP_PROVIDER_NETWORK_ERROR",
         });
-        throw new Error("WHATSAPP_PROVIDER_NETWORK_ERROR");
+        throw new NotificationProviderError("WHATSAPP_PROVIDER_NETWORK_ERROR", "unknown");
       }
 
       const raw = await response.text().catch(() => "");
@@ -99,7 +103,10 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
           metaErrorSubcode: metaError?.error_subcode ?? null,
           errorCode: "WHATSAPP_PROVIDER_HTTP_ERROR",
         });
-        throw new Error(`WHATSAPP_PROVIDER_HTTP_${response.status}`);
+        const outcome = response.status >= 400 && response.status < 500 && response.status !== 408
+          ? "rejected"
+          : "unknown";
+        throw new NotificationProviderError(`WHATSAPP_PROVIDER_HTTP_${response.status}`, outcome);
       }
 
       let json: unknown;
@@ -115,7 +122,7 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
           hasMessages: Array.isArray(payload?.messages),
           hasValidMessageId: false,
         });
-        throw new Error("WHATSAPP_PROVIDER_MESSAGE_ID_MISSING");
+        throw new NotificationProviderError("WHATSAPP_PROVIDER_MESSAGE_ID_MISSING", "unknown");
       }
       return { providerMessageId };
     },

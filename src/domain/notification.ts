@@ -1,3 +1,14 @@
+export class NotificationProviderError extends Error {
+  constructor(
+    readonly errorCode: string,
+    readonly outcome: "rejected" | "unknown",
+    message = errorCode,
+  ) {
+    super(message);
+    this.name = "NotificationProviderError";
+  }
+}
+
 export type NotificationEventType = "APPOINTMENT_CREATED" | "APPOINTMENT_CONFIRMED" | "APPOINTMENT_REJECTED";
 export type NotificationChannel = "WHATSAPP";
 export type NotificationDeliveryStatus = "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN";

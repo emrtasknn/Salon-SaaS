@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createNotificationService } from "./notification-service";
+import { NotificationProviderError } from "../domain/notification";
 import { createMockWhatsAppProvider } from "../infrastructure/notifications";
 
 describe("notification service", () => {
@@ -45,6 +46,48 @@ describe("notification service", () => {
       { profileId: "c", status: "SENT" },
     ]);
     expect(calls).toHaveLength(2);
+  });
+
+  it("marks a definite Meta rejection FAILED without classifying it as UNKNOWN", async () => {
+    const repository = {
+      recipients: vi.fn().mockResolvedValue([{
+        profileId: "customer-1",
+        displayName: "Customer",
+        phone: "+905551112233",
+        templateKey: "appointment-confirmed-customer",
+        body: "Randevunuz onaylandı.",
+        templateParameters: [],
+      }]),
+      claim: vi.fn().mockResolvedValue("claimed"),
+      markSent: vi.fn(),
+      markFailed: vi.fn().mockResolvedValue(undefined),
+      markUnknown: vi.fn(),
+    };
+    const provider = {
+      channel: "WHATSAPP" as const,
+      send: vi.fn().mockRejectedValue(
+        new NotificationProviderError("WHATSAPP_PROVIDER_HTTP_400", "rejected"),
+      ),
+    };
+
+    const result = await createNotificationService({ repository, provider }).publish(
+      { tenantId: "tenant-1" as never },
+      "appointment-1",
+      "APPOINTMENT_CONFIRMED",
+    );
+
+    expect(result.results).toEqual([{ profileId: "customer-1", status: "FAILED" }]);
+    expect(repository.markFailed).toHaveBeenCalledWith(
+      { tenantId: "tenant-1" },
+      expect.objectContaining({
+        appointmentId: "appointment-1",
+        eventType: "APPOINTMENT_CONFIRMED",
+        recipientProfileId: "customer-1",
+        errorCode: "WHATSAPP_PROVIDER_HTTP_400",
+      }),
+    );
+    expect(repository.markUnknown).not.toHaveBeenCalled();
+    expect(repository.markSent).not.toHaveBeenCalled();
   });
 
   it("does not duplicate an already sent delivery", async () => {

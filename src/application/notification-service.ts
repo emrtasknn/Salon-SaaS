@@ -1,5 +1,5 @@
 import type { TenantContext } from "../domain/tenant-context";
-import type { NotificationEventType } from "../domain/notification";
+import { NotificationProviderError, type NotificationEventType } from "../domain/notification";
 import type { NotificationProvider } from "../infrastructure/notifications";
 
 export type NotificationRepository = Readonly<{
@@ -122,7 +122,19 @@ export function createNotificationService(
             templateKey: recipient.templateKey,
             templateParameters: recipient.templateParameters,
           });
-        } catch {
+        } catch (error) {
+          if (error instanceof NotificationProviderError && error.outcome === "rejected") {
+            await dependencies.repository.markFailed(tenantContext, {
+              appointmentId,
+              eventType,
+              channel: "WHATSAPP",
+              recipientProfileId: recipient.profileId,
+              errorCode: error.errorCode,
+            });
+            results.push({ profileId: recipient.profileId, status: "FAILED" });
+            continue;
+          }
+
           console.error("notification_delivery_unknown", {
             tenantId: tenantContext.tenantId,
             appointmentId,

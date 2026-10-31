@@ -51,6 +51,64 @@ A controlled local booking triggered two real Meta WhatsApp messages for `APPOIN
 The local PR #99 test run skipped the five RLS integration tests; use the successful CI run from PR #97 as the relevant evidence for that suite. The PR #97 CI result is database integration evidence; the owner-reported real-environment two-tenant manual validation is separately recorded under W11.4. Neither result substitutes for real Meta delivery validation.
 
 
+
+## 2B. Progress checkpoint — 2026-10-31
+
+This checkpoint supersedes earlier W11.5/W11.7 status notes where they conflict, while preserving the historical evidence and its original classification.
+
+### W11.5 — Real Meta WhatsApp
+
+**Status: PARTIAL PASS / OPEN — code hardening and automated coverage are progressing; external pilot exit criteria remain.**
+
+Merged implementation:
+- PR #112 hardens provider message-ID validation, non-sensitive error handling, and prevents automatic resend of `UNKNOWN` deliveries.
+- PR #115 adds application-service coverage for the `APPOINTMENT_CONFIRMED` customer notification and reconciles the W11.5 pilot plan.
+- Existing automated tests cover CREATED staff/customer recipient mapping, CONFIRMED and REJECTED customer routing, duplicate/already-sent behavior, ambiguous outcomes, and the non-retryable UNKNOWN state.
+
+Owner-reported real-device evidence:
+- The owner-reported real Meta smoke test covers APPOINTMENT_CREATED delivery to staff and customer devices; the CONFIRMED customer path is covered by PR #115 application-service tests, not by the recorded real-device smoke test.
+- The earlier controlled CREATED smoke test recorded staff and customer delivery records as SENT with provider IDs and attemptCount = 1.
+- These are owner-reported/local pilot evidence, not production approval or proof of every W11.5 exit criterion.
+
+Current code hardening under review:
+- PR #120 distinguishes definite Meta 4xx rejection (except 408) and local missing-template configuration from ambiguous outcomes.
+- Definite rejections are persisted as FAILED; network errors, HTTP 408/5xx, and missing provider message IDs remain UNKNOWN.
+- UNKNOWN remains non-retryable automatically.
+- A PostgreSQL-backed notification integration test verifies PENDING/SENT duplicate suppression, UNKNOWN non-retryability, and explicit FAILED re-claim behavior with persisted attempt counts.
+
+Still OPEN and requiring isolated external evidence:
+- Real Meta APPOINTMENT_REJECTED customer delivery.
+- Controlled real-provider failure behavior and resulting FAILED/UNKNOWN classification.
+- Real repeated-event/idempotency behavior.
+- Confirmation that the shared sender is permitted under applicable Meta/provider terms.
+- Secret/configuration boundary review in the isolated pilot environment.
+
+No real WhatsApp message is sent by CI. Do not infer W11.5 completion from unit tests or CI. Do not automatically retry UNKNOWN outcomes.
+
+### W11.6 — WhatsApp webhook tenant routing
+
+**Status: OPEN — C3 decision required before implementation.**
+
+The proposed tenant-scoped WhatsAppIntegration routing and status mapping remain subject to explicit human approval. READ remains non-mutating; providerMessageId remains non-globally-unique. No W11.6 schema migration or webhook status persistence is authorized by the W11.5 work.
+
+### W11.7 — Two-tenant security regression
+
+**Status: READY FOR MERGE — full documented application/security matrix is covered; PR #119 CI #371 passed. W11.7 closure is pending PR merge and successful post-merge main CI.**
+
+Merged:
+- PR #116 adds reciprocal Tenant A/B RLS read and direct-ID mutation coverage.
+- PR #118 adds reciprocal CRM customer search/calendar isolation, cross-tenant customer-note mutation denial, and staff appointment authorization regression coverage.
+
+PR #119 adds:
+- PostgreSQL-backed public-booking and public-availability resource-boundary tests in both tenant directions.
+- Direct-ID RLS mutation checks across all nine tenant-owned tables.
+- Tenant A/B integration coverage for service/staff/working-hours management repositories.
+- Tenant-scoped notification recipient resolution.
+
+The final PR #119 quality-gates run #371 passed migration, lint, typecheck, the full test suite, and build. The application-surface audit found coverage for records, appointments, customers, notes, notifications, staff actions, public booking/availability, direct identifiers, missing tenant context, and inactive staff/membership authorization.
+
+Do not mark W11.7 COMPLETE until PR #119 is merged and post-merge main CI is green.
+
 ## 3. Governing constraints
 
 - Server flow remains: Authenticate → trusted tenant context → membership/role authorization → application operation → tenant-aware persistence → PostgreSQL RLS.
