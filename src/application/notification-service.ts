@@ -123,6 +123,13 @@ export function createNotificationService(
             templateParameters: recipient.templateParameters,
           });
         } catch {
+          console.error("notification_delivery_unknown", {
+            tenantId: tenantContext.tenantId,
+            appointmentId,
+            channel: "WHATSAPP",
+            recipientProfileId: recipient.profileId,
+            errorCode: "PROVIDER_OUTCOME_UNKNOWN",
+          });
           await dependencies.repository.markUnknown(tenantContext, {
             appointmentId,
             eventType,

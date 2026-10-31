@@ -292,4 +292,33 @@ describe("notification service", () => {
     expect(repository.markFailed).not.toHaveBeenCalled();
     expect(provider.send).toHaveBeenCalledOnce();
   });
+
+  it("does not send again when a delivery is already unknown", async () => {
+    const provider = { channel: "WHATSAPP" as const, send: vi.fn() };
+    const repository = {
+      recipients: vi.fn().mockResolvedValue([
+        {
+          profileId: "c",
+          displayName: "C",
+          phone: "+1",
+          templateKey: "x",
+          body: "x",
+          templateParameters: [],
+        },
+      ]),
+      claim: vi.fn().mockResolvedValue("already_unknown"),
+      markSent: vi.fn(),
+      markFailed: vi.fn(),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
+    };
+    const result = await createNotificationService({
+      repository,
+      provider,
+    }).publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CONFIRMED");
+    expect(result.results).toEqual([{ profileId: "c", status: "UNKNOWN" }]);
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(repository.markSent).not.toHaveBeenCalled();
+    expect(repository.markFailed).not.toHaveBeenCalled();
+    expect(repository.markUnknown).not.toHaveBeenCalled();
+  });
 });
