@@ -2,6 +2,7 @@
 
 import { createBookingEngine } from "../../application/booking-engine";
 import { createStaffAppointments } from "../../application/staff-appointments";
+import { authorizeStaffDecision } from "../../application/staff-appointment-authorization";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
@@ -32,16 +33,34 @@ async function getStaffContext() {
   };
 }
 
+
+function staffDecisionAuthorization(
+  prisma: ReturnType<typeof getPrisma>,
+  reader: ReturnType<typeof createPrismaMembershipReader>,
+) {
+  return {
+    membershipReader: reader,
+    staffReader: {
+      async findByProfileId(tenantContext: Parameters<typeof authorizeStaffDecision>[2], profileId: string) {
+        return prisma.staff.findUnique({
+          where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId } },
+        });
+      },
+    },
+  };
+}
+
 function staffAppointments(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof createPrismaMembershipReader>) {
   return createStaffAppointments({
     repository: createPrismaStaffAppointmentsRepository(prisma),
     authorizer: {
       async authorizeStaffDecision(identity, tenantContext, appointment) {
-        if (identity.state !== "authenticated") return false;
-        const membership = await reader.readMembership({ tenantContext, identity });
-        if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
-        const staff = await prisma.staff.findUnique({ where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId: membership.membership.profileId } } });
-        return !!staff && staff.status === "ACTIVE" && staff.id === appointment.staffId && appointment.tenantId === tenantContext.tenantId && appointment.status === "PENDING";
+        return authorizeStaffDecision(
+          staffDecisionAuthorization(prisma, reader),
+          identity,
+          tenantContext,
+          appointment,
+        );
       },
       async authorizeAdmin(identity, tenantContext) {
         const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
@@ -60,11 +79,12 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
         return result.authorization.status === "allowed";
       },
       async authorizeStaffDecision(identity, tenantContext, appointment) {
-        if (identity.state !== "authenticated") return false;
-        const membership = await reader.readMembership({ tenantContext, identity });
-        if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
-        const staff = await prisma.staff.findUnique({ where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId: membership.membership.profileId } } });
-        return !!staff && staff.status === "ACTIVE" && staff.id === appointment.staffId && appointment.tenantId === tenantContext.tenantId && appointment.status === "PENDING";
+        return authorizeStaffDecision(
+          staffDecisionAuthorization(prisma, reader),
+          identity,
+          tenantContext,
+          appointment,
+        );
       },
     },
   });
