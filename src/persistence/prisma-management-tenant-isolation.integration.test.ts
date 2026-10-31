@@ -7,6 +7,7 @@ import { createPrismaServiceRepository } from "./prisma-service-management";
 import { createPrismaStaffRepository } from "./prisma-staff-management";
 import { createPrismaWorkingHoursRepository } from "./prisma-working-hours-management";
 import { createPrismaNotificationRepository } from "./prisma-notification";
+import { createPrismaPublicAvailabilityRepository } from "./prisma-public-availability";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -139,6 +140,28 @@ describeDatabase("Prisma management repositories tenant isolation integration", 
       errors.push(`PostgreSQL pool shutdown failed: ${String(error)}`);
     }
     if (errors.length) throw new Error(errors.join("\n"));
+  });
+
+  it("rejects foreign service and staff IDs in public availability for both tenants", async () => {
+    if (!prisma) throw new Error("Prisma client was not initialized");
+    const repository = createPrismaPublicAvailabilityRepository(prisma as unknown as PrismaTenantClient);
+    const contextA = { tenantId: tenantA.tenantId as never };
+    const contextB = { tenantId: tenantB.tenantId as never };
+    const dateIso = "2026-11-02";
+
+    const results = await Promise.all([
+      repository.read(contextA, { serviceId: tenantB.serviceId, staffId: tenantA.staffId, dateIso }),
+      repository.read(contextA, { serviceId: tenantA.serviceId, staffId: tenantB.staffId, dateIso }),
+      repository.read(contextB, { serviceId: tenantA.serviceId, staffId: tenantB.staffId, dateIso }),
+      repository.read(contextB, { serviceId: tenantB.serviceId, staffId: tenantA.staffId, dateIso }),
+    ]);
+
+    expect(results).toEqual([
+      { status: "invalid_resource" },
+      { status: "invalid_resource" },
+      { status: "invalid_resource" },
+      { status: "invalid_resource" },
+    ]);
   });
 
   it("does not resolve another tenant's appointment or recipients by direct appointment ID", async () => {
