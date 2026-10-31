@@ -166,6 +166,36 @@ describe("Meta WhatsApp provider", () => {
 
     expect(consoleError).toHaveBeenCalledWith("whatsapp_provider_message_id_missing", {
       hasMessages: true,
+      hasValidMessageId: false,
+    });
+    consoleError.mockRestore();
+  });
+
+  it.each([
+    ["numeric", 123],
+    ["empty", ""],
+    ["whitespace-only", "   "],
+    ["null", null],
+  ])("rejects a %s provider message ID", async (_description, invalidId) => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ messages: [{ id: invalidId }] }), { status: 200 }),
+    );
+    const provider = createMetaWhatsAppProvider({
+      accessToken: "secret",
+      phoneNumberId: "123",
+      apiVersion: "v23.0",
+      templates: { x: { name: "x", languageCode: "tr" } },
+      fetchImpl,
+    });
+
+    await expect(
+      provider.send({ to: "+1", body: "x", templateKey: "x", templateParameters: [] }),
+    ).rejects.toThrow("WHATSAPP_PROVIDER_MESSAGE_ID_MISSING");
+
+    expect(consoleError).toHaveBeenCalledWith("whatsapp_provider_message_id_missing", {
+      hasMessages: true,
+      hasValidMessageId: false,
     });
     consoleError.mockRestore();
   });
