@@ -94,7 +94,9 @@ describeDatabase("Prisma CRM customer history integration", () => {
 
   const cleanupTenant = async (data: Fixture) => {
     if (!pool) return;
-    await pool.query('DELETE FROM "CustomerNote" WHERE "id" = $1', [data.noteId]);
+    // The tests may create additional notes for the fixture customer.
+    // Remove every tenant-scoped note before deleting referenced profiles.
+    await pool.query('DELETE FROM "CustomerNote" WHERE "tenantId" = $1', [data.tenantId]);
     await pool.query('DELETE FROM "Appointment" WHERE "id" = $1', [data.appointmentId]);
     await pool.query('DELETE FROM "Staff" WHERE "id" = $1', [data.staffId]);
     await pool.query('DELETE FROM "Service" WHERE "id" = $1', [data.serviceId]);
