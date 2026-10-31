@@ -393,4 +393,48 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
       client.release();
     }
   });
+
+  it("enforces reciprocal Tenant B isolation", async () => {
+    const ownCounts = await withRole(fixtureB.tenantId, (client) => readTenantRows(client, fixtureB));
+    const crossTenantCounts = await withRole(fixtureA.tenantId, (client) => readTenantRows(client, fixtureB));
+
+    expect(ownCounts).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1]);
+    expect(crossTenantCounts).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  });
+
+  it("blocks reverse-direction cross-tenant mutations by direct identifiers", async () => {
+    const result = await withRole(fixtureA.tenantId, async (client) => {
+      const profileUpdate = await client.query(
+        'UPDATE "Profile" SET "displayName" = $1 WHERE "id" = $2',
+        ["cross-tenant-attempt", fixtureB.customerProfileId],
+      );
+      const appointmentDelete = await client.query(
+        'DELETE FROM "Appointment" WHERE "id" = $1',
+        [fixtureB.appointmentId],
+      );
+      const noteUpdate = await client.query(
+        'UPDATE "CustomerNote" SET "body" = $1 WHERE "id" = $2',
+        ["cross-tenant-attempt", fixtureB.noteId],
+      );
+      const deliveryUpdate = await client.query(
+        'UPDATE "NotificationDelivery" SET "status" = $1 WHERE "id" = $2',
+        ["SENT", fixtureB.deliveryId],
+      );
+      const whatsappUpdate = await client.query(
+        'UPDATE "WhatsAppIntegration" SET "status" = $1 WHERE "id" = $2',
+        ["INACTIVE", fixtureB.whatsappIntegrationId],
+      );
+
+      return [
+        profileUpdate.rowCount,
+        appointmentDelete.rowCount,
+        noteUpdate.rowCount,
+        deliveryUpdate.rowCount,
+        whatsappUpdate.rowCount,
+      ];
+    });
+
+    expect(result).toEqual([0, 0, 0, 0, 0]);
+  });
+
 });
