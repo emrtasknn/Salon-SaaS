@@ -6,6 +6,7 @@ import { PrismaClient } from "../generated/prisma/client";
 import { createPrismaServiceRepository } from "./prisma-service-management";
 import { createPrismaStaffRepository } from "./prisma-staff-management";
 import { createPrismaWorkingHoursRepository } from "./prisma-working-hours-management";
+import { createPrismaNotificationRepository } from "./prisma-notification";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -15,8 +16,10 @@ type Fixture = {
   tenantId: string;
   slug: string;
   staffProfileId: string;
+  customerProfileId: string;
   staffId: string;
   serviceId: string;
+  appointmentId: string;
   mondayHoursId: string;
   tuesdayHoursId: string;
 };
@@ -27,8 +30,10 @@ function makeFixture(label: string): Fixture {
     tenantId: `management-isolation-${label}-${suffix}`,
     slug: `management-isolation-${label}-${suffix}`,
     staffProfileId: `management-staff-profile-${label}-${suffix}`,
+    customerProfileId: `management-customer-profile-${label}-${suffix}`,
     staffId: `management-staff-${label}-${suffix}`,
     serviceId: `management-service-${label}-${suffix}`,
+    appointmentId: `management-appointment-${label}-${suffix}`,
     mondayHoursId: `management-monday-${label}-${suffix}`,
     tuesdayHoursId: `management-tuesday-${label}-${suffix}`,
   };
@@ -49,8 +54,14 @@ describeDatabase("Prisma management repositories tenant isolation integration", 
     );
     await pool.query(
       `INSERT INTO "Profile" ("id", "tenantId", "displayName", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, now(), now())`,
-      [fixture.staffProfileId, fixture.tenantId, `Staff ${label}`],
+       VALUES ($1, $2, $3, now(), now()), ($4, $2, $5, now(), now())`,
+      [
+        fixture.staffProfileId,
+        fixture.tenantId,
+        `Staff ${label}`,
+        fixture.customerProfileId,
+        `Customer ${label}`,
+      ],
     );
     await pool.query(
       `INSERT INTO "Staff" ("id", "tenantId", "profileId", "status", "createdAt", "updatedAt")
@@ -67,6 +78,17 @@ describeDatabase("Prisma management repositories tenant isolation integration", 
        VALUES ($1, $2, 1, 540, 1080, now(), now())`,
       [fixture.mondayHoursId, fixture.tenantId],
     );
+    await pool.query(
+      `INSERT INTO "Appointment" ("id", "tenantId", "staffId", "serviceId", "customerProfileId", "status", "startAt", "endAt", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, 'PENDING', now() + interval '1 day', now() + interval '1 day 30 minutes', now(), now())`,
+      [
+        fixture.appointmentId,
+        fixture.tenantId,
+        fixture.staffId,
+        fixture.serviceId,
+        fixture.customerProfileId,
+      ],
+    );
     if (includeTuesday) {
       await pool.query(
         `INSERT INTO "WorkingHours" ("id", "tenantId", "dayOfWeek", "openMinute", "closeMinute", "createdAt", "updatedAt")
@@ -79,6 +101,7 @@ describeDatabase("Prisma management repositories tenant isolation integration", 
   const cleanupTenant = async (fixture: Fixture) => {
     if (!pool) return;
     await pool.query('DELETE FROM "CustomerNote" WHERE "tenantId" = $1', [fixture.tenantId]);
+    await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "WorkingHours" WHERE "tenantId" = $1', [fixture.tenantId]);
@@ -117,6 +140,24 @@ describeDatabase("Prisma management repositories tenant isolation integration", 
       errors.push(`PostgreSQL pool shutdown failed: ${String(error)}`);
     }
     if (errors.length) throw new Error(errors.join("\n"));
+  });
+
+  it("does not resolve another tenant's appointment or recipients by direct appointment ID", async () => {
+    if (!prisma) throw new Error("Prisma client was not initialized");
+    const repository = createPrismaNotificationRepository(prisma as unknown as PrismaTenantClient);
+    const contextA = { tenantId: tenantA.tenantId as never };
+    const contextB = { tenantId: tenantB.tenantId as never };
+
+    const [crossTenantRecipients, ownRecipients] = await Promise.all([
+      repository.recipients(contextA, tenantB.appointmentId, "APPOINTMENT_CREATED"),
+      repository.recipients(contextB, tenantB.appointmentId, "APPOINTMENT_CREATED"),
+    ]);
+
+    expect(crossTenantRecipients).toEqual([]);
+    expect(ownRecipients.map((recipient) => recipient.profileId)).toEqual([
+      tenantB.staffProfileId,
+      tenantB.customerProfileId,
+    ]);
   });
 
   it("keeps service list, update, and activation tenant-scoped", async () => {
