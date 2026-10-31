@@ -1,11 +1,12 @@
 import type { ApplicationIdentity } from "../domain/auth-identity";
 import type { AppointmentRecord } from "../domain/appointment";
 import type { TenantContext } from "../domain/tenant-context";
+import type { TenantRole } from "../domain/authorization";
 
 export type StaffDecisionAuthorizationDependencies = Readonly<{
   membershipReader: {
     readMembership(input: { tenantContext: TenantContext; identity: Extract<ApplicationIdentity, { state: "authenticated" }>}): Promise<
-      | { status: "found"; membership: { role: "STAFF" | "TENANT_ADMIN" | "SUPER_ADMIN"; profileId: string } }
+      | { status: "found"; membership: { role: TenantRole; profileId: string } }
       | { status: "not_found" }
       | { status: "error"; error: string }
     >;
