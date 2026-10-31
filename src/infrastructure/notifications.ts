@@ -33,7 +33,7 @@ export type MetaWhatsAppProviderConfig = Readonly<{
   fetchImpl?: typeof fetch;
 }>;
 
-type MetaSendResponse = Readonly<{ messages?: ReadonlyArray<Readonly<{ id?: string }>> }>;
+type MetaSendResponse = Readonly<{ messages?: ReadonlyArray<Readonly<{ id?: unknown }>> }>;
 
 function safeParseMetaError(raw: string) {
   try {
@@ -47,7 +47,6 @@ function safeParseMetaError(raw: string) {
     return null;
   }
 }
-
 
 export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): NotificationProvider {
   const fetchImpl = config.fetchImpl ?? fetch;
@@ -111,9 +110,10 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
       }
       const payload = json as MetaSendResponse | null;
       const providerMessageId = payload?.messages?.[0]?.id;
-      if (!providerMessageId) {
+      if (typeof providerMessageId !== "string" || providerMessageId.trim().length === 0) {
         console.error("whatsapp_provider_message_id_missing", {
           hasMessages: Array.isArray(payload?.messages),
+          hasValidMessageId: false,
         });
         throw new Error("WHATSAPP_PROVIDER_MESSAGE_ID_MISSING");
       }
