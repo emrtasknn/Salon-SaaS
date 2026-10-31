@@ -66,7 +66,7 @@ Merged implementation:
 - Existing automated tests cover CREATED staff/customer recipient mapping, CONFIRMED and REJECTED customer routing, duplicate/already-sent behavior, ambiguous outcomes, and the non-retryable UNKNOWN state.
 
 Owner-reported real-device evidence:
-- The owner reports successful real Meta delivery for the displayed CREATED and CONFIRMED customer scenarios; the supplied conversation screenshot corroborates receipt/content.
+- The owner-reported real Meta smoke test covers APPOINTMENT_CREATED delivery to staff and customer devices; the CONFIRMED customer path is covered by PR #115 application-service tests, not by the recorded real-device smoke test.
 - The earlier controlled CREATED smoke test recorded staff and customer delivery records as SENT with provider IDs and attemptCount = 1.
 - These are owner-reported/local pilot evidence, not production approval or proof of every W11.5 exit criterion.
 
