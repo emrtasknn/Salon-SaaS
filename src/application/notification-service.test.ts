@@ -321,4 +321,57 @@ describe("notification service", () => {
     expect(repository.markFailed).not.toHaveBeenCalled();
     expect(repository.markUnknown).not.toHaveBeenCalled();
   });
+
+  it("sends a confirmed-appointment notification to the customer", async () => {
+    const calls: Array<Readonly<{
+      to: string;
+      body: string;
+      templateKey: string;
+      templateParameters: ReadonlyArray<string>;
+    }>> = [];
+    const repository = {
+      recipients: vi.fn().mockResolvedValue([{
+        profileId: "customer-1",
+        displayName: "Customer",
+        phone: "+905550000000",
+        templateKey: "appointment-confirmed-customer",
+        body: "Randevunuz onaylandı.",
+        templateParameters: ["Kesim", "21.10.2026 14:00", "Staff"],
+      }]),
+      claim: vi.fn().mockResolvedValue("claimed"),
+      markSent: vi.fn().mockResolvedValue(undefined),
+      markFailed: vi.fn(),
+      markUnknown: vi.fn(),
+    };
+
+    const result = await createNotificationService({
+      repository,
+      provider: createMockWhatsAppProvider(calls),
+    }).publish(
+      { tenantId: "tenant-1" as never },
+      "appointment-1",
+      "APPOINTMENT_CONFIRMED",
+    );
+
+    expect(result.results).toEqual([{ profileId: "customer-1", status: "SENT" }]);
+    expect(repository.recipients).toHaveBeenCalledWith(
+      { tenantId: "tenant-1" },
+      "appointment-1",
+      "APPOINTMENT_CONFIRMED",
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      to: "+905550000000",
+      templateKey: "appointment-confirmed-customer",
+      templateParameters: ["Kesim", "21.10.2026 14:00", "Staff"],
+    });
+    expect(repository.markSent).toHaveBeenCalledWith(
+      { tenantId: "tenant-1" },
+      expect.objectContaining({
+        appointmentId: "appointment-1",
+        eventType: "APPOINTMENT_CONFIRMED",
+        recipientProfileId: "customer-1",
+      }),
+    );
+  });
 });
