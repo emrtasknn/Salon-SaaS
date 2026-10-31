@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createNotificationService } from "./notification-service";
-import { createMockWhatsAppProvider, NotificationProviderError } from "../infrastructure/notifications";
+import { NotificationProviderError } from "../domain/notification";
+import { createMockWhatsAppProvider } from "../infrastructure/notifications";
 
 describe("notification service", () => {
   it("sends created notifications to staff and customer", async () => {
