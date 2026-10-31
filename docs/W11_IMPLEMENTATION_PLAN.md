@@ -99,7 +99,7 @@ Merged:
 - PR #118 adds reciprocal CRM customer search/calendar isolation, cross-tenant customer-note mutation denial, and staff appointment authorization regression coverage.
 
 Under review:
-- PR #119 adds PostgreSQL-backed public-booking resource-boundary tests in both tenant directions, direct-ID RLS mutation checks for Staff/Service/WorkingHours, Tenant A/B integration coverage for service/staff/working-hours management repositories, and tenant-scoped notification recipient resolution.
+- PR #119 adds PostgreSQL-backed public-booking and public-availability resource-boundary tests in both tenant directions, direct-ID RLS mutation checks for Staff/Service/WorkingHours, Tenant A/B integration coverage for service/staff/working-hours management repositories, and tenant-scoped notification recipient resolution.
 
 The broader W11.7 matrix remains open until all supported application surfaces and exit criteria have been audited and evidenced. Do not infer W11.7 closure from PR #119 alone.
 
