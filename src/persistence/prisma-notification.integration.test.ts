@@ -133,7 +133,7 @@ describeDatabase("Prisma notification delivery idempotency integration", () => {
       `SELECT "eventType", "status", "attemptCount", "providerMessageId", "lastErrorCode"
        FROM "NotificationDelivery"
        WHERE "tenantId" = $1 AND "appointmentId" = $2
-       ORDER BY "eventType" ASC`,
+       ORDER BY "eventType"::text ASC`,
       [tenantId, appointmentId],
     );
     expect(rows.rows).toEqual([
