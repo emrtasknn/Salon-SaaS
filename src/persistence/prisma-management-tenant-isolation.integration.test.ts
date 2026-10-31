@@ -102,7 +102,6 @@ describeDatabase("Prisma management repositories tenant isolation integration", 
     if (!pool) return;
     await pool.query('DELETE FROM "CustomerNote" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
-    await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "WorkingHours" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [fixture.tenantId]);
