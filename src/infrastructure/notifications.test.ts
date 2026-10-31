@@ -82,7 +82,6 @@ describe("Meta WhatsApp provider", () => {
       status: 400,
       metaErrorCode: 190,
       metaErrorSubcode: 463,
-      metaErrorType: "OAuthException",
       errorCode: "WHATSAPP_PROVIDER_HTTP_ERROR",
     });
     const serializedLog = JSON.stringify(consoleError.mock.calls);
@@ -111,7 +110,6 @@ describe("Meta WhatsApp provider", () => {
       status: 401,
       metaErrorCode: null,
       metaErrorSubcode: null,
-      metaErrorType: null,
       errorCode: "WHATSAPP_PROVIDER_HTTP_ERROR",
     });
     const serializedLog = JSON.stringify(consoleError.mock.calls);
