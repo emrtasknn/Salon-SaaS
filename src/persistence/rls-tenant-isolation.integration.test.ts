@@ -350,6 +350,22 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
         'UPDATE "WhatsAppIntegration" SET "status" = $1 WHERE "id" = $2',
         ["INACTIVE", fixtureA.whatsappIntegrationId],
       );
+      const staffUpdate = await client.query(
+        'UPDATE "Staff" SET "status" = $1 WHERE "id" = $2',
+        ["INACTIVE", fixtureA.staffId],
+      );
+      const serviceUpdate = await client.query(
+        'UPDATE "Service" SET "active" = $1 WHERE "id" = $2',
+        [false, fixtureA.serviceId],
+      );
+      const workingHoursUpdate = await client.query(
+        'UPDATE "WorkingHours" SET "openMinute" = $1 WHERE "id" = $2',
+        [600, fixtureA.workingHoursId],
+      );
+      const membershipUpdate = await client.query(
+        'UPDATE "TenantMembership" SET "subjectId" = $1 WHERE "id" = $2',
+        [`cross-tenant-attempt-${randomUUID()}`, fixtureA.membershipId],
+      );
 
       return [
         profileUpdate.rowCount,
@@ -357,10 +373,14 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
         noteUpdate.rowCount,
         deliveryUpdate.rowCount,
         whatsappUpdate.rowCount,
+        staffUpdate.rowCount,
+        serviceUpdate.rowCount,
+        workingHoursUpdate.rowCount,
+        membershipUpdate.rowCount,
       ];
     });
 
-    expect(result).toEqual([0, 0, 0, 0, 0]);
+    expect(result).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
   it("blocks access when tenant context is absent", async () => {
@@ -424,6 +444,22 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
         'UPDATE "WhatsAppIntegration" SET "status" = $1 WHERE "id" = $2',
         ["INACTIVE", fixtureB.whatsappIntegrationId],
       );
+      const staffUpdate = await client.query(
+        'UPDATE "Staff" SET "status" = $1 WHERE "id" = $2',
+        ["INACTIVE", fixtureB.staffId],
+      );
+      const serviceUpdate = await client.query(
+        'UPDATE "Service" SET "active" = $1 WHERE "id" = $2',
+        [false, fixtureB.serviceId],
+      );
+      const workingHoursUpdate = await client.query(
+        'UPDATE "WorkingHours" SET "openMinute" = $1 WHERE "id" = $2',
+        [600, fixtureB.workingHoursId],
+      );
+      const membershipUpdate = await client.query(
+        'UPDATE "TenantMembership" SET "subjectId" = $1 WHERE "id" = $2',
+        [`cross-tenant-attempt-${randomUUID()}`, fixtureB.membershipId],
+      );
 
       return [
         profileUpdate.rowCount,
@@ -431,10 +467,14 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
         noteUpdate.rowCount,
         deliveryUpdate.rowCount,
         whatsappUpdate.rowCount,
+        staffUpdate.rowCount,
+        serviceUpdate.rowCount,
+        workingHoursUpdate.rowCount,
+        membershipUpdate.rowCount,
       ];
     });
 
-    expect(result).toEqual([0, 0, 0, 0, 0]);
+    expect(result).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
 });
