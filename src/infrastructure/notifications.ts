@@ -1,15 +1,4 @@
-import type { NotificationChannel } from "../domain/notification";
-
-export class NotificationProviderError extends Error {
-  constructor(
-    readonly errorCode: string,
-    readonly outcome: "rejected" | "unknown",
-    message = errorCode,
-  ) {
-    super(message);
-    this.name = "NotificationProviderError";
-  }
-}
+import { NotificationProviderError, type NotificationChannel } from "../domain/notification";
 
 export type NotificationProvider = Readonly<{
   channel: NotificationChannel;
