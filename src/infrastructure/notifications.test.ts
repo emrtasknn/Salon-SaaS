@@ -149,6 +149,45 @@ describe("Meta WhatsApp provider", () => {
     consoleError.mockRestore();
   });
 
+  it("classifies an explicit Meta 4xx rejection as a definite failure", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ error: { code: 100 } }),
+      { status: 400 },
+    ));
+    const provider = createMetaWhatsAppProvider({
+      accessToken: "secret",
+      phoneNumberId: "123",
+      apiVersion: "v23.0",
+      templates: { x: { name: "x", languageCode: "tr" } },
+      fetchImpl,
+    });
+
+    await expect(
+      provider.send({ to: "+1", body: "x", templateKey: "x", templateParameters: [] }),
+    ).rejects.toMatchObject({
+      errorCode: "WHATSAPP_PROVIDER_HTTP_400",
+      outcome: "rejected",
+    });
+  });
+
+  it("keeps a Meta 5xx response outcome UNKNOWN", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response("provider error", { status: 503 }));
+    const provider = createMetaWhatsAppProvider({
+      accessToken: "secret",
+      phoneNumberId: "123",
+      apiVersion: "v23.0",
+      templates: { x: { name: "x", languageCode: "tr" } },
+      fetchImpl,
+    });
+
+    await expect(
+      provider.send({ to: "+1", body: "x", templateKey: "x", templateParameters: [] }),
+    ).rejects.toMatchObject({
+      errorCode: "WHATSAPP_PROVIDER_HTTP_503",
+      outcome: "unknown",
+    });
+  });
+
   it("rejects a successful HTTP response without a provider message ID", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({ messages: [{}] }), { status: 200 }));
