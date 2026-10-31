@@ -464,7 +464,7 @@ describeRls("PostgreSQL RLS tenant isolation", () => {
       ];
     });
 
-    expect(result).toEqual([0, 0, 0, 0, 0]);
+    expect(result).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
 });
