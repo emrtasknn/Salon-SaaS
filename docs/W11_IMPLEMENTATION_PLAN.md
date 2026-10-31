@@ -74,6 +74,7 @@ Current code hardening under review:
 - PR #120 distinguishes definite Meta 4xx rejection (except 408) and local missing-template configuration from ambiguous outcomes.
 - Definite rejections are persisted as FAILED; network errors, HTTP 408/5xx, and missing provider message IDs remain UNKNOWN.
 - UNKNOWN remains non-retryable automatically.
+- A PostgreSQL-backed notification integration test verifies PENDING/SENT duplicate suppression, UNKNOWN non-retryability, and explicit FAILED re-claim behavior with persisted attempt counts.
 
 Still OPEN and requiring isolated external evidence:
 - Real Meta APPOINTMENT_REJECTED customer delivery.
