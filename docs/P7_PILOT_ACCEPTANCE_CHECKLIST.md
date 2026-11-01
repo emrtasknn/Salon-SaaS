@@ -6,6 +6,24 @@
 
 This document is an execution checklist and evidence register. It does not declare P7 complete. A checkbox may be marked complete only when the stated evidence is recorded.
 
+## Product decision — customer booking experience
+
+**Owner decision: 2026-11-01 — approved for MVP: guest booking without a customer account.**
+
+- Customers must be able to submit a booking request from the public salon page without registering or signing in.
+- A customer account is not a prerequisite for booking in the MVP.
+- The booking flow must collect the customer information required by the current booking implementation and create the appointment under the correct tenant.
+- The public booking journey must not expose another tenant's data.
+- Customer account creation / self-service account management is outside this P7 MVP acceptance requirement unless separately approved.
+
+Acceptance criteria:
+- [ ] Open a tenant's public salon page in a logged-out/private browser session.
+- [ ] Select an available service, staff member and appointment slot.
+- [ ] Submit the booking without creating or signing into a customer account.
+- [ ] Verify the booking is created and visible to the correct tenant staff/admin.
+- [ ] Verify the customer identity/contact details are associated with the booking as expected by the current data model.
+- [ ] Verify another tenant cannot see the booking or customer data.
+
 ## Scope and safety boundaries
 
 - Use the dedicated test tenant `randevun-test-2026` for synthetic pilot data.
@@ -90,7 +108,7 @@ The recipient profile for that last row was not conclusively identified. The mes
 - [ ] Install/add the app to the home screen on a real mobile device.
 - [ ] Launch from the installed app icon.
 - [ ] Verify the public salon page loads.
-- [ ] Complete the customer booking journey.
+- [ ] Complete the customer booking journey without a customer account.
 - [ ] Verify staff/admin appointment view reflects the booking.
 - [ ] Verify navigation and core screens remain usable on mobile.
 - [ ] Record device/browser/OS and evidence; no production customer data.
@@ -106,13 +124,14 @@ The recipient profile for that last row was not conclusively identified. The mes
 ## Desktop execution order
 
 1. Preserve current database rows; do not delete the test appointment or UNKNOWN delivery.
-2. Read the UNKNOWN delivery's recipient profile and appointment relation.
-3. Inspect redacted local/server logs around the corresponding send attempt and identify provider classification.
-4. Inspect Meta test app logs for the same time window and provider message ID, if any.
-5. Complete the W11.6 SQL/RLS audit before enabling or relying on webhook persistence.
-6. Use new synthetic appointments for any fresh controlled delivery tests.
-7. Run the PWA acceptance checklist on a real device.
-8. Attach evidence and request explicit owner closure approval.
+2. In a logged-out/private browser session, verify the approved guest booking journey.
+3. Read the UNKNOWN delivery's recipient profile and appointment relation.
+4. Inspect redacted local/server logs around the corresponding send attempt and identify provider classification.
+5. Inspect Meta test app logs for the same time window and provider message ID, if any.
+6. Complete the W11.6 SQL/RLS audit before enabling or relying on webhook persistence.
+7. Use new synthetic appointments for any fresh controlled delivery tests.
+8. Run the PWA acceptance checklist on a real device.
+9. Attach evidence and request explicit owner closure approval.
 
 ## P7 closure rule
 
