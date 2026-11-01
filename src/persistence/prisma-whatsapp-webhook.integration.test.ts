@@ -178,11 +178,23 @@ describeDatabase("WhatsApp webhook PostgreSQL integration", () => {
     const resolvedTenant = await resolveWhatsAppTenantId(prisma as never, phoneA);
     expect(resolvedTenant).toBe(tenantA);
 
+    const context = tenantContext(resolvedTenant!);
     await applyWhatsAppWebhookStatuses(
       prisma as never,
-      tenantContext(resolvedTenant!),
+      context,
       [{ providerMessageId: sharedProviderMessageId, status: "delivered" }],
     );
+
+    await expect(
+      applyWhatsAppWebhookStatuses(prisma as never, context, [
+        { providerMessageId: sharedProviderMessageId, status: "delivered" },
+      ]),
+    ).resolves.toBe(0);
+    await expect(
+      applyWhatsAppWebhookStatuses(prisma as never, context, [
+        { providerMessageId: `wamid.unknown-${suffix}`, status: "delivered" },
+      ]),
+    ).resolves.toBe(0);
 
     const rows = await pool.query(
       `SELECT "tenantId", "status"
