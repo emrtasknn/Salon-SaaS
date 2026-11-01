@@ -152,7 +152,7 @@ describeDatabase("WhatsApp webhook PostgreSQL integration", () => {
          JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'private'
           AND p.proname = 'resolve_whatsapp_tenant_id'
-          AND pg_get_function_identity_arguments(p.oid) = 'p_phone_number_id text'`,
+          AND pg_get_function_arguments(p.oid) = 'p_phone_number_id text'`,
     );
     expect(functionResult.rows).toHaveLength(1);
     expect(functionResult.rows[0]?.security_definer).toBe(true);
