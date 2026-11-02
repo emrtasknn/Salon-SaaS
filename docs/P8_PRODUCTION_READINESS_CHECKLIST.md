@@ -20,11 +20,11 @@ Establish that the application, infrastructure, integrations, security controls,
 
 1. **P7 pilot acceptance is OPEN.** The end-to-end pilot journey, real-device PWA evidence, and external integration evidence must be completed first.
 2. **W11.5 is PARTIAL PASS.** Real CREATED/CONFIRMED device evidence and provider hardening exist, but REJECTED delivery, controlled provider failure, explicit duplicate/idempotency repetition, and shared-sender permission remain open.
-3. **W11.6 is under implementation/security verification.** C3 routing approval is recorded; PostgreSQL-backed integration coverage is being added. Live Supabase function ownership/grants/migration state and Meta webhook delivery remain unverified.
+3. **W11.6 source/CI integration coverage is merged.** PostgreSQL-backed webhook integration tests are present in the repository. Live Supabase function ownership/grants/migration state and a real signed Meta webhook delivery remain unverified.
 4. **Meta shared-sender permission is unresolved.** The public policy review does not establish permission to use one shared sender for unrelated tenant businesses. No production use until applicable Meta/provider terms and account configuration are validated.
 5. **Main branch protection is not fully enforced.** The repository branch endpoint reports the branch as protected but protection/status-check enforcement is disabled. Configure required checks in GitHub settings and verify the effective rules.
 6. **Production environment evidence is absent.** No independent inventory/review of production secrets, Supabase roles/configuration, auth redirect configuration, domains, monitoring, backup/restore, or staging release evidence is recorded here.
-7. **Guest booking product decision needs explicit confirmation.** P7 checklist must not treat guest booking as an approved product decision until the owner explicitly confirms it.
+7. **Guest booking product decision is RESOLVED.** The owner approved Option A on 2026-11-02: guest booking without customer account. This is no longer a production-readiness decision blocker; P7 execution and evidence are still required.
 
 ## Readiness workstreams
 

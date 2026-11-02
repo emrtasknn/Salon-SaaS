@@ -8,7 +8,7 @@ This document is an execution checklist and evidence register. It does not decla
 
 ## Product decision — customer booking experience
 
-**Decision status: awaiting explicit product-owner confirmation.** The current checklist evaluates guest booking as the proposed MVP path, but the conversation did not record an unambiguous selection. Do not treat this as an approved product decision until the owner confirms it.
+**Decision status: APPROVED - Option A (guest booking without customer account), 2026-11-02.** Customers can submit booking requests without registration or login. Customer accounts, membership, and a self-service customer panel are outside the initial MVP.
 
 - Customers must be able to submit a booking request from the public salon page without registering or signing in.
 - A customer account is not a prerequisite for booking in the MVP.
