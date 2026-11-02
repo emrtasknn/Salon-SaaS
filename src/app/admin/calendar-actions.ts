@@ -15,6 +15,8 @@ import { getPrisma } from "../../infrastructure/prisma-runtime";
 import { localWallTimeToUtc } from "../../domain/availability";
 import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import type { AppointmentRecord, AppointmentStatus } from "../../domain/appointment";
+import type { NotificationEventType } from "../../domain/notification";
+import { publishAppointmentNotification } from "../notification-runtime";
 
 type AppointmentLookupTx = PrismaTenantTransactionClient & {
   appointment: {
@@ -96,5 +98,18 @@ export async function transitionAdminAppointment(appointmentId: string, to: Appo
   );
   if (!appointment) return { status: "NOT_FOUND" as const };
 
-  return booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, appointment, to);
+  const result = await booking(context.prisma, context.reader).transition(
+    context.identity,
+    context.tenantContext,
+    appointment,
+    to,
+  );
+
+  if (result.status === "updated" && (to === "CONFIRMED" || to === "REJECTED")) {
+    const eventType: NotificationEventType =
+      to === "CONFIRMED" ? "APPOINTMENT_CONFIRMED" : "APPOINTMENT_REJECTED";
+    await publishAppointmentNotification(context.tenantContext, appointmentId, eventType);
+  }
+
+  return result;
 }
