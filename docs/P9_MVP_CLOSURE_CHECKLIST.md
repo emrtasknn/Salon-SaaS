@@ -22,7 +22,7 @@ P9 is not a substitute for P7 pilot acceptance or P8 production readiness. P7 va
 
 - [ ] P7 pilot acceptance is explicitly CLOSED with evidence.
 - [ ] P8 production readiness review is READY, with residual risks accepted.
-- [ ] MVP customer booking model is explicitly confirmed (guest booking, mandatory account, or optional account). Existing implementation behavior is not itself a product decision.
+- [x] MVP customer booking model explicitly confirmed: Option A - guest booking without customer account (owner approval: 2026-11-02). Customer accounts, membership, and self-service customer panel are outside the initial MVP.
 - [ ] MVP notification channel scope is confirmed (WhatsApp-only, WhatsApp + Web Push, or other explicitly approved scope).
 - [ ] Shared platform WhatsApp sender is either validated as permitted for the intended multi-tenant model or excluded from production scope pending a separate architecture decision.
 - [ ] Any feature intentionally deferred from MVP is listed with rationale and post-MVP owner/priority.
