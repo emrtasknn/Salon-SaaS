@@ -14,3 +14,6 @@ src/generated/
 
 # graphify (local code graph, regenerate with: graphify update .)
 graphify-out/
+
+# ai-memory MCP local marker
+.ai-memory.toml
