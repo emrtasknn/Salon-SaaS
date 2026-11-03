@@ -7,15 +7,15 @@ This document is the consolidated repository-level source of truth while the det
 Build a multi-tenant SaaS platform for salons, barbers and beauty centers covering:
 - premium public storefront
 - online appointment booking
+- guest booking (no customer account required; see P7)
 - staff/availability management
 - customer CRM
-- review/feedback funnel
 - WhatsApp communication
 - owner/admin dashboard
 - responsive web/PWA staff experience
 - Web Push notification channel
-
-Initial pilot: Levent Özlü Kuaför ve Güzellik Salonu.
+- in-app notifications
+- review/feedback funnel (post-MVP)
 
 ## 2. Technology Baseline
 
@@ -37,6 +37,8 @@ CUSTOMER — end user.
 
 ## 4. MVP Scope
 
+MVP definition: a basic, working end-to-end appointment system (owner-approved 2026-11-03).
+
 Must have:
 - tenant creation and slug
 - public storefront
@@ -45,16 +47,19 @@ Must have:
 - working hours
 - availability engine
 - appointment creation
+- guest booking (no customer account required)
 - appointment status lifecycle
+- appointment notifications: in-app, Web Push (installed PWA), WhatsApp
+- customer appointment-status link (proposed; design requires C3 architecture review)
 - owner dashboard
 - staff appointment view
 - customer history
 - tenant isolation/RLS
-- WhatsApp CTA
-- review funnel
+- WhatsApp CTA (wa.me link on public storefront)
 - production deployment
 
 Post-MVP unless explicitly approved:
+- review/feedback funnel
 - payments
 - subscriptions/billing automation
 - loyalty

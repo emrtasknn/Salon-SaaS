@@ -62,6 +62,7 @@ This checkpoint records merged implementation and validation evidence. It does n
 - **P7:** PR #122 adds a pilot acceptance checklist. Its CI run #381 was in progress after a correction that marks the guest-booking product decision as awaiting explicit confirmation. P7 remains OPEN.
 - **P8/P9:** production-readiness and MVP-closure checklists are being prepared in PR work. Neither phase is complete; P8 cannot authorize production deployment.
 - **P6 / W11.7:** COMPLETE / CLOSED (PR #119 merged; post-merge main CI #375 passed), as recorded in the project execution checkpoint.
+- **MVP scope (C2, owner-approved 2026-11-03):** MVP = basic end-to-end booking incl. guest booking; notifications = in-app + Web Push + WhatsApp; customer status link proposed; WhatsApp CTA (wa.me) in MVP; review funnel moved post-MVP. Recorded in `PROJECT_GOVERNANCE.md` §1/§4. Channel schema/routing still requires C3 architecture review.
 
 ### Remaining W11 gates
 
@@ -242,9 +243,9 @@ Dynamic tenant slug with:
 - portfolio
 - before/after
 - working information
-- reviews/rating
+- reviews/rating (display only; review funnel is post-MVP)
 - booking CTA
-- WhatsApp CTA where appropriate
+- WhatsApp CTA (wa.me link) where appropriate
 
 Public pages must use trusted tenant resolution.
 
@@ -301,7 +302,7 @@ MVP v1 is reached only after the real-salon journey is usable and the critical s
 - configurable WhatsApp appointment reminders (business-configurable timing, rescheduling/cancellation handling, idempotency, and visible delivery status)
 - business-customizable WhatsApp message templates, dynamic placeholders, preview/testing, and Meta template approval/status lifecycle
 - SMS
-- review requests
+- review requests / review funnel (moved from MVP, owner decision 2026-11-03)
 - operational polish
 - real-user bug fixing
 
