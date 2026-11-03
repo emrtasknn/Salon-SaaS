@@ -161,3 +161,181 @@ describeDatabase("Prisma notification delivery idempotency integration", () => {
     ]);
   });
 });
+
+describeDatabase("Prisma notification tenant admin recipients integration (WP-02b)", () => {
+  const suffix = randomUUID();
+  function fixture(label: "a" | "b") {
+    return {
+      tenantId: `notification-admins-${label}-${suffix}`,
+      slug: `notification-admins-${label}-${suffix}`,
+      staffProfileId: `notification-admins-staff-${label}-${suffix}`,
+      customerProfileId: `notification-admins-customer-${label}-${suffix}`,
+      adminOneProfileId: `notification-admins-admin1-${label}-${suffix}`,
+      adminTwoProfileId: `notification-admins-admin2-${label}-${suffix}`,
+      staffId: `notification-admins-staff-record-${label}-${suffix}`,
+      serviceId: `notification-admins-service-${label}-${suffix}`,
+      appointmentId: `notification-admins-appointment-${label}-${suffix}`,
+    };
+  }
+  const tenantA = fixture("a");
+  const tenantB = fixture("b");
+
+  let pool: Pool | undefined;
+  let prisma: PrismaClient | undefined;
+
+  async function seed(f: ReturnType<typeof fixture>, phonePrefix: string) {
+    if (!pool) throw new Error("PostgreSQL pool was not initialized");
+    await pool.query(
+      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone", "createdAt", "updatedAt")
+       VALUES ($1, $2, 'Notification Admins Tenant', 'Europe/Istanbul', now(), now())`,
+      [f.tenantId, f.slug],
+    );
+    await pool.query(
+      `INSERT INTO "Profile" ("id", "tenantId", "displayName", "phone", "createdAt", "updatedAt")
+       VALUES ($1, $2, 'Admins Staff', $3, now(), now()),
+              ($4, $2, 'Admins Customer', $5, now(), now()),
+              ($6, $2, 'Admin One', $7, now(), now()),
+              ($8, $2, 'Admin Two', $9, now(), now())`,
+      [
+        f.staffProfileId, f.tenantId, `${phonePrefix}01`,
+        f.customerProfileId, `${phonePrefix}02`,
+        f.adminOneProfileId, `${phonePrefix}11`,
+        f.adminTwoProfileId, `${phonePrefix}12`,
+      ],
+    );
+    // The assigned staff member is also a TENANT_ADMIN, so it must yield a single recipient/row.
+    await pool.query(
+      `INSERT INTO "TenantMembership" ("id", "tenantId", "subjectId", "profileId", "role", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, 'TENANT_ADMIN', now(), now()),
+              ($5, $2, $6, $7, 'TENANT_ADMIN', now(), now()),
+              ($8, $2, $9, $10, 'TENANT_ADMIN', now(), now())`,
+      [
+        `${f.adminOneProfileId}-membership`, f.tenantId, `${f.adminOneProfileId}-subject`, f.adminOneProfileId,
+        `${f.adminTwoProfileId}-membership`, `${f.adminTwoProfileId}-subject`, f.adminTwoProfileId,
+        `${f.staffProfileId}-membership`, `${f.staffProfileId}-subject`, f.staffProfileId,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO "Staff" ("id", "tenantId", "profileId", "status", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, 'ACTIVE', now(), now())`,
+      [f.staffId, f.tenantId, f.staffProfileId],
+    );
+    await pool.query(
+      `INSERT INTO "Service" ("id", "tenantId", "name", "durationMinutes", "bufferMinutes", "active", "createdAt", "updatedAt")
+       VALUES ($1, $2, 'Admins Service', 30, 0, true, now(), now())`,
+      [f.serviceId, f.tenantId],
+    );
+    await pool.query(
+      `INSERT INTO "Appointment" ("id", "tenantId", "staffId", "serviceId", "customerProfileId", "status", "startAt", "endAt", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, 'PENDING', now() + interval '1 day', now() + interval '1 day 30 minutes', now(), now())`,
+      [f.appointmentId, f.tenantId, f.staffId, f.serviceId, f.customerProfileId],
+    );
+  }
+
+  beforeAll(async () => {
+    if (!databaseUrl) return;
+    pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 10000 });
+    prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+    await seed(tenantA, "+9055510000");
+    await seed(tenantB, "+9055520000");
+  });
+
+  afterAll(async () => {
+    if (!pool || !prisma) return;
+    const errors: string[] = [];
+    for (const f of [tenantA, tenantB]) {
+      try {
+        await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [f.tenantId]);
+        await pool.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [f.tenantId]);
+        await pool.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [f.tenantId]);
+        await pool.query('DELETE FROM "Service" WHERE "tenantId" = $1', [f.tenantId]);
+        await pool.query('DELETE FROM "TenantMembership" WHERE "tenantId" = $1', [f.tenantId]);
+        await pool.query('DELETE FROM "Profile" WHERE "tenantId" = $1', [f.tenantId]);
+        await pool.query('DELETE FROM "Tenant" WHERE "id" = $1', [f.tenantId]);
+      } catch (error) {
+        errors.push(`fixture cleanup failed for ${f.tenantId}: ${String(error)}`);
+      }
+    }
+    try {
+      await prisma.$disconnect();
+    } catch (error) {
+      errors.push(`Prisma disconnect failed: ${String(error)}`);
+    }
+    try {
+      await pool.end();
+    } catch (error) {
+      errors.push(`PostgreSQL pool shutdown failed: ${String(error)}`);
+    }
+    if (errors.length) throw new Error(errors.join("\n"));
+  });
+
+  it("resolves only same-tenant TENANT_ADMIN recipients and never another tenant's admins", async () => {
+    if (!prisma) throw new Error("Prisma client was not initialized");
+    const repository = createPrismaNotificationRepository(prisma as unknown as PrismaTenantClient);
+
+    const recipientsA = await repository.recipients({ tenantId: tenantA.tenantId as never }, tenantA.appointmentId, "APPOINTMENT_CREATED");
+    const idsA = recipientsA.map((recipient) => recipient.profileId);
+    expect(idsA).toEqual([
+      tenantA.staffProfileId,
+      tenantA.customerProfileId,
+      ...[tenantA.adminOneProfileId, tenantA.adminTwoProfileId].sort(),
+    ]);
+    for (const foreign of [tenantB.staffProfileId, tenantB.customerProfileId, tenantB.adminOneProfileId, tenantB.adminTwoProfileId]) {
+      expect(idsA).not.toContain(foreign);
+    }
+
+    // Tenant A context cannot resolve tenant B's appointment (and thus none of tenant B's admins).
+    await expect(
+      repository.recipients({ tenantId: tenantA.tenantId as never }, tenantB.appointmentId, "APPOINTMENT_CREATED"),
+    ).resolves.toEqual([]);
+  });
+
+  it("stores one delivery row per admin, one row for an admin who is the staff member, and no duplicates on replay", async () => {
+    if (!prisma || !pool) throw new Error("Database clients were not initialized");
+    const repository = createPrismaNotificationRepository(prisma as unknown as PrismaTenantClient);
+    const context = { tenantId: tenantA.tenantId as never };
+
+    for (const recipient of await repository.recipients(context, tenantA.appointmentId, "APPOINTMENT_CREATED")) {
+      const input = {
+        appointmentId: tenantA.appointmentId,
+        eventType: "APPOINTMENT_CREATED" as const,
+        channel: "WHATSAPP" as const,
+        recipientProfileId: recipient.profileId,
+        templateKey: recipient.templateKey,
+      };
+      expect(await repository.claim(context, input)).toBe("claimed");
+      await repository.markSent(context, { ...input, providerMessageId: `integration-${recipient.profileId}` });
+    }
+    // Replay: every recipient is already sent, so nothing is reclaimed.
+    for (const recipient of await repository.recipients(context, tenantA.appointmentId, "APPOINTMENT_CREATED")) {
+      expect(await repository.claim(context, {
+        appointmentId: tenantA.appointmentId,
+        eventType: "APPOINTMENT_CREATED",
+        channel: "WHATSAPP",
+        recipientProfileId: recipient.profileId,
+        templateKey: recipient.templateKey,
+      })).toBe("already_sent");
+    }
+
+    const rows = await pool.query(
+      `SELECT "recipientProfileId", "templateKey", "status", "attemptCount"
+       FROM "NotificationDelivery"
+       WHERE "tenantId" = $1 AND "appointmentId" = $2 AND "eventType" = 'APPOINTMENT_CREATED'
+       ORDER BY "recipientProfileId" ASC`,
+      [tenantA.tenantId, tenantA.appointmentId],
+    );
+    const expected = [
+      { recipientProfileId: tenantA.staffProfileId, templateKey: "appointment-created-staff" },
+      { recipientProfileId: tenantA.customerProfileId, templateKey: "appointment-created-customer" },
+      { recipientProfileId: tenantA.adminOneProfileId, templateKey: "appointment-created-staff" },
+      { recipientProfileId: tenantA.adminTwoProfileId, templateKey: "appointment-created-staff" },
+    ]
+      .sort((left, right) => (left.recipientProfileId < right.recipientProfileId ? -1 : 1))
+      .map((row) => ({ ...row, status: "SENT", attemptCount: 1 }));
+    expect(rows.rows).toEqual(expected);
+    expect(rows.rows.filter((row) => row.recipientProfileId === tenantA.staffProfileId)).toHaveLength(1);
+
+    const foreignRows = await pool.query('SELECT count(*)::int AS count FROM "NotificationDelivery" WHERE "tenantId" = $1', [tenantB.tenantId]);
+    expect(foreignRows.rows[0].count).toBe(0);
+  });
+});
