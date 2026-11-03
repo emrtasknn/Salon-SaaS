@@ -11,3 +11,6 @@ coverage/
 tsconfig.tsbuildinfo
 
 src/generated/
+
+# graphify (local code graph, regenerate with: graphify update .)
+graphify-out/

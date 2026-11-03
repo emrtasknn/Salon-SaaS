@@ -1,0 +1,10 @@
+# Graphify exclusions (in addition to .gitignore)
+.env*
+package-lock.json
+src/generated/
+prisma/migrations/
+.next/
+node_modules/
+*_output.txt
+*-diff.txt
+*_files.txt
