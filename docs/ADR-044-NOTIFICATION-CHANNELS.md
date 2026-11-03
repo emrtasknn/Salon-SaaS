@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — C3.** The owner resolved all §10 decisions on 2026-11-03 (recommended options accepted). The ADR becomes Accepted when the owner merges it. Even then, each phase (§9) ships as its own reviewed PR, and applying any migration to Pilot requires separate explicit approval (P8 gates).
+**Accepted — C3** (proposed in #129; accepted by the owner 2026-11-04). The owner resolved all §10 decisions on 2026-11-03 (recommended options accepted). Even then, each phase (§9) ships as its own reviewed PR, and applying any migration to Pilot requires separate explicit approval (P8 gates).
 
 Related: `PROJECT_GOVERNANCE.md` §4 and §12 (C2 scope change, PR #128), ADR-042 (WhatsApp), ADR-043 (PWA-first), `W11_IMPLEMENTATION_PLAN.md` W11.10 / W11.11, P7 (guest booking, Option A).
 
@@ -17,9 +17,9 @@ Current state (inspected on `main` @ `6c62fec`):
 - `NotificationChannel` = `WHATSAPP` only. `NotificationEventType` = `APPOINTMENT_CREATED | APPOINTMENT_CONFIRMED | APPOINTMENT_REJECTED`.
 - Recipients (`src/persistence/prisma-notification.ts`): CREATED → assigned staff + customer; CONFIRMED/REJECTED → customer.
 - Guest booking (P7 Option A) creates or reuses a `Profile` keyed by `(tenantId, email)` with **no** `TenantMembership`. So every appointment has a `customerProfileId`, but guests cannot authenticate.
-- There is no PWA service worker, push dependency, or push-subscription model yet (W11.10 / W11.11 are planned).
+- `public/sw.js` and `public/manifest.json` exist but are not linked or registered by `src/app/layout.tsx`; there is no push dependency or push-subscription model yet (W11.10 / W11.11 are planned).
 
-## 2. Decision summary (proposed)
+## 2. Decision summary
 
 | Channel | Audience in MVP | Persistence | Depends on |
 |---|---|---|---|
@@ -125,7 +125,7 @@ model AppointmentAccessToken {
 - URL: `/{tenantSlug}/randevu/{token}` (new page under the existing `src/app/[slug]/` route). The tenant is resolved through the existing trusted slug resolution, then the token is looked up **inside** that tenant context under RLS. No RLS bypass and no cross-tenant lookup.
 - Created in the same transaction as the guest appointment (`prisma-public-booking.ts`). This touches the booking persistence path but **not** booking semantics, availability, or status transitions.
 - Expiry: `endAt + 7 days` (§10-4). Expired, revoked, or unknown tokens all return the same generic "link invalid or expired" page (no oracle).
-- **Read-only in MVP:** shows salon name, service, staff display name, date/time (tenant timezone), and status. It shows no phone, email, notes, or other customers' data. Cancel/reschedule by link would be a booking-semantics change and is out of scope.
+- **Read-only in MVP:** shows salon name, service, staff display name, date/time (tenant timezone), and status. It shows no phone, email, notes, or other customers' data. **Amended 2026-11-04 (owner C2):** the customer may cancel a PENDING or CONFIRMED appointment from the link, using the existing `PENDING/CONFIRMED → CANCELLED` transition (new actor; C3 design in `docs/tasks/WP-06.md`). Reschedule by link stays out of scope.
 - Headers: `noindex`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`. Rate-limit lookups per IP.
 - Delivery of the link: (1) the booking success page in MVP; (2) inside WhatsApp messages only after a Meta-approved template with a URL button exists (ADR-042 template lifecycle; separate approval).
 
@@ -161,7 +161,7 @@ There are no changes to existing columns or data and no backfill.
 ## 9. Phasing (each phase is its own PR)
 
 1. **In-app Option A**: UI only, no schema.
-2. **Status link**: migration (token table), booking-success link, read-only page.
+2. **Status link**: migration (token table), booking-success link, status page with customer self-cancel (amended 2026-11-04).
 3. **Web Push**: after the W11.10 PWA foundation lands: enum value, subscription table, provider, permission UX, routing.
 
 Phases 2 and 3 can share one migration if approved together; otherwise each ships its own.
@@ -172,11 +172,11 @@ Phases 2 and 3 can share one migration if approved together; otherwise each ship
 2. New dependency `web-push`: **approved** (for phase 3).
 3. Web Push recipients for `APPOINTMENT_CREATED`: **assigned staff + all TENANT_ADMIN profiles** of the tenant.
 4. Status-link expiry: **`endAt + 7 days`**.
-5. Status link: **read-only** in MVP; cancel/reschedule via link deferred.
+5. Status link: read-only plus customer self-cancel in MVP (amended 2026-11-04); reschedule via link deferred.
 6. Subscription revocation: after **5** consecutive transient failures (plus immediately on `404`/`410`).
 
 Consequence: with Option A, the `IN_APP` enum value and `InAppNotification` table are **not** part of the migration (§7 step 1 adds `WEB_PUSH` only).
 
 ## 11. Out of scope
 
-Customer Web Push / customer accounts; reminders; cancel/reschedule by link; SMS; review funnel; WhatsApp template customization; changes to booking state machine, availability, auth, or tenant model.
+Customer Web Push / customer accounts; reminders; reschedule by link; SMS; review funnel; WhatsApp template customization; changes to booking state machine, availability, auth, or tenant model.

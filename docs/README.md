@@ -21,4 +21,4 @@ P7, P8, and P9 are separate gates. Passing one does not imply passing the next o
 
 ## Development Rule
 
-Do not build application features until the local development baseline has been established and the Agent Office bootstrap checklist has been completed.
+The bootstrap baseline is complete. Application features follow `docs/WORKFLOW.md` and the MVP work packages in `docs/tasks/` (approved 2026-11-04).

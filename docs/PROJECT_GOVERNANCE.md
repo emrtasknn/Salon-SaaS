@@ -50,13 +50,20 @@ Must have:
 - guest booking (no customer account required)
 - appointment status lifecycle
 - appointment notifications: in-app, Web Push (installed PWA), WhatsApp
-- customer appointment-status link (proposed; design requires C3 architecture review)
+- customer appointment-status link (ADR-044 accepted 2026-11-04), including customer self-cancel from that link
 - owner dashboard
 - staff appointment view
+- staff/admin-created appointments from the calendar (same booking engine and re-check)
 - customer history
+- tenant settings, including tenant active/inactive status (inactive tenants accept no bookings)
+- date-based closed days (holidays) on top of weekly working hours
+- abuse/rate limiting on public surfaces (Postgres-backed)
 - tenant isolation/RLS
 - WhatsApp CTA (wa.me link on public storefront)
-- production deployment
+- WhatsApp via one shared platform Meta sender, informing staff, customers and tenant admins (MVP; per-tenant senders post-MVP)
+- deployment-ready release proven on staging + pilot; production deployment is a separate, explicitly approved step after P9 (owner decision 2026-11-04)
+
+Scope additions on 2026-11-04 (owner-approved C2: tenant status, closed days, customer self-cancel, staff/admin-created appointments, rate limiting, shared sender incl. admins) still go through their own C3 review where they change the tenant model, booking rules or notification routing. Work packages: `docs/tasks/`.
 
 Post-MVP unless explicitly approved:
 - review/feedback funnel
@@ -128,7 +135,10 @@ Availability is advisory. Final booking creation must re-check conflicts transac
 
 Appointment lifecycle:
 PENDING → CONFIRMED → COMPLETED
+PENDING → REJECTED
 PENDING/CONFIRMED → CANCELLED
+
+(REJECTED documents the existing implementation in `src/domain/appointment.ts`; no semantic change.)
 
 Invalid state transitions are rejected server-side.
 
