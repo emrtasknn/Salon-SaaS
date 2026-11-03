@@ -24,6 +24,17 @@ Last verified: 2026-11-03 against GitHub `main` @ `71d73c8` and the local workin
 | `public/` | PWA `manifest.json`, `sw.js` (static-asset cache only) |
 | `.github/workflows/` | `ci.yml` (quality gates), `w11-4-pilot-supabase-migrate.yml` (manual, uses secret DB URL) |
 
+## Module map (Graphify code-only run, 2026-11-03, `HEAD` `adb84ce`)
+
+Non-test import statements between layers (top): `application→domain` 80 · `persistence→domain` 33 · `app/admin→infrastructure` 15 · `persistence→application` 15 (ports) · `app/admin→application` 12 · `app/admin→persistence` 11 · `app/[slug]→persistence` 7.
+- `src/domain` imports nothing outside `domain`. No import cycles.
+- Route files and server actions wire Prisma adapters directly (they are the composition root): `src/app/{admin,staff,[slug]/book,platform/tenants}/*actions.ts`, `src/app/api/webhooks/whatsapp/route.ts`, `src/app/notification-runtime.ts`.
+- `src/application/{authorization-composition,identity-enrichment,server-authorization-enforcement}.ts` import `src/persistence/membership.ts` (types) — small layering leak; refactor candidate.
+- Most-imported files (non-test importing files, grep-verified; change = wide blast radius): `domain/tenant-context.ts` (29), `domain/auth-identity.ts` (23), `persistence/prisma-tenant-context.ts` (14, every Prisma adapter), `domain/appointment.ts` (12), `infrastructure/prisma-runtime.ts` (11), `domain/working-hours.ts` (10), `domain/authorization.ts` (8).
+- Low-cohesion modules (split candidates): `src/app/admin/actions.ts` (243 lines; services, staff, working hours), `src/app/staff/actions.ts`.
+- Not in code: payment/subscription (0 matches). `schema.prisma` is not parsed by Graphify — read it directly.
+- Lookup: `graphify explain "<symbol>"` / `graphify path "A" "B"` (see `docs/AI_TOOLING.md`).
+
 ## Stack (from `package.json`)
 
 Next.js 16.3.8 · React 19.2.8 · TypeScript 5 · Tailwind 4 · Prisma 7.10 (`@prisma/adapter-pg`, generated client in `src/generated/`) · Supabase SSR/JS · Vitest 4.1 · ESLint 9. Package manager: npm (`package-lock.json`). Deployment platform: not chosen/recorded (TBD, see P8).

@@ -1,3 +1,8 @@
+---
+name: salon-saas-uiux
+description: Use for Salon SaaS screen/component design, UX copy, responsive layout, accessibility or UI QA. Not for backend, auth, RLS or booking logic.
+---
+
 # Salon-SaaS UI/UX Skill
 
 Use this skill for product UI/UX architecture, screen design, component design, UX writing, responsive design, accessibility, and UI quality review.

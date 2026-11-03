@@ -32,6 +32,8 @@ Repository-wide non-negotiables live in `AGENTS.md` and are loaded here:
 - Trim tool output: tail failing sections, use `--reporter=dot`-style summaries, don't paste full logs.
 - Don't re-run a check that already passed this session unless relevant files changed.
 - Don't create new summary docs; update the canonical file or `docs/SESSION_HANDOFF.md`.
+- To find callers/paths, prefer `graphify explain "<symbol>"` / `graphify path "A" "B"` over reading many files (setup in `docs/AI_TOOLING.md`; `graphify-out/` is local and gitignored, never load it whole).
+- Role subagents live in `.claude/agents/salon-saas-*.md`; delegate with them and pass back summaries, not transcripts.
 
 ## Docs map — read only what the task needs
 
