@@ -1,10 +1,12 @@
 "use server";
 
 import { createCalendarCrm } from "../../application/calendar-crm";
+import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
 import { createBookingEngine } from "../../application/booking-engine";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { createPrismaCalendarCrmRepository } from "../../persistence/prisma-calendar-crm";
 import { createPrismaBookingRepository } from "../../persistence/prisma-booking-engine";
+import { createPrismaInAppNotificationRepository } from "../../persistence/prisma-in-app-notifications";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
 import { withPrismaTenantContext, type PrismaTenantTransactionClient } from "../../persistence/prisma-tenant-context";
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
@@ -112,4 +114,33 @@ export async function transitionAdminAppointment(appointmentId: string, to: Appo
   }
 
   return result;
+}
+
+/**
+ * WP-04: tenant-wide in-app notifications for TENANT_ADMIN.
+ * No arguments: tenant comes only from trusted server context (WP4-R5);
+ * authorization is re-checked via enforceServerAuthorization(..., "TENANT_ADMIN").
+ * Returns InAppNotificationView; admin items include customerDisplayName.
+ */
+export async function listAdminNotifications(): Promise<InAppNotificationView> {
+  try {
+    const context = await getAdminContext();
+    if (!context) return { status: "UNAUTHORIZED" };
+    const { reader } = context;
+    const notifications = createInAppNotifications({
+      repository: createPrismaInAppNotificationRepository(context.prisma),
+      authorizer: {
+        async authorizeAdmin(identity, tenantContext) {
+          const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
+          return result.authorization.status === "allowed";
+        },
+        async authorizeStaffScope() {
+          return false;
+        },
+      },
+    });
+    return toInAppNotificationView(await notifications.forAdmin(context.identity, context.tenantContext));
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
 }
