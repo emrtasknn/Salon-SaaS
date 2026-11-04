@@ -63,7 +63,8 @@ export function TenantProvisioningForm() {
         <label htmlFor="slug">Adres</label>
         <input id="slug" name="slug" placeholder="salon-adi" required />
         <label htmlFor="timezone">Saat dilimi</label>
-        <input id="timezone" name="timezone" defaultValue="Europe/Istanbul" required />
+        {/* MVP supports only Europe/Istanbul (see MVP_SUPPORTED_TIMEZONES); the server re-validates. */}
+        <input id="timezone" name="timezone" defaultValue="Europe/Istanbul" readOnly required />
       </fieldset>
 
       <fieldset disabled={isSubmitting}>

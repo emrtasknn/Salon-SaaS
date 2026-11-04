@@ -281,3 +281,19 @@ describe("createOnBehalf QA additions (WP-08)", () => {
     expect(repository.getBookingContext).not.toHaveBeenCalled();
   });
 });
+
+// QA (WP-11): an INACTIVE tenant exposes no slots on the staff/admin path either.
+describe("slotsOnBehalf inactive tenant (WP-11)", () => {
+  it("returns TENANT_INACTIVE without slots, even on an otherwise bookable day", async () => {
+    repository.getBookingContext.mockResolvedValue(bookingContext({ tenantStatus: "INACTIVE" }));
+    const result = await engine().slotsOnBehalf(identity, tenant, { serviceId: "svc", staffId: "staff", dateIso: availabilityDate });
+    expect(result).toEqual({ status: "TENANT_INACTIVE" });
+    expect(result).not.toHaveProperty("slots");
+  });
+
+  it("checks tenant status before the closed-date short-circuit", async () => {
+    repository.getBookingContext.mockResolvedValue(bookingContext({ tenantStatus: "INACTIVE", closedDates: [availabilityDate] }));
+    await expect(engine().slotsOnBehalf(identity, tenant, { serviceId: "svc", staffId: "staff", dateIso: availabilityDate }))
+      .resolves.toEqual({ status: "TENANT_INACTIVE" });
+  });
+});

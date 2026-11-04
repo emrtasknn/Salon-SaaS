@@ -99,6 +99,14 @@ export function normalizeTenantSlug(raw: unknown): TenantValidationResult<string
   return { ok: true, value };
 }
 
+/**
+ * MVP supports only Europe/Istanbul (no DST). Owner decision 2026-11-04 (WP-11):
+ * availability checks the closing time in wall-clock minutes but computes `endAt`
+ * in elapsed time, so on a spring-forward day a DST zone could book past closing.
+ * Widen this list only together with that fix.
+ */
+export const MVP_SUPPORTED_TIMEZONES: ReadonlyArray<string> = ["Europe/Istanbul"];
+
 export function createTenantTimezone(
   raw: unknown,
 ): TenantValidationResult<string> {
@@ -115,6 +123,10 @@ export function createTenantTimezone(
     const resolved = new Intl.DateTimeFormat("en-US", {
       timeZone: value,
     }).resolvedOptions().timeZone;
+
+    if (!MVP_SUPPORTED_TIMEZONES.includes(resolved)) {
+      return failure("INVALID_TIMEZONE", "Only Europe/Istanbul is supported in the MVP.");
+    }
 
     return { ok: true, value: resolved };
   } catch {

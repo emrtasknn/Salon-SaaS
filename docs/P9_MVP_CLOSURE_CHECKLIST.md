@@ -121,6 +121,7 @@ P9 is not a substitute for P7 pilot acceptance or P8 production readiness. P7 va
 - Native iOS/Android applications.
 - AI/advanced analytics.
 - Advanced campaign/reminder scheduling and template customization.
+- Non-Istanbul / DST tenant timezones (MVP accepts only Europe/Istanbul; DST spring-forward closing-time overrun in `src/domain/availability.ts` must be fixed first — WP-11, owner decision 2026-11-04).
 - Per-tenant WhatsApp senders (MVP uses one shared sender, subject to the WP-02 Meta terms check).
 - Production deployment itself (P9 is proven on staging + pilot; production needs separate approval).
 
