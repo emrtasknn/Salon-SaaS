@@ -378,6 +378,17 @@ describeDatabase("AppointmentAccessToken tenant isolation integration", () => {
         "42501",
       );
     });
+
+    it("blocks UPDATE and DELETE without a tenant context (0 rows) and leaves both tenants' rows unchanged (WP-11)", async () => {
+      const counts = await inRolledBackTx({ tenantId: null, asRole: true }, async (c) => [
+        (await c.query(`UPDATE "${TABLE}" SET "revokedAt" = ${NOW_UTC} WHERE "id" IN ($1, $2)`, [aMain.tokenId, bMain.tokenId])).rowCount,
+        (await c.query(`DELETE FROM "${TABLE}" WHERE "id" IN ($1, $2)`, [aMain.tokenId, bMain.tokenId])).rowCount,
+        (await c.query(`DELETE FROM "${TABLE}" WHERE "tenantId" IN ($1, $2)`, [tenantA.tenantId, tenantB.tenantId])).rowCount,
+      ]);
+      expect(counts).toEqual([0, 0, 0]);
+      await expect(tokenRow(aMain.tokenId)).resolves.toEqual({ tenantId: tenantA.tenantId, notRevoked: true });
+      await expect(tokenRow(bMain.tokenId)).resolves.toEqual({ tenantId: tenantB.tenantId, notRevoked: true });
+    });
   });
 
   describe("constraints", () => {
