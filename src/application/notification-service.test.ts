@@ -42,8 +42,8 @@ describe("notification service", () => {
       provider: createMockWhatsAppProvider(calls),
     }).publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CREATED");
     expect(result.results).toEqual([
-      { profileId: "s", status: "SENT" },
-      { profileId: "c", status: "SENT" },
+      { profileId: "s", status: "SENT", channel: "WHATSAPP" },
+      { profileId: "c", status: "SENT", channel: "WHATSAPP" },
     ]);
     expect(calls).toHaveLength(2);
   });
@@ -76,7 +76,7 @@ describe("notification service", () => {
       "APPOINTMENT_CONFIRMED",
     );
 
-    expect(result.results).toEqual([{ profileId: "customer-1", status: "FAILED" }]);
+    expect(result.results).toEqual([{ profileId: "customer-1", status: "FAILED", channel: "WHATSAPP" }]);
     expect(repository.markFailed).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
       expect.objectContaining({
@@ -112,7 +112,7 @@ describe("notification service", () => {
       repository,
       provider,
     }).publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CONFIRMED");
-    expect(result.results).toEqual([{ profileId: "c", status: "SENT" }]);
+    expect(result.results).toEqual([{ profileId: "c", status: "SENT", channel: "WHATSAPP" }]);
     expect(provider.send).not.toHaveBeenCalled();
   });
 
@@ -152,7 +152,7 @@ describe("notification service", () => {
     );
 
     expect(result.results).toEqual([
-      { profileId: "customer-1", status: "SENT" },
+      { profileId: "customer-1", status: "SENT", channel: "WHATSAPP" },
     ]);
     expect(repository.recipients).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
@@ -203,7 +203,7 @@ describe("notification service", () => {
     );
 
     expect(result.results).toEqual([
-      { profileId: "customer-1", status: "UNKNOWN" },
+      { profileId: "customer-1", status: "UNKNOWN", channel: "WHATSAPP" },
     ]);
     expect(repository.markUnknown).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
@@ -246,7 +246,7 @@ describe("notification service", () => {
     );
 
     expect(result.results).toEqual([
-      { profileId: "customer-1", status: "FAILED" },
+      { profileId: "customer-1", status: "FAILED", channel: "WHATSAPP" },
     ]);
     expect(repository.markFailed).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
@@ -329,7 +329,7 @@ describe("notification service", () => {
     );
 
     expect(result.results).toEqual([
-      { profileId: "customer-1", status: "UNKNOWN" },
+      { profileId: "customer-1", status: "UNKNOWN", channel: "WHATSAPP" },
     ]);
     expect(repository.markUnknown).toHaveBeenCalledOnce();
     expect(repository.markFailed).not.toHaveBeenCalled();
@@ -358,7 +358,7 @@ describe("notification service", () => {
       repository,
       provider,
     }).publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CONFIRMED");
-    expect(result.results).toEqual([{ profileId: "c", status: "UNKNOWN" }]);
+    expect(result.results).toEqual([{ profileId: "c", status: "UNKNOWN", channel: "WHATSAPP" }]);
     expect(provider.send).not.toHaveBeenCalled();
     expect(repository.markSent).not.toHaveBeenCalled();
     expect(repository.markFailed).not.toHaveBeenCalled();
@@ -396,7 +396,7 @@ describe("notification service", () => {
       "APPOINTMENT_CONFIRMED",
     );
 
-    expect(result.results).toEqual([{ profileId: "customer-1", status: "SENT" }]);
+    expect(result.results).toEqual([{ profileId: "customer-1", status: "SENT", channel: "WHATSAPP" }]);
     expect(repository.recipients).toHaveBeenCalledWith(
       { tenantId: "tenant-1" },
       "appointment-1",
@@ -456,10 +456,10 @@ describe("notification service", () => {
       );
 
       expect(result.results).toEqual([
-        { profileId: "staff-1", status: "SENT" },
-        { profileId: "customer-1", status: "FAILED" },
-        { profileId: "admin-1", status: "UNKNOWN" },
-        { profileId: "admin-2", status: "SENT" },
+        { profileId: "staff-1", status: "SENT", channel: "WHATSAPP" },
+        { profileId: "customer-1", status: "FAILED", channel: "WHATSAPP" },
+        { profileId: "admin-1", status: "UNKNOWN", channel: "WHATSAPP" },
+        { profileId: "admin-2", status: "SENT", channel: "WHATSAPP" },
       ]);
       expect(provider.send).toHaveBeenCalledTimes(4);
       expect(repository.claim).toHaveBeenCalledTimes(4);
@@ -509,11 +509,11 @@ describe("notification service", () => {
       );
 
       expect(result.results).toEqual([
-        { profileId: "staff-1", status: "SENT" },
-        { profileId: "customer-1", status: "SENT" },
-        { profileId: "admin-1", status: "SENT" },
-        { profileId: "admin-2", status: "PENDING" },
-        { profileId: "admin-3", status: "UNKNOWN" },
+        { profileId: "staff-1", status: "SENT", channel: "WHATSAPP" },
+        { profileId: "customer-1", status: "SENT", channel: "WHATSAPP" },
+        { profileId: "admin-1", status: "SENT", channel: "WHATSAPP" },
+        { profileId: "admin-2", status: "PENDING", channel: "WHATSAPP" },
+        { profileId: "admin-3", status: "UNKNOWN", channel: "WHATSAPP" },
       ]);
       expect(provider.send).not.toHaveBeenCalled();
       expect(repository.markSent).not.toHaveBeenCalled();
@@ -538,10 +538,10 @@ describe("notification service", () => {
       );
 
       expect(result.results).toEqual([
-        { profileId: "staff-1", status: "SENT" },
-        { profileId: "customer-1", status: "SENT" },
-        { profileId: "admin-1", status: "UNKNOWN" },
-        { profileId: "admin-2", status: "SENT" },
+        { profileId: "staff-1", status: "SENT", channel: "WHATSAPP" },
+        { profileId: "customer-1", status: "SENT", channel: "WHATSAPP" },
+        { profileId: "admin-1", status: "UNKNOWN", channel: "WHATSAPP" },
+        { profileId: "admin-2", status: "SENT", channel: "WHATSAPP" },
       ]);
       expect(provider.send).toHaveBeenCalledOnce();
       expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ to: "+905550000012", templateKey: "appointment-created-staff" }));

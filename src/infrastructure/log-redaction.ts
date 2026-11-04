@@ -21,6 +21,10 @@ const SECRET_KEYS = new Set([
   "directurl",
   "connectionstring",
   "otp",
+  // WP-09 Web Push: the endpoint is a device capability URL; p256dh/auth are subscription keys.
+  "endpoint",
+  "p256dh",
+  "auth",
 ]);
 // Substring match so prefixed env-style names (SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY) are caught.
 const SECRET_KEY_PARTS = [

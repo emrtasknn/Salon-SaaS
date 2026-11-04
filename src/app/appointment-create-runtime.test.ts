@@ -25,7 +25,7 @@ const asEngine = () => engine as unknown as Engine;
 beforeEach(() => {
   vi.clearAllMocks();
   engine.createOnBehalf.mockResolvedValue({ status: "CREATED", appointmentId: "a1", customerPhone: "+905551112233", accessToken: "raw" });
-  publishAppointmentNotification.mockResolvedValue({ status: "processed", results: [{ profileId: "c", status: "SENT" }] });
+  publishAppointmentNotification.mockResolvedValue({ status: "processed", results: [{ profileId: "c", status: "SENT", channel: "WHATSAPP" }] });
 });
 
 function create(overrides: Record<string, unknown> = {}) {
@@ -71,6 +71,17 @@ describe("createOnBehalf runtime (WP-08)", () => {
     publishAppointmentNotification.mockResolvedValue(published);
     await expect(create()).resolves.toEqual({ status: "CREATED", appointmentId: "a1", notified: false });
     expect(publishAppointmentNotification).toHaveBeenCalledOnce();
+  });
+
+  it("counts only a WhatsApp SENT as notified; a staff/admin Web Push SENT never does (WP-09 B1)", async () => {
+    // WhatsApp env missing + push configured: only WEB_PUSH results can come back.
+    publishAppointmentNotification.mockResolvedValue({ status: "processed", results: [{ profileId: "admin-1", status: "SENT", channel: "WEB_PUSH" }] });
+    await expect(create()).resolves.toEqual({ status: "CREATED", appointmentId: "a1", notified: false });
+    publishAppointmentNotification.mockResolvedValue({ status: "processed", results: [
+      { profileId: "admin-1", status: "SENT", channel: "WEB_PUSH" },
+      { profileId: "c", status: "SENT", channel: "WHATSAPP" },
+    ] });
+    await expect(create()).resolves.toEqual({ status: "CREATED", appointmentId: "a1", notified: true });
   });
 
   it("does not publish for any non-CREATED outcome", async () => {

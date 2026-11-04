@@ -97,7 +97,8 @@ export async function createOnBehalf(
       let notified = false;
       if (input.notifyCustomer && result.customerPhone) {
         const published = await publishAppointmentNotification(tenantContext, result.appointmentId, "APPOINTMENT_CONFIRMED");
-        notified = published.status === "processed" && published.results.some((r) => r.status === "SENT");
+        // WP-09 B1: only a WhatsApp delivery reaches the customer; staff/admin Web Push never counts.
+        notified = published.status === "processed" && published.results.some((r) => r.channel === "WHATSAPP" && r.status === "SENT");
       }
       return { status: "CREATED", appointmentId: result.appointmentId, notified };
     }
