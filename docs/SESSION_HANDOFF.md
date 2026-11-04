@@ -1,35 +1,28 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-04 — WP-09 Web Push for staff + tenant admins on installed PWAs (owner decisions in `docs/tasks/WP-09.md`).
+2026-11-04/05 — Run the MVP work packages to code completion with agent-to-agent workflows (orchestrating session).
 
 ## State
-- Branch: `claude/ecstatic-sammet-fcaab8`, based on `main` (f7bb4c9, incl. WP-08 #142 and WP-11 part 1 #143); PR to `main`, not merged.
-- Environment touched: none (no DB connection, no migration applied; `npm ci` / `prisma generate` / build with a placeholder URL only).
-- Previous session (WP-08): see this file at commit `82079bc`.
+- `main` @ `2d9a144` (after #145) + this docs PR. All MVP code packages merged; status table in `docs/tasks/README.md`.
+- 6 new migrations on `main`, **none applied** to staging or pilot.
+- Environment touched: none by agents (no DB, migration apply, deploy, real Meta send).
 
 ## Done
-- Migration `prisma/migrations/20261105130000_web_push_subscription` — `WEB_PUSH` enum value (irreversible), `PushSubscription` (unique per `(tenantId, endpoint)`, composite FK to Profile, key CHECKs 87/22 chars, https endpoint), RLS ENABLE + FORCE + 4 policies. Owner-approved for PR; apply needs separate approval.
-- `web-push` 3.6.7 (MPL-2.0, unmodified) + `@types/web-push` 3.6.4, exact pins. VAPID env names in `.env.example` (empty).
-- Multi-channel `NotificationService`: WhatsApp and push run independently (`allSettled`), results carry `channel`; push on APPOINTMENT_CREATED to ACTIVE assigned staff + all TENANT_ADMIN; TTL 24h, urgency high; 404/410 revoke, 429/5xx/network revoke at 5, 400/403/413 never revoke. No delivery row without an active subscription (ADR-044 §4.1/§4.2 amended).
-- Subscribe/unsubscribe server actions bound to session + membership; inactive staff/tenant FORBIDDEN.
-- UI: `src/app/pwa/push-permission.tsx` on admin + staff pages (prompt only from a tap, iOS install hint, re-bind on app open); `public/sw.js` push + notificationclick (allowlisted URLs); admin logout releases the subscription.
+- Merged: #132 (WP-00 plan/docs), #133 (WP-2b), #134 (WP-3), #135 (WP-4), #136 + #143 (WP-11), #137 (WP-5), #138 + #145 (WP-02c), #139 (WP-12 artifacts), #140 (WP-06), #141 (WP-07), #142 (WP-08), #144 (WP-09).
+- Owner decisions recorded in task files: P9 on staging + pilot; ADR-044 accepted; shared Meta sender pilot-only (production gated); WhatsApp opt-in optional; Vercel + Supabase branch + built-in logs; `web-push` MPL-2.0; device list; tenants locked to Europe/Istanbul (DST fix deferred); WP-02c Option A + HTTP 200 for unresolved statuses.
+- Standing approval: main session squash-merges WP PRs when CI is green (not migrations/deploys).
 
 ## Validation
-| Check | Command | Result |
-|---|---|---|
-| Lint | `npm run lint` | PASS (0 errors, 4 pre-existing warnings) |
-| Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run --exclude '**/*.integration.test.ts'` (DATABASE_URL unset) | PASS 1015 + 1 todo |
-| Integration | CI | pending (new `prisma-push-subscription.integration.test.ts`, extended `prisma-notification.integration.test.ts`) |
-| Build | `npm run build` | PASS |
+| Check | Result |
+|---|---|
+| Every merged PR | CI `quality-gates` green on Postgres 17 (lint, typecheck, unit + integration, build) |
+| Reviewer | salon-saas-reviewer on every WP; findings fixed before merge |
 
 ## Open risks
-- No staff logout control exists → staff device rows released only via "Kapat", rebind or 410.
-- Push fan-out is sequential per recipient on the booking request path (worst case recipients × 5 s).
-- `getWebPushConfigAction` shows the button to inactive staff/tenant (subscribe fails closed).
-- `sw.js` notificationclick may open a duplicate window for an uncontrolled client.
-- Admin/staff-created appointments send no push (N1, deferred). Bad VAPID → 403 logged, no alert yet.
+- SECURITY DEFINER resolvers (W11.6 + WP-02c) need the owner to verify on staging/pilot that their owner bypasses RLS and the runtime role can EXECUTE (`docs/STAGING_RUNBOOK.md` §4.5); CI runs as superuser and cannot prove it.
+- Meta shared-sender permission not established (WP-02); opt-in/consent storage pending WP-10.
+- Disk space limits parallel worktrees; finished worktrees under `.claude/worktrees/` can be cleaned by the owner.
 
 ## Next task
-- CI green → main session merges; WP-11 part 2 (PushSubscription RLS regression); WP-13 real-device evidence.
+- Owner: WP-12 staging (create Supabase branch + Vercel env, run staging-migrate, §4.5 gate, smoke), WP-02 live tests, WP-10 notice text. Then WP-10 implementation (needs a migration slot after `20261105140000`), WP-13, WP-14.
