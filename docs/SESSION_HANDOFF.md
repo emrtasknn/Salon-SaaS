@@ -24,5 +24,10 @@
 - Meta shared-sender permission not established (WP-02); opt-in/consent storage pending WP-10.
 - Disk space limits parallel worktrees; finished worktrees under `.claude/worktrees/` can be cleaned by the owner.
 
+## WP-10 legal drafts (2026-11-04)
+- `docs/legal/`: customer KVKK notice + WhatsApp opt-in (A), salon↔platform DPA + sub-processor list (B). All TASLAK; owner + counsel approve. Sources and UNVERIFIED items in `docs/legal/README.md`.
+- **Owner re-decision needed:** the required "okudum" box conflicts with Kurum guidance (options in the notice draft).
+- Code gaps found while drafting (README "Uygulamaya yansıyacak"): profile reuse by email ignores new phone (wrong-recipient risk), WhatsApp templates lack salon name, no opt-in gate yet, no token revoke/cleanup, opportunistic rate-limit cleanup.
+
 ## Next task
-- Owner: WP-12 staging (create Supabase branch + Vercel env, run staging-migrate, §4.5 gate, smoke), WP-02 live tests, WP-10 notice text. Then WP-10 implementation (needs a migration slot after `20261105140000`), WP-13, WP-14.
+- Owner: WP-12 staging (create Supabase branch + Vercel env, run staging-migrate, §4.5 gate, smoke), WP-02 live tests, legal review of `docs/legal/` + checkbox decision. Then WP-10 implementation (needs a migration slot after `20261105140000`), WP-13, WP-14.
