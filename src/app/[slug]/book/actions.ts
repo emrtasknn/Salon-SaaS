@@ -5,6 +5,7 @@ import { createPrismaPublicAvailabilityRepository } from "../../../persistence/p
 import { createPublicVitrin } from "../../../application/public-vitrin";
 import { createPrismaPublicSalonRepository } from "../../../persistence/prisma-public-vitrin";
 import { getPrisma } from "../../../infrastructure/prisma-runtime";
+import { checkRateLimit, readClientIp } from "../../rate-limit-runtime";
 
 async function loadTenant(slug: string) {
   const prisma = getPrisma();
@@ -19,6 +20,11 @@ export async function getPublicAvailability(input: {
 }) {
   const v = await loadTenant(input.slug);
   if (v.status !== "ok") return { status: v.status, slots: [] as const };
+  // WP-5: per-IP limit before any availability query.
+  const limit = await checkRateLimit([{ bucket: "booking.availability", subject: await readClientIp() }]);
+  if (limit.status === "RATE_LIMITED") {
+    return { status: "RATE_LIMITED" as const, retryAfterSeconds: limit.retryAfterSeconds, slots: [] as const };
+  }
   return createPublicAvailability(createPrismaPublicAvailabilityRepository(getPrisma())).list(v.tenantContext, input);
 }
 

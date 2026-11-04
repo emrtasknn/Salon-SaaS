@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { vitrinLoad, bookingCreate, publishAppointmentNotification, prisma } = vi.hoisted(() => ({
+const { vitrinLoad, bookingCreate, publishAppointmentNotification, prisma, checkRateLimit, readClientIp } = vi.hoisted(() => ({
   vitrinLoad: vi.fn(),
   bookingCreate: vi.fn(),
   publishAppointmentNotification: vi.fn(),
   prisma: { marker: "prisma" },
+  checkRateLimit: vi.fn(),
+  readClientIp: vi.fn(),
 }));
 
 vi.mock("../../../infrastructure/prisma-runtime", () => ({ getPrisma: vi.fn(() => prisma) }));
@@ -13,6 +15,7 @@ vi.mock("../../../application/public-vitrin", () => ({ createPublicVitrin: vi.fn
 vi.mock("../../../persistence/prisma-public-booking", () => ({ createPrismaPublicBookingRepository: vi.fn(() => ({})) }));
 vi.mock("../../../application/public-booking", () => ({ createPublicBooking: vi.fn(() => ({ create: bookingCreate })) }));
 vi.mock("../../notification-runtime", () => ({ publishAppointmentNotification }));
+vi.mock("../../rate-limit-runtime", () => ({ checkRateLimit, readClientIp }));
 vi.mock("../../../application/public-availability", () => ({ createPublicAvailability: vi.fn(() => ({ list: vi.fn() })) }));
 vi.mock("../../../persistence/prisma-public-availability", () => ({ createPrismaPublicAvailabilityRepository: vi.fn(() => ({})) }));
 
@@ -34,6 +37,10 @@ beforeEach(() => {
   vitrinLoad.mockReset();
   bookingCreate.mockReset();
   publishAppointmentNotification.mockReset();
+  checkRateLimit.mockReset();
+  checkRateLimit.mockResolvedValue({ status: "ALLOWED" });
+  readClientIp.mockReset();
+  readClientIp.mockResolvedValue(null);
 });
 
 describe("submitBooking", () => {
@@ -84,6 +91,68 @@ describe("submitBooking", () => {
 
     expect(result).toEqual(bookingResult);
     expect(publishAppointmentNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("submitBooking rate limiting (WP-5)", () => {
+  it("returns RATE_LIMITED before booking creation or notification", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", tenantContext: vitrinTenantContext });
+    checkRateLimit.mockResolvedValue({ status: "RATE_LIMITED", retryAfterSeconds: 120 });
+
+    const result = await submitBooking(input);
+
+    expect(result).toEqual({ status: "RATE_LIMITED", retryAfterSeconds: 120 });
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(bookingCreate).not.toHaveBeenCalled();
+    expect(publishAppointmentNotification).not.toHaveBeenCalled();
+  });
+
+  it("checks tenant+IP, global IP and tenant+phone buckets with the slug-resolved tenant, not client input", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", tenantContext: vitrinTenantContext });
+    readClientIp.mockResolvedValue("203.0.113.7");
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-1" });
+
+    await submitBooking({ ...input, phone: "+90 (555) 000-00-00", tenantId: "tenant-from-client" } as typeof input);
+
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(checkRateLimit.mock.calls[0][0]).toEqual([
+      { bucket: "booking.submit", tenantId: "tenant-from-slug", subject: "203.0.113.7" },
+      { bucket: "booking.submit.global", subject: "203.0.113.7" },
+      { bucket: "booking.submit.phone", tenantId: "tenant-from-slug", subject: "905550000000" },
+    ]);
+    expect(JSON.stringify(checkRateLimit.mock.calls)).not.toContain("tenant-from-client");
+  });
+
+  it("passes a null IP subject through (limiter skips IP buckets) and still checks the phone", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", tenantContext: vitrinTenantContext });
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-1" });
+
+    await submitBooking(input);
+
+    const checks = checkRateLimit.mock.calls[0][0] as Array<{ bucket: string; subject: string | null }>;
+    expect(checks.map((check) => [check.bucket, check.subject])).toEqual([
+      ["booking.submit", null],
+      ["booking.submit.global", null],
+      ["booking.submit.phone", "905550000000"],
+    ]);
+  });
+
+  it("does not rate-limit-check an unknown slug", async () => {
+    vitrinLoad.mockResolvedValue({ status: "NOT_FOUND" });
+
+    await expect(submitBooking({ ...input, slug: "unknown" })).resolves.toEqual({ status: "NOT_FOUND" });
+    expect(checkRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("keeps the ALLOWED path unchanged (create + notify once)", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", tenantContext: vitrinTenantContext });
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-2" });
+
+    const result = await submitBooking(input);
+
+    expect(result).toEqual({ status: "created", appointmentId: "appt-2" });
+    expect(checkRateLimit.mock.invocationCallOrder[0]).toBeLessThan(bookingCreate.mock.invocationCallOrder[0]);
+    expect(publishAppointmentNotification).toHaveBeenCalledWith(vitrinTenantContext, "appt-2", "APPOINTMENT_CREATED");
   });
 });
 
