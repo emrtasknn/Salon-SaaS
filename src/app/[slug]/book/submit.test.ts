@@ -22,6 +22,7 @@ vi.mock("../../../persistence/prisma-public-availability", () => ({ createPrisma
 import { submitBooking } from "./submit";
 
 const vitrinTenantContext = { tenantId: "tenant-from-slug" };
+const RAW_TOKEN = "A".repeat(21) + "_-" + "b".repeat(20);
 
 const input = {
   slug: "salon-a",
@@ -46,12 +47,12 @@ beforeEach(() => {
 describe("submitBooking", () => {
   it("publishes APPOINTMENT_CREATED once with the slug-resolved tenant context on created", async () => {
     vitrinLoad.mockResolvedValue({ status: "ok", tenantContext: vitrinTenantContext });
-    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-1" });
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-1", accessToken: RAW_TOKEN });
 
     // Client-supplied extra tenant fields must not influence the tenant context.
     const result = await submitBooking({ ...input, tenantId: "tenant-from-client" } as typeof input);
 
-    expect(result).toEqual({ status: "created", appointmentId: "appt-1" });
+    expect(result).toEqual({ status: "created", appointmentId: "appt-1", statusPath: `/salon-a/randevu/${RAW_TOKEN}` });
     expect(vitrinLoad).toHaveBeenCalledWith("salon-a");
     expect(bookingCreate).toHaveBeenCalledTimes(1);
     expect(bookingCreate.mock.calls[0][0]).toBe(vitrinTenantContext);
@@ -66,6 +67,18 @@ describe("submitBooking", () => {
     expect(publishAppointmentNotification).toHaveBeenCalledTimes(1);
     expect(publishAppointmentNotification).toHaveBeenCalledWith(vitrinTenantContext, "appt-1", "APPOINTMENT_CREATED");
     expect(publishAppointmentNotification.mock.calls[0][0]).toBe(vitrinTenantContext);
+    // The raw status-link token never reaches the notification pipeline.
+    expect(JSON.stringify(publishAppointmentNotification.mock.calls)).not.toContain(RAW_TOKEN);
+  });
+
+  it("URL-encodes the slug in statusPath and does not expose the raw accessToken field", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", tenantContext: vitrinTenantContext });
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-2", accessToken: RAW_TOKEN });
+
+    const result = await submitBooking({ ...input, slug: "salon a/../x" });
+
+    expect(result).toEqual({ status: "created", appointmentId: "appt-2", statusPath: `/salon%20a%2F..%2Fx/randevu/${RAW_TOKEN}` });
+    expect(result).not.toHaveProperty("accessToken");
   });
 
   it("returns NOT_FOUND for an unknown slug without creating a booking or notifying", async () => {
@@ -146,11 +159,11 @@ describe("submitBooking rate limiting (WP-5)", () => {
 
   it("keeps the ALLOWED path unchanged (create + notify once)", async () => {
     vitrinLoad.mockResolvedValue({ status: "ok", tenantContext: vitrinTenantContext });
-    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-2" });
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-2", accessToken: "tok-2" });
 
     const result = await submitBooking(input);
 
-    expect(result).toEqual({ status: "created", appointmentId: "appt-2" });
+    expect(result).toEqual({ status: "created", appointmentId: "appt-2", statusPath: "/salon-a/randevu/tok-2" });
     expect(checkRateLimit.mock.invocationCallOrder[0]).toBeLessThan(bookingCreate.mock.invocationCallOrder[0]);
     expect(publishAppointmentNotification).toHaveBeenCalledWith(vitrinTenantContext, "appt-2", "APPOINTMENT_CREATED");
   });

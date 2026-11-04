@@ -52,6 +52,8 @@ const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g;
 const BEARER = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 // Covers access_token, refresh_token, hub.verify_token, apikey, password, code, ...
 const SECRET_PARAM = /\b([\w.]*(?:token|secret|password|apikey|api_key)|code)=[^&\s"']+/gi;
+// WP-06 customer status link: /<slug>/randevu/<43-char base64url token>.
+const STATUS_LINK_TOKEN = /(\/randevu\/)[A-Za-z0-9_-]{20,}/g;
 const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/)([^:/@\s]+):([^@\s]+)@/gi;
 // 10-15 digits, optional leading +, with common separators; not glued to letters,
 // digits or "-" (so UUID segments and ids are left alone). Allows "(555) " / " (555)" groups.
@@ -92,6 +94,7 @@ export function redactString(input: string): string {
     .replace(URL_CREDENTIALS, (_match, scheme: string, user: string) => `${scheme}${user}:${REDACTED}@`)
     .replace(BEARER, (_match, scheme: string) => `${scheme} ${REDACTED}`)
     .replace(JWT, REDACTED)
+    .replace(STATUS_LINK_TOKEN, (_match, prefix: string) => `${prefix}${REDACTED}`)
     .replace(SECRET_PARAM, (_match, name: string) => `${name}=${REDACTED}`)
     .replace(EMAIL, match => maskEmail(match))
     .replace(PHONE, match => (DATE_LIKE.test(match) ? match : maskPhone(match)));
@@ -160,6 +163,25 @@ export function logError(event: string, context?: Readonly<Record<string, unknow
   } catch {
     try {
       console.error(safeEvent, "[unloggable]");
+    } catch {
+      // Logging must not break the caller.
+    }
+  }
+}
+
+/** console.info with redacted context, for normal audit-style events. Never throws. */
+export function logInfo(event: string, context?: Readonly<Record<string, unknown>>): void {
+  let safeEvent = "log_event";
+  try {
+    safeEvent = redactString(String(event));
+    if (context === undefined) {
+      console.info(safeEvent);
+      return;
+    }
+    console.info(safeEvent, redactForLog(context));
+  } catch {
+    try {
+      console.info(safeEvent, "[unloggable]");
     } catch {
       // Logging must not break the caller.
     }

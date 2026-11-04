@@ -4,6 +4,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "../generated/prisma/client";
 import { localWallTimeToUtc } from "../domain/availability";
+import { generateAppointmentAccessToken } from "../domain/appointment-access-token";
 import { createPrismaPublicBookingRepository } from "./prisma-public-booking";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
 
@@ -82,6 +83,7 @@ describeDatabase("Prisma public booking tenant isolation integration", () => {
     if (!pool) return;
     await pool.query('DELETE FROM "CustomerNote" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
+    await pool.query('DELETE FROM "AppointmentAccessToken" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "WorkingHours" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [fixture.tenantId]);
@@ -102,6 +104,7 @@ describeDatabase("Prisma public booking tenant isolation integration", () => {
     displayName: "Integration Customer",
     email,
     phone: null,
+    accessTokenHash: generateAppointmentAccessToken().tokenHash,
   });
 
   const expectNoCustomerOrAppointment = async (tenantId: string, email: string) => {

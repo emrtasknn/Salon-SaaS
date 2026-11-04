@@ -53,6 +53,8 @@ export function PublicBookingForm({
     initialServiceId && staff[0]?.id ? "loading" : "idle",
   );
   const [status, setStatus] = useState("");
+  const [statusUrl, setStatusUrl] = useState("");
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [busy, startTransition] = useTransition();
 
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
@@ -90,6 +92,8 @@ export function PublicBookingForm({
     }
 
     setStatus("");
+    setStatusUrl("");
+    setCopyState("idle");
     startTransition(async () => {
       const result = await submitBooking({
         slug,
@@ -103,6 +107,9 @@ export function PublicBookingForm({
 
       if (result.status === "created") {
         setStatus("Randevu talebiniz oluşturuldu.");
+        if ("statusPath" in result && typeof result.statusPath === "string" && result.statusPath) {
+          setStatusUrl(`${window.location.origin}${result.statusPath}`);
+        }
         setSelectedSlot("");
         setSlots((current) => current.filter((slot) => slot.startAtIso !== selectedSlot));
       } else if (result.status === "SLOT_UNAVAILABLE") {
@@ -250,6 +257,36 @@ export function PublicBookingForm({
           </button>
 
           {status && <p role="status" className="rounded-lg border p-3 text-sm">{status}</p>}
+
+          {statusUrl && (
+            <section aria-labelledby="status-link-title" className="space-y-3 rounded-lg border bg-zinc-50 p-4">
+              <h2 id="status-link-title" className="text-sm font-medium">Randevu bağlantınız</h2>
+              <p className="text-sm text-zinc-600">
+                Bu bağlantıyı kaydedin; randevunuzu görmek veya iptal etmek için kullanabilirsiniz.
+              </p>
+              <a href={statusUrl} className="block break-all rounded-lg border bg-white p-3 text-sm underline">
+                {statusUrl}
+              </a>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(statusUrl);
+                    setCopyState("copied");
+                  } catch {
+                    setCopyState("failed");
+                  }
+                }}
+                className="min-h-11 w-full rounded-lg border bg-white px-4 py-2 text-sm hover:bg-zinc-100 sm:w-auto"
+              >
+                Bağlantıyı kopyala
+              </button>
+              <p aria-live="polite" className="text-xs text-zinc-500">
+                {copyState === "copied" && "Bağlantı kopyalandı."}
+                {copyState === "failed" && "Kopyalanamadı. Bağlantıyı seçip elle kopyalayın."}
+              </p>
+            </section>
+          )}
         </form>
       </div>
     </main>

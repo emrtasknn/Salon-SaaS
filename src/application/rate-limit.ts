@@ -19,7 +19,7 @@ export const RATE_LIMIT_POLICIES = {
   "booking.submit.global": { limit: 20, windowSeconds: 3600, scope: "ip" },
   "booking.submit.phone": { limit: 3, windowSeconds: 3600, scope: "tenant+phone" },
   "booking.availability": { limit: 60, windowSeconds: 60, scope: "ip" },
-  // WP-6 status link (not wired yet).
+  // WP-6 status link (src/app/[slug]/randevu/[token]/data.ts).
   "status.view": { limit: 30, windowSeconds: 600, scope: "ip" },
   "status.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
 } as const satisfies Record<string, RateLimitPolicy>;
