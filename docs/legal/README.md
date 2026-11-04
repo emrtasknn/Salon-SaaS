@@ -36,7 +36,7 @@ Birincil kaynaktan teyit edilenler: aydınlatma içeriği ve katmanlı sunum (Ku
 2. **Saklama süresi:** Müşteri ve randevu verileri için makul süre (`{{saklamaSuresi}}`) ve dayanağı. Uygulamada otomatik silme/anonimleştirme henüz yok.
 3. **E-posta zorunluluğu:** Formda e-posta zorunlu, ama müşteriye e-posta gönderilmiyor. Veri minimizasyonu açısından isteğe bağlı mı yapılmalı, yoksa amaç (kimlik/iletişim) yeterli mi?
 4. **Meşru menfaat (m.5/2-f):** Müşteri geçmişi ve salon notları için yeterli mi? Denge testi kaydı gerekir mi?
-5. **Aydınlatma kutusu (sahip kararıyla çelişki):** Kurum'un 2020 duyurusu, aydınlatmanın okunduğunun onaylanmasını hizmetin ön koşulu yapmayı eksiklik sayıyor. WP-10'daki "zorunlu kutu" kararı bununla uyumlu mu? Seçenekler `musteri-aydinlatma-metni.md` başında; önerilen: kutu yok, gösterilen sürüm kaydedilir.
+5. **Aydınlatma ispatı:** Sahip kararıyla (2026-11-04) kutu yok; metin gönder düğmesinin üstünde görünür ve gösterilen sürüm/hash randevuyla kaydedilir. Bu ispat yöntemi yeterli mi?
 6. **WhatsApp izni:** Opt-in metni; paylaşımlı göndericide salon adının mesajda geçmesi yeterli mi?
 7. **VERBİS:** Kurul'un 2025/1572 (RG 01.10.2025) ve 2025/2393 sayılı kararlarıyla değişen istisna eşikleri ikincil kaynaklarda çelişkili. Salonlar ve Platform için kayıt yükümlülüğü ile saklama ve imha politikası zorunluluğu (Yönetmelik: periyodik imha aralığı en fazla 6 ay) teyit edilmeli.
 8. **Veri ihlali:** 24 saatlik işleyen → sorumlu bildirim süresi ve Kurul'a 72 saat bildirim zinciri uygun mu?
