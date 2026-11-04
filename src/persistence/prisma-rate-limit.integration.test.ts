@@ -33,7 +33,7 @@ describeRateLimit("private.rate_limit_hit (WP-5)", () => {
     return key;
   };
 
-  const hit = async (client: Pool | PoolClient, key: string, windowSeconds = 3600, bucket = BUCKET) => {
+  const hit = async (client: Pool | PoolClient, key: string, windowSeconds = 86400, bucket = BUCKET) => {
     const result = await client.query<HitRow>(`SELECT hit_count, window_start FROM ${FN}`, [key, bucket, windowSeconds]);
     expect(result.rows).toHaveLength(1);
     return result.rows[0];

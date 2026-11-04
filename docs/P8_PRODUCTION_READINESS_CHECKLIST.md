@@ -99,7 +99,7 @@ Establish that the application, infrastructure, integrations, security controls,
 - [ ] Monitoring/alerts cover application errors, database health, webhook failures, and notification delivery outcomes.
 - [ ] Webhook retry/duplicate behavior and failure visibility are understood.
 - [ ] UNKNOWN/PENDING delivery reconciliation is an operator-controlled documented process.
-- [ ] Rate limiting/abuse controls exist for public booking and authentication surfaces.
+- [ ] Rate limiting/abuse controls exist for public booking and authentication surfaces. (WP-5: public booking + availability limiter implemented, `docs/tasks/WP-05.md`; still needs the migration applied with approval, `RATE_LIMIT_HMAC_SECRET` + `TRUSTED_IP_HEADER` set on the host, and the owner's check of Supabase Auth rate-limit settings for login.)
 - [ ] Data retention, backup retention, deletion/export, and incident response owners are documented.
 - [ ] Privacy notice, terms, consent/opt-in language, and applicable Turkish KVKK obligations are reviewed by the responsible owner/advisor. This checklist is not legal advice or a compliance certification.
 - [ ] Support/escalation path and rollback decision owner are identified.
