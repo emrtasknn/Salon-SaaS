@@ -23,8 +23,8 @@ P9 is not a substitute for P7 pilot acceptance or P8 production readiness. P7 va
 - [ ] P7 pilot acceptance is explicitly CLOSED with evidence.
 - [ ] P8 production readiness review is READY, with residual risks accepted.
 - [x] MVP customer booking model explicitly confirmed: Option A - guest booking without customer account (owner approval: 2026-11-02). Customer accounts, membership, and self-service customer panel are outside the initial MVP.
-- [ ] MVP notification channel scope is confirmed (WhatsApp-only, WhatsApp + Web Push, or other explicitly approved scope).
-- [ ] Shared platform WhatsApp sender is either validated as permitted for the intended multi-tenant model or excluded from production scope pending a separate architecture decision.
+- [x] MVP notification channel scope is confirmed: in-app + Web Push (installed PWA) + WhatsApp (owner C2 2026-11-03; ADR-044 accepted 2026-11-04). Scope decision only; implementation pending WP-04/06/09.
+- [ ] Shared platform WhatsApp sender is validated as permitted for the intended multi-tenant model (owner chose one shared sender for staff, customers and tenant admins for MVP on 2026-11-04; Meta terms check is WP-02).
 - [ ] Any feature intentionally deferred from MVP is listed with rationale and post-MVP owner/priority.
 
 ## MVP functional acceptance
@@ -121,8 +121,8 @@ P9 is not a substitute for P7 pilot acceptance or P8 production readiness. P7 va
 - Native iOS/Android applications.
 - AI/advanced analytics.
 - Advanced campaign/reminder scheduling and template customization.
-- Web Push if not selected as a required MVP capability.
-- Production Meta shared-sender model until permission and operational requirements are validated.
+- Per-tenant WhatsApp senders (MVP uses one shared sender, subject to the WP-02 Meta terms check).
+- Production deployment itself (P9 is proven on staging + pilot; production needs separate approval).
 
 This list is a planning aid. The owner must confirm which items are truly outside the approved MVP scope.
 
