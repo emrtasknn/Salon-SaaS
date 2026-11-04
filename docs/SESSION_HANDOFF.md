@@ -1,31 +1,38 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-04 — MVP work packages (WP-00..WP-14) with agent-to-agent workflows; WP-00 docs hygiene; parallel WP-2b/03/04/05 sessions.
+2026-11-04 — WP-12 artifacts for the owner: staging runbook, staging-migrate workflow, log masking (no environment changes).
 
 ## State
-- `main` now includes #133 (WP-2b), #134 (WP-3 PWA), #135 (WP-4 in-app). WP-00 PR #132 updated with `main` (conflicts in ROADMAP and this file resolved).
-- WP-05 rate-limit proposal: commit `f168350` on `claude/friendly-easley-4bbf0e`, not pushed; migration draft not applied or CI-validated.
-- Environment touched: none (no DB, migrations, deploy, real Meta sends).
+- Branch: `claude/relaxed-shamir-0b440c`, merged with `main` (incl. #132, #136); PR to `main` opened, not merged.
+- Environment touched: none (no DB, migrations, workflow runs, Vercel or Supabase changes; `prisma generate` with a placeholder URL only).
+- Previous orchestration state (WP-00..WP-14, WP-2b/03/04/05): see this file at commit `e5c51c8`.
 
 ## Done
-- Owner-approved plan in `docs/tasks/` (README = workflow + dependency table). Owner decisions recorded in Gov §4/§7, ADR-044 (Accepted + customer self-cancel), P9, ROADMAP, W11.8. `.env.example` (names only).
-- WP-2b: `APPOINTMENT_CREATED` WhatsApp also to same-tenant TENANT_ADMINs (deduped by profile/phone, no-phone admins skipped, staff template reused, no migration; ADR-042 addendum).
-- Agent workflows run in every WP: planner → (research/database) → owner gate → backend ∥ uiux → qa → reviewer → PR.
+- `docs/STAGING_RUNBOOK.md` — owner steps: Supabase persistent branch, GitHub Environment `staging`, first migrate, RLS/`private` parity SQL, Vercel staging env, auth Site/Redirect URLs, smoke checklist, timed backup/restore rehearsal, logs, uptime, evidence log.
+- `.github/workflows/staging-migrate.yml` — manual dispatch only, `environment: staging`, secret `STAGING_DATABASE_URL` only on Prisma steps, guard against the pilot project ref, `check`/`deploy` modes, `migrate status` + `migrate diff --from-config-datasource --to-schema --exit-code` drift check.
+- `src/infrastructure/log-redaction.ts` — `logError`/`redactForLog` mask phone, email, tokens, JWT, Bearer, secret params, DB URL passwords, content keys; never throws. Used by all existing server `console.error` sites.
+- `.env.example` — merged with `main` (same names; added staging notes).
+- Reviewer (salon-saas-reviewer): no blocking findings; mediums fixed; lows fixed except masking heuristics (documented) and pilot workflow gate (follow-up).
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| WP-00 | salon-saas-reviewer; PR CI | changes requested → fixed; CI PASS before merge-from-main |
-| WP-2b | lint, typecheck, 35 unit tests; reviewer | PASS; integration in CI |
-| WP-3 / WP-4 | their PR CI | merged to `main` |
+| Lint | `npm run lint` | PASS after merge with `main` |
+| Typecheck | `npm run typecheck` | PASS after merge with `main` |
+| Unit tests | `env -u DATABASE_URL npx vitest run src/infrastructure/log-redaction.test.ts src/infrastructure/notifications.test.ts src/application/notification-service.test.ts` | PASS after merge with `main` |
+| Integration / build | PR CI | pending |
+
+## Decisions
+- Distinct secret name `STAGING_DATABASE_URL` so a missing Environment secret can't fall back to the pilot repo secret `DATABASE_URL`.
+- Drift check via `--from-config-datasource` (no shadow DB). RLS/grants checked by owner-run SQL.
+- Supabase↔Vercel Marketplace integration and Supabase GitHub branch migrations stay off.
 
 ## Open risks
-- Shared-sender webhook status routing: `WhatsAppIntegration` unique on `(provider, phoneNumberId)` binds the number to one tenant; status updates for other tenants fail closed (stay SENT). Needs C3 review, probably a schema proposal.
-- WP-2b CI integration test runs as superuser (no RLS proof); non-superuser `SET ROLE` variant is a follow-up. Phone dedupe is digits-only (`+90…` vs `0…`).
-- WP-05 uses fail-open and an RLS-protected non-tenant table; owner decisions pending in that session.
-- Meta-terms gate for the shared sender still open (WP-02). Branch protection (WP-01) is an owner GitHub setting.
-- Low disk space limits parallel worktree sessions.
+- Owner must record acceptance of "branch of pilot project" vs P8 §H "new staging project".
+- Unverified in docs: branch backup coverage, Supabase log retention per plan, `pgbouncer=true` need with `@prisma/adapter-pg`.
+- Pilot migrate workflow has no Environment approval gate.
+- From earlier sessions (still open): shared-sender webhook status routing (C3), WP-2b integration test runs as superuser, WP-02 Meta-terms gate, WP-01 branch protection, low disk space.
 
 ## Next task
-- Merge #132; owner answers WP-05 questions → PR; then schema line WP-06 → 07 → 08 → 09 serially; WP-10 research and WP-12 staging decisions in parallel.
+- Owner executes runbook §2–§8. Optional: scheduled uptime workflow; gate pilot workflow behind a `pilot` Environment.
