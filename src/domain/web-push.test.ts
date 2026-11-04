@@ -150,3 +150,54 @@ describe("web push outcome classification", () => {
     expect(aggregatePushOutcomes([{ kind: "config_error" }])).toEqual({ status: "FAILED", errorCode: "WEB_PUSH_CONFIG_ERROR" });
   });
 });
+
+describe("WP-09 QA additions", () => {
+  const valid = { endpoint: ENDPOINT, keys: { p256dh: P256DH, auth: AUTH } };
+
+  it.each([
+    ["p256dh 86 chars + '=' padding", { ...valid, keys: { p256dh: `B${"a".repeat(85)}=`, auth: AUTH } }],
+    ["auth 21 chars + '=' padding", { ...valid, keys: { p256dh: P256DH, auth: `${"b".repeat(21)}=` } }],
+    ["p256dh with '/'", { ...valid, keys: { p256dh: `B${"a".repeat(85)}/`, auth: AUTH } }],
+    ["empty auth", { ...valid, keys: { p256dh: P256DH, auth: "" } }],
+    ["endpoint exactly 2049 chars", { ...valid, endpoint: `https://push.example.com/${"a".repeat(2049 - "https://push.example.com/".length)}` }],
+  ])("rejects %s", (_label, input) => {
+    expect(validatePushSubscriptionInput(input)).toBeNull();
+  });
+
+  it("accepts an endpoint of exactly 2048 chars and a blank userAgent as null", () => {
+    const endpoint = `https://push.example.com/${"a".repeat(2048 - "https://push.example.com/".length)}`;
+    expect(validatePushSubscriptionInput({ ...valid, endpoint, userAgent: "   " })).toEqual({ endpoint, p256dh: P256DH, auth: AUTH, userAgent: null });
+  });
+
+  it("drops any client-supplied tenant/profile fields", () => {
+    const result = validatePushSubscriptionInput({ ...valid, tenantId: "evil", profileId: "evil" });
+    expect(Object.keys(result ?? {}).sort()).toEqual(["auth", "endpoint", "p256dh", "userAgent"]);
+  });
+
+  it.each([[502, "transient"], [504, "transient"], [408, "config_error"]] as const)("status %i -> %s", (status, kind) => {
+    expect(classifyWebPushStatus(status)).toBe(kind);
+  });
+
+  it("classifies undici network codes and statusless errors", () => {
+    expect(classifyWebPushError(Object.assign(new Error("x"), { code: "UND_ERR_CONNECT_TIMEOUT" }))).toBe("network");
+    expect(classifyWebPushError(Object.assign(new Error("x"), { code: "ETIMEDOUT" }))).toBe("network");
+    expect(classifyWebPushError({ statusCode: 503 })).toBe("transient");
+    expect(classifyWebPushError({ statusCode: 403 })).toBe("config_error");
+    expect(classifyWebPushError(undefined)).toBe("config_error");
+  });
+
+  it("payload for every role stays ≤1KB with a long appointment id and Turkish service name", () => {
+    for (const role of ["STAFF", "TENANT_ADMIN"] as const) {
+      const raw = buildAppointmentCreatedPushPayload({
+        appointmentId: "c".repeat(30), serviceName: "Şç".repeat(600), startAt: new Date("2026-11-05T10:00:00Z"), timeZone: "Europe/Istanbul", role,
+      });
+      expect(new TextEncoder().encode(raw).length).toBeLessThanOrEqual(WEB_PUSH_MAX_PAYLOAD_BYTES);
+    }
+  });
+
+  it("routing returns no recipients without an assigned staff or admins, and no STAFF role for an admin", () => {
+    expect(selectPushRecipients({ assignedStaff: null, adminProfileIds: [] })).toEqual([]);
+    expect(selectPushRecipients({ assignedStaff: { profileId: "a1", status: "ACTIVE", hasMembership: true }, adminProfileIds: ["a1"] }))
+      .toEqual([{ profileId: "a1", role: "TENANT_ADMIN" }]);
+  });
+});

@@ -193,4 +193,80 @@ describe("notification service — multi-channel (WP-09)", () => {
     expect(withPush.claim.mock.calls).toEqual(withoutPush.claim.mock.calls);
     expect(withPush.markSent.mock.calls).toEqual(withoutPush.markSent.mock.calls);
   });
+  // WP-09 QA additions.
+  it("push payloads carry no customer name/phone/email even when WhatsApp recipients have them", async () => {
+    const repository = deliveryRepository({ recipients: vi.fn().mockResolvedValue([
+      { profileId: "customer-1", displayName: "Ayşe Yılmaz", phone: "+905551112233", templateKey: "t", body: "Ayşe Yılmaz ayse@example.com", templateParameters: ["Ayşe Yılmaz"] },
+    ]) });
+    const provider = pushProvider();
+    await createNotificationService({ repository, provider: whatsApp(), webPush: { repository: pushRepository({ "staff-1": [sub("d1")], "admin-1": [sub("d2")] }), provider } })
+      .publish(tenant, "appt-1", "APPOINTMENT_CREATED");
+    expect(provider.send).toHaveBeenCalledTimes(2);
+    for (const [, payload] of provider.send.mock.calls) {
+      expect(payload).not.toMatch(/Ayşe|Yılmaz|5551112233|@example\.com|customer/i);
+      expect(new TextEncoder().encode(payload).length).toBeLessThanOrEqual(1024);
+    }
+  });
+
+  it("a throwing push provider is recorded as UNKNOWN (never resent automatically) and WhatsApp still sends", async () => {
+    const repository = deliveryRepository();
+    const wa = whatsApp();
+    const push = pushRepository({ "staff-1": [sub("d1")] }, [{ profileId: "staff-1", role: "STAFF" }]);
+    const provider = { send: vi.fn<WebPushSender["send"]>().mockRejectedValue(new Error("boom")) };
+    const result = await createNotificationService({ repository, provider: wa, webPush: { repository: push, provider, now: () => new Date(0) } })
+      .publish(tenant, "appt-1", "APPOINTMENT_CREATED");
+    expect(result.results).toEqual([
+      { profileId: "staff-1", status: "SENT", channel: "WHATSAPP" },
+      { profileId: "staff-1", status: "UNKNOWN", channel: "WEB_PUSH" },
+    ]);
+    expect(push.recordPushResult).toHaveBeenCalledWith(tenant, { subscriptionId: "d1", outcome: "network", at: new Date(0) });
+    expect(repository.markUnknown).toHaveBeenCalledWith(tenant, expect.objectContaining({ channel: "WEB_PUSH", errorCode: "WEB_PUSH_OUTCOME_UNKNOWN" }));
+  });
+
+  it("a subscription-bookkeeping failure does not change the delivery outcome", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const repository = deliveryRepository({ recipients: vi.fn().mockResolvedValue([]) });
+    const push = pushRepository({ "staff-1": [sub("d1")] }, [{ profileId: "staff-1", role: "STAFF" }]);
+    push.recordPushResult.mockRejectedValue(new Error("db"));
+    const result = await createNotificationService({ repository, provider: null, webPush: { repository: push, provider: pushProvider() } })
+      .publish(tenant, "appt-1", "APPOINTMENT_CREATED");
+    expect(result.results).toEqual([{ profileId: "staff-1", status: "SENT", channel: "WEB_PUSH" }]);
+    expect(repository.markSent).toHaveBeenCalledWith(tenant, expect.objectContaining({ channel: "WEB_PUSH", providerMessageId: "webpush:1/1" }));
+    log.mockRestore();
+  });
+
+  it("neither channel touches appointment state: only delivery/subscription repository methods are used", async () => {
+    const used = new Set<string>();
+    const track = <T extends object>(name: string, target: T): T => new Proxy(target, {
+      get(object, key, receiver) {
+        if (typeof key === "string") used.add(`${name}.${key}`);
+        return Reflect.get(object, key, receiver);
+      },
+    });
+    const repository = track("delivery", deliveryRepository());
+    const push = track("push", pushRepository({ "staff-1": [sub("d1")], "admin-1": [sub("d2")] }));
+    await createNotificationService({ repository, provider: whatsApp(), webPush: { repository: push, provider: pushProvider() } })
+      .publish(tenant, "appt-1", "APPOINTMENT_CREATED");
+    const allowed = new Set([
+      "delivery.recipients", "delivery.claim", "delivery.markSent", "delivery.markFailed", "delivery.markUnknown",
+      "push.pushRecipients", "push.activeSubscriptions", "push.recordPushResult",
+    ]);
+    expect([...used].filter(entry => !allowed.has(entry))).toEqual([]);
+  });
+
+  it("a WEB_PUSH log entry never contains the device endpoint or keys", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const repository = deliveryRepository({ recipients: vi.fn().mockResolvedValue([]) });
+    const device = { id: "sub-1", endpoint: "https://push.example.com/secret-device", p256dh: P256DH, auth: AUTH };
+    const push = pushRepository({ "staff-1": [device] }, [{ profileId: "staff-1", role: "STAFF" }]);
+    push.recordPushResult.mockRejectedValue(new Error("db"));
+    await createNotificationService({ repository, provider: null, webPush: { repository: push, provider: pushProvider({ kind: "network" }) } })
+      .publish(tenant, "appt-1", "APPOINTMENT_CREATED");
+    expect(log).toHaveBeenCalled();
+    const logged = JSON.stringify(log.mock.calls);
+    expect(logged).not.toContain("secret-device");
+    expect(logged).not.toContain(P256DH);
+    expect(logged).not.toContain(AUTH);
+    log.mockRestore();
+  });
 });
