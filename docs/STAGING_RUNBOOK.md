@@ -74,7 +74,27 @@ where n.nspname = 'private'
 order by 1, 2;
 ```
 
-5. Every later migration: run **deploy** on staging first, smoke test (section 7), then run the pilot workflow (`w11-4-pilot-supabase-migrate.yml`) under the P8 approval sequence. Note: the pilot workflow has no GitHub Environment approval gate today; the owner's own approval is the only gate (follow-up: move it behind a `pilot` Environment with required reviewers). For each migration, write down a forward plan and a rollback plan (a new down migration; Prisma has no automatic rollback).
+5. **Pre-rollout gate for SECURITY DEFINER resolvers** (W11.6 `private.resolve_whatsapp_tenant_id`, WP-02c `private.resolve_whatsapp_delivery_tenant_id`). They read FORCE-RLS tables, so their owner must bypass RLS, and CI (superuser) cannot prove this. On **staging and pilot**, read-only:
+
+```sql
+select r.rolname, r.rolsuper, r.rolbypassrls
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace join pg_roles r on r.oid = p.proowner
+where n.nspname = 'private' and p.proname like 'resolve_whatsapp%';
+
+select rolname, rolsuper, rolbypassrls from pg_roles where rolname = 'postgres';
+
+-- Replace <runtime_role> with the role in the app's DATABASE_URL (staging/pilot).
+select p.proname, has_function_privilege('<runtime_role>', p.oid, 'EXECUTE') as can_execute
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'private' and p.proname like 'resolve_whatsapp%';
+```
+
+   - Owner has `rolbypassrls` or `rolsuper` = true → resolvers can see rows. Record it.
+   - If the **runtime** role the app connects with also bypasses RLS, tenant isolation relies on the explicit `tenantId` filters, not RLS — record this as a P8 risk for owner decision before pilot rollout.
+   - If the owner lacks both, the resolvers always return NULL (webhook statuses never update): stop and escalate.
+   - `can_execute` must be true for the runtime role; otherwise the webhook fails with 42501 / HTTP 500 and Meta keeps retrying: stop and escalate.
+
+6. Every later migration: run **deploy** on staging first, smoke test (section 7), then run the pilot workflow (`w11-4-pilot-supabase-migrate.yml`) under the P8 approval sequence. Note: the pilot workflow has no GitHub Environment approval gate today; the owner's own approval is the only gate (follow-up: move it behind a `pilot` Environment with required reviewers). For each migration, write down a forward plan and a rollback plan (a new down migration; Prisma has no automatic rollback).
 
 ## 5. Vercel project and staging environment
 
