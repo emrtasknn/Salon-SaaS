@@ -3,10 +3,22 @@ import type { TenantId } from "./tenant-context";
 export const TENANT_SLUG_MAX_LENGTH = 80;
 export const TENANT_NAME_MAX_LENGTH = 160;
 
+/** WP-07: tenant lifecycle flag. INACTIVE blocks every new-booking path; it is server-only state. */
+export type TenantStatus = "ACTIVE" | "INACTIVE";
+export const TENANT_STATUSES: ReadonlyArray<TenantStatus> = Object.freeze(["ACTIVE", "INACTIVE"]);
+
+export function isTenantStatus(value: unknown): value is TenantStatus {
+  return value === "ACTIVE" || value === "INACTIVE";
+}
+
+/** Must stay identical to the DB CHECK "Tenant_contactPhone_e164_check". */
+export const TENANT_CONTACT_PHONE_PATTERN = /^\+[1-9][0-9]{6,14}$/;
+
 export type TenantValidationErrorCode =
   | "INVALID_TENANT_NAME"
   | "INVALID_TENANT_SLUG"
-  | "INVALID_TIMEZONE";
+  | "INVALID_TIMEZONE"
+  | "INVALID_CONTACT_PHONE";
 
 export type TenantValidationResult<T> =
   | { readonly ok: true; readonly value: T }
@@ -116,3 +128,39 @@ export type TenantProvisioningData = Readonly<{
   slug: string;
   timezone: string;
 }>;
+
+/**
+ * WP-07: normalizes a salon contact phone to E.164.
+ * Strips spaces, "-", "(", ")" and "."; "00" prefix -> "+"; Turkish mobile
+ * "05xxxxxxxxx" / "5xxxxxxxxx" -> "+905xxxxxxxxx". Empty input clears the phone (null).
+ */
+export function createTenantContactPhone(
+  raw: unknown,
+): TenantValidationResult<string | null> {
+  if (raw === null || raw === undefined) return { ok: true, value: null };
+  if (typeof raw !== "string") {
+    return failure("INVALID_CONTACT_PHONE", "Contact phone must be a string.");
+  }
+
+  let value = raw.replace(/[\s\-().]/g, "");
+  if (value.length === 0) return { ok: true, value: null };
+
+  if (value.startsWith("00")) value = `+${value.slice(2)}`;
+  else if (/^05[0-9]{9}$/.test(value)) value = `+90${value.slice(1)}`;
+  else if (/^5[0-9]{9}$/.test(value)) value = `+90${value}`;
+
+  if (!TENANT_CONTACT_PHONE_PATTERN.test(value)) {
+    return failure(
+      "INVALID_CONTACT_PHONE",
+      "Contact phone must be a valid international (E.164) number.",
+    );
+  }
+
+  return { ok: true, value };
+}
+
+/** WP-07: public wa.me click-to-chat URL; null when there is no valid E.164 phone. */
+export function whatsAppLink(phone: string | null): string | null {
+  if (typeof phone !== "string" || !TENANT_CONTACT_PHONE_PATTERN.test(phone)) return null;
+  return `https://wa.me/${phone.slice(1)}`;
+}

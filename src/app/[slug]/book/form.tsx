@@ -49,7 +49,7 @@ export function PublicBookingForm({
   const [dateIso, setDateIso] = useState(minDate);
   const [slots, setSlots] = useState<ReadonlyArray<Slot>>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
-  const [availabilityStatus, setAvailabilityStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error" | "limited">(() =>
+  const [availabilityStatus, setAvailabilityStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error" | "limited" | "inactive">(() =>
     initialServiceId && staff[0]?.id ? "loading" : "idle",
   );
   const [status, setStatus] = useState("");
@@ -72,7 +72,7 @@ export function PublicBookingForm({
         setAvailabilityStatus(result.slots.length ? "ready" : "empty");
       } else {
         setSlots([]);
-        setAvailabilityStatus(result.status === "RATE_LIMITED" ? "limited" : "error");
+        setAvailabilityStatus(result.status === "RATE_LIMITED" ? "limited" : result.status === "TENANT_INACTIVE" ? "inactive" : "error");
       }
     }).catch(() => {
       if (!active) return;
@@ -122,12 +122,17 @@ export function PublicBookingForm({
           setAvailabilityStatus(refreshed.slots.length ? "ready" : "empty");
         } else {
           setSlots([]);
-          setAvailabilityStatus(refreshed.status === "RATE_LIMITED" ? "limited" : "error");
+          setAvailabilityStatus(refreshed.status === "RATE_LIMITED" ? "limited" : refreshed.status === "TENANT_INACTIVE" ? "inactive" : "error");
         }
       } else if (result.status === "INVALID_RESOURCE") {
         setStatus("Seçtiğiniz hizmet veya personel artık uygun değil.");
       } else if (result.status === "INVALID_INPUT") {
         setStatus("Bilgilerinizi kontrol edip tekrar deneyin.");
+      } else if (result.status === "TENANT_INACTIVE") {
+        setStatus("Şu anda online randevu alınmıyor.");
+        setSelectedSlot("");
+        setSlots([]);
+        setAvailabilityStatus("inactive");
       } else if (result.status === "RATE_LIMITED") {
         setStatus("Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.");
       } else {
@@ -223,6 +228,7 @@ export function PublicBookingForm({
             {availabilityStatus === "loading" && <p className="text-sm text-zinc-500">Uygun saatler kontrol ediliyor…</p>}
             {availabilityStatus === "empty" && <p className="text-sm text-zinc-500">Bu tarih için uygun saat bulunmuyor.</p>}
             {availabilityStatus === "error" && <p className="text-sm text-zinc-500">Uygun saatler yüklenemedi. Lütfen tekrar deneyin.</p>}
+            {availabilityStatus === "inactive" && <p className="text-sm text-zinc-500">Şu anda online randevu alınmıyor.</p>}
             {availabilityStatus === "limited" && <p className="text-sm text-zinc-500">Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.</p>}
             {availabilityStatus === "ready" && (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">

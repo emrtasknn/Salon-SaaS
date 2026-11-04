@@ -43,6 +43,8 @@ function makeFixture(label: string): TenantFixture {
 describeDatabase("Prisma public booking tenant isolation integration", () => {
   const tenantA = makeFixture("a");
   const tenantB = makeFixture("b");
+  // WP-07: a third tenant that is INACTIVE (status toggled after seeding).
+  const tenantInactive = makeFixture("inactive");
   const bookingDate = nextMondayIso();
   const startAt = localWallTimeToUtc(bookingDate, 10 * 60, "Europe/Istanbul");
 
@@ -131,12 +133,14 @@ describeDatabase("Prisma public booking tenant isolation integration", () => {
     prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
     await seedTenant(tenantA, "A");
     await seedTenant(tenantB, "B");
+    await seedTenant(tenantInactive, "Inactive");
+    await pool.query(`UPDATE "Tenant" SET "status" = 'INACTIVE' WHERE "id" = $1`, [tenantInactive.tenantId]);
   });
 
   afterAll(async () => {
     if (!pool || !prisma) return;
     const cleanupErrors: string[] = [];
-    for (const fixture of [tenantA, tenantB]) {
+    for (const fixture of [tenantA, tenantB, tenantInactive]) {
       try {
         await cleanupTenant(fixture);
       } catch (error) {
@@ -226,5 +230,74 @@ describeDatabase("Prisma public booking tenant isolation integration", () => {
 
     expect(result).toBe("invalid_resource");
     await expectNoCustomerOrAppointment(tenantB.tenantId, email);
+  });
+
+  describe("tenant status gate (WP-07)", () => {
+    const countRows = async (tenantId: string) => {
+      if (!pool) throw new Error("Database pool was not initialized");
+      const result = await pool.query(
+        `SELECT
+           (SELECT count(*)::int FROM "Appointment" WHERE "tenantId" = $1) AS appointments,
+           (SELECT count(*)::int FROM "AppointmentAccessToken" WHERE "tenantId" = $1) AS tokens,
+           (SELECT count(*)::int FROM "NotificationDelivery" WHERE "tenantId" = $1) AS deliveries`,
+        [tenantId],
+      );
+      return result.rows[0] as { appointments: number; tokens: number; deliveries: number };
+    };
+
+    it("returns tenant_inactive for an INACTIVE tenant and inserts no customer, appointment or access token", async () => {
+      const email = `inactive-${randomUUID()}@example.test`;
+      const before = await countRows(tenantInactive.tenantId);
+
+      const result = await createRepository().create(
+        { tenantId: tenantInactive.tenantId as never },
+        bookingInput(tenantInactive.serviceId, tenantInactive.staffId, email),
+      );
+
+      expect(result).toBe("tenant_inactive");
+      await expectNoCustomerOrAppointment(tenantInactive.tenantId, email);
+      await expect(countRows(tenantInactive.tenantId)).resolves.toEqual(before);
+    });
+
+    it("keeps Tenant B bookable while another tenant is INACTIVE", async () => {
+      const email = `tenant-b-while-inactive-${randomUUID()}@example.test`;
+      const result = await createRepository().create(
+        { tenantId: tenantB.tenantId as never },
+        bookingInput(tenantB.serviceId, tenantB.staffId, email),
+      );
+
+      expect(result).toMatchObject({ status: "created" });
+    });
+
+    it("ACTIVE tenant still creates the appointment and its access token in the same transaction (WP-06 non-regression)", async () => {
+      if (!pool) throw new Error("Database pool was not initialized");
+      const email = `active-token-${randomUUID()}@example.test`;
+      const input = { ...bookingInput(tenantA.serviceId, tenantA.staffId, email), startAt: new Date(startAt.getTime() + 60 * 60_000) };
+
+      const result = await createRepository().create({ tenantId: tenantA.tenantId as never }, input);
+      if (typeof result !== "object" || result.status !== "created") {
+        throw new Error(`Expected a created booking result, got ${JSON.stringify(result)}`);
+      }
+
+      const tokens = await pool.query(
+        'SELECT "tenantId", "tokenHash" FROM "AppointmentAccessToken" WHERE "appointmentId" = $1',
+        [result.appointmentId],
+      );
+      expect(tokens.rows).toEqual([{ tenantId: tenantA.tenantId, tokenHash: input.accessTokenHash }]);
+    });
+
+    it("books again once the tenant is reactivated", async () => {
+      if (!pool) throw new Error("Database pool was not initialized");
+      await pool.query(`UPDATE "Tenant" SET "status" = 'ACTIVE' WHERE "id" = $1`, [tenantInactive.tenantId]);
+      try {
+        const result = await createRepository().create(
+          { tenantId: tenantInactive.tenantId as never },
+          bookingInput(tenantInactive.serviceId, tenantInactive.staffId, `reactivated-${randomUUID()}@example.test`),
+        );
+        expect(result).toMatchObject({ status: "created" });
+      } finally {
+        await pool.query(`UPDATE "Tenant" SET "status" = 'INACTIVE' WHERE "id" = $1`, [tenantInactive.tenantId]);
+      }
+    });
   });
 });

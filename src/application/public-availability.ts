@@ -19,6 +19,7 @@ export type PublicAvailabilityRepository = Readonly<{
         staffActive: boolean;
       }
     | { status: "invalid_resource" }
+    | { status: "tenant_inactive" }
     | { status: "persistence_failure" }
   >;
 }>;
@@ -50,6 +51,9 @@ export function createPublicAvailability(repository: PublicAvailabilityRepositor
 
       if (result.status === "persistence_failure") {
         return { status: "PERSISTENCE_FAILURE" as const, slots: [] as const };
+      }
+      if (result.status === "tenant_inactive") {
+        return { status: "TENANT_INACTIVE" as const, slots: [] as const };
       }
       if (result.status === "invalid_resource" || !result.serviceActive || !result.staffActive) {
         return { status: "INVALID_RESOURCE" as const, slots: [] as const };

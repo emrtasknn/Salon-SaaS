@@ -45,4 +45,9 @@ describe("public booking", () => {
       .resolves.toEqual({ status: "INVALID_RESOURCE" });
     expect(repository.create).toHaveBeenCalledTimes(1);
   });
+
+  it("maps tenant_inactive to TENANT_INACTIVE without returning a token (WP-07)", async () => {
+    const repository = { create: vi.fn().mockResolvedValue("tenant_inactive") };
+    await expect(createPublicBooking(repository).create(tenant, validInput)).resolves.toEqual({ status: "TENANT_INACTIVE" });
+  });
 });

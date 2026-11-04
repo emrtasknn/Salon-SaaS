@@ -35,7 +35,7 @@ beforeEach(() => {
 
 describe("getPublicAvailability rate limiting (WP-5)", () => {
   it("returns RATE_LIMITED with no slots before querying availability", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", tenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext });
     checkRateLimit.mockResolvedValue({ status: "RATE_LIMITED", retryAfterSeconds: 30 });
 
     const result = await getPublicAvailability(input);
@@ -45,7 +45,7 @@ describe("getPublicAvailability rate limiting (WP-5)", () => {
   });
 
   it("checks the per-IP availability bucket only", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", tenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext });
     availabilityList.mockResolvedValue({ status: "ok", slots: [] });
 
     await getPublicAvailability(input);
@@ -55,7 +55,7 @@ describe("getPublicAvailability rate limiting (WP-5)", () => {
   });
 
   it("keeps the ALLOWED path unchanged with the slug-resolved tenant context", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", tenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext });
     const listed = { status: "ok", slots: [{ startAt: "2026-11-05T10:00:00.000Z" }] };
     availabilityList.mockResolvedValue(listed);
 
@@ -65,6 +65,13 @@ describe("getPublicAvailability rate limiting (WP-5)", () => {
     expect(availabilityList).toHaveBeenCalledTimes(1);
     expect(availabilityList.mock.calls[0][0]).toBe(tenantContext);
     expect(checkRateLimit.mock.invocationCallOrder[0]).toBeLessThan(availabilityList.mock.invocationCallOrder[0]);
+  });
+
+  it("returns TENANT_INACTIVE with no slots for an inactive salon (WP-07)", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", active: false, tenantContext });
+
+    await expect(getPublicAvailability(input)).resolves.toEqual({ status: "TENANT_INACTIVE", slots: [] });
+    expect(availabilityList).not.toHaveBeenCalled();
   });
 
   it("returns NOT_FOUND for an unknown slug without a limiter call or query", async () => {

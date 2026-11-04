@@ -9,6 +9,13 @@ import { readSupabaseServerClientConfig } from "@/infrastructure/auth/supabase-s
 import { createSupabaseAuthAdapter } from "@/infrastructure/auth/supabase-auth-adapter";
 import { getPrisma } from "@/infrastructure/prisma-runtime";
 import { createPrismaTenantProvisioningRepository } from "@/persistence/prisma-tenant-provisioning";
+import {
+  createPlatformTenantStatus,
+  type PlatformActor,
+  type PlatformTenantListResult,
+  type PlatformTenantStatusResult,
+} from "@/application/platform-tenant-status";
+import { createPrismaPlatformTenantRepository } from "@/persistence/prisma-platform-tenants";
 
 export async function readPlatformAccess() {
   const supabase = await createNextSupabaseServerClient(
@@ -86,4 +93,48 @@ export async function createTenantAction(input: {
       phone: input.firstAdminPhone,
     },
   });
+}
+
+async function readPlatformActor(): Promise<PlatformActor> {
+  const supabase = await createNextSupabaseServerClient(
+    readSupabaseServerClientConfig(),
+  );
+  const context = await readAuthenticatedPlatformRequest(
+    createSupabaseAuthAdapter({ client: supabase as never }),
+  );
+  return context.state === "authenticated"
+    ? { kind: "SUPER_ADMIN", subjectId: context.identity.subjectId }
+    : null;
+}
+
+function platformTenants() {
+  return createPlatformTenantStatus({
+    repository: createPrismaPlatformTenantRepository(getPrisma()),
+  });
+}
+
+/** WP-07: SUPER_ADMIN-only tenant list for the platform status toggle. */
+export async function listPlatformTenants(): Promise<PlatformTenantListResult> {
+  try {
+    return await platformTenants().list(await readPlatformActor());
+  } catch {
+    return { ok: false, code: "PERSISTENCE_FAILURE" };
+  }
+}
+
+/** WP-07: SUPER_ADMIN-only ACTIVE/INACTIVE toggle; validates the enum and tenant existence. */
+export async function setTenantStatusAction(
+  formData: FormData,
+): Promise<PlatformTenantStatusResult> {
+  try {
+    const actor = await readPlatformActor();
+    if (!actor) return { ok: false, code: "FORBIDDEN" };
+    if (!(formData instanceof FormData)) return { ok: false, code: "INVALID_INPUT" };
+    return await platformTenants().setStatus(actor, {
+      tenantId: formData.get("tenantId"),
+      status: formData.get("status"),
+    });
+  } catch {
+    return { ok: false, code: "PERSISTENCE_FAILURE" };
+  }
 }
