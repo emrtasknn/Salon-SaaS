@@ -8,11 +8,8 @@
 
 - **Veri sorumlusu salondur**, platform veri işleyendir. Bu yüzden metin her salon için ayrı gösterilir; `{{...}}` alanları sunucuda tenant kaydından doldurulur.
 - Randevu formunda **kısa metin (katman 1)** ve tam metne bağlantı gösterilir. Tam metin (katman 2) `/[slug]/aydinlatma` gibi ayrı bir sayfada durur.
-- Formdaki kutu bir **onay değil, okuduğunu bildirme** kutusudur ("okudum ve anladım"; "onaylıyorum" denmez — İlke Kararı 2026/347). Açık rıza ifadesi içermez. WhatsApp izni **ayrı** bir kutudur ([`whatsapp-izin-metni.md`](whatsapp-izin-metni.md)).
-- ⚠️ **Sahip kararı gerekiyor — zorunlu kutu çelişkisi.** WP-10'da kutunun zorunlu olması kararlaştırıldı. Ancak Kurum'un 26.06.2020 duyurusu, aydınlatmanın okunduğunun onaylanmasını hizmetin ön koşulu yapmayı **eksiklik** olarak sayıyor. Seçenekler:
-  - **Seçenek 1 (önerilen):** Kutu yok. Kısa metin gönder düğmesinin hemen üstünde her zaman görünür; ispat için randevuyla birlikte gösterilen metnin sürümü ve hash'i kaydedilir.
-  - **Seçenek 2:** Kutu var ama isteğe bağlı; işaretlenmese de randevu alınır.
-  - **Seçenek 3:** Mevcut karar (zorunlu kutu). Avukat açıkça onaylamadıkça önerilmez.
+- **Aydınlatma için kutu yoktur** (sahip kararı, 2026-11-04). Kurum'un 26.06.2020 duyurusu, aydınlatmanın okunduğunun onaylanmasını hizmetin ön koşulu yapmayı eksiklik sayar. Kısa metin, gönder düğmesinin hemen üstünde her zaman görünür; ispat için randevuyla birlikte gösterilen metnin sürümü ve hash'i sunucuda kaydedilir.
+- Formdaki **tek kutu WhatsApp iznidir**; ayrı başlık altında, isteğe bağlı ve işaretsizdir ([`whatsapp-izin-metni.md`](whatsapp-izin-metni.md)). Açık rıza ifadesi kullanılmaz.
 - Randevu kaydında saklanır: metin sürümü, metnin hash'i (doldurulmuş hâliyle), bildirim zamanı (UTC), tenant ve randevu kimliği. Bu kayda IP veya tarayıcı bilgisi **eklenmez** (barındırma sağlayıcısının istek logları ayrıdır; bkz. §2).
 
 | Alan | Kaynak | Örnek |
@@ -34,8 +31,6 @@
 
 > **Kişisel verileriniz hakkında**
 > Randevunuz için verdiğiniz ad soyad, e-posta ve telefon bilgilerinizi veri sorumlusu **{{salonAdi}}**, randevunuzu oluşturmak ve yönetmek amacıyla işler. Bilgileriniz, randevu sistemini sağlayan **{{platformUnvani}}** ve altyapı hizmet sağlayıcıları (bir kısmı yurt dışında) tarafından salon adına işlenir. Haklarınız ve ayrıntılar için [Aydınlatma Metni]({{aydinlatmaUrl}}).
->
-> *(Yalnızca Seçenek 2/3 seçilirse:)* ☐ Aydınlatma Metni'ni okudum ve anladım.
 
 ---
 
