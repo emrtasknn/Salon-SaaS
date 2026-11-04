@@ -23,6 +23,7 @@ describeRateLimit("private.rate_limit_hit (WP-5)", () => {
   /** Non-superuser, NOBYPASSRLS stand-in for a Supabase-like runtime owner. */
   const ownerRole = `rl_owner_${suffix}`;
   const createdRoles: string[] = [];
+  const grantedToCurrentUser: string[] = [];
   const keys: string[] = [];
 
   let pool: Pool;
@@ -84,7 +85,14 @@ describeRateLimit("private.rate_limit_hit (WP-5)", () => {
     for (const role of [strangerRole, callerRole, ownerRole]) {
       await pool.query(`CREATE ROLE "${role}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
       createdRoles.push(role);
-      await pool.query(`GRANT "${role}" TO CURRENT_USER WITH SET TRUE`);
+      // The owner role is never granted to the connecting user: the flag-policy
+      // test grants `postgres` TO it, and PG rejects circular membership (0LP01).
+      // The connecting user is a superuser in CI, so it can SET ROLE / ALTER
+      // OWNER TO the owner role without membership.
+      if (role !== ownerRole) {
+        await pool.query(`GRANT "${role}" TO CURRENT_USER WITH SET TRUE`);
+        grantedToCurrentUser.push(role);
+      }
     }
     await pool.query(`GRANT USAGE ON SCHEMA private TO "${callerRole}"`);
     await pool.query(`GRANT EXECUTE ON FUNCTION private.rate_limit_hit(TEXT, TEXT, INTEGER) TO "${callerRole}"`);
@@ -104,7 +112,7 @@ describeRateLimit("private.rate_limit_hit (WP-5)", () => {
           await pool.query(`REVOKE ALL ON FUNCTION private.rate_limit_hit(TEXT, TEXT, INTEGER) FROM "${role}"`);
           await pool.query(`REVOKE ALL ON SCHEMA private FROM "${role}"`);
           await pool.query(`REVOKE ALL ON TABLE ${TABLE} FROM "${role}"`);
-          await pool.query(`REVOKE "${role}" FROM CURRENT_USER`);
+          if (grantedToCurrentUser.includes(role)) await pool.query(`REVOKE "${role}" FROM CURRENT_USER`);
           await pool.query(`DROP ROLE IF EXISTS "${role}"`);
         } catch (error) {
           cleanupErrors.push(`role ${role} cleanup failed: ${String(error)}`);
