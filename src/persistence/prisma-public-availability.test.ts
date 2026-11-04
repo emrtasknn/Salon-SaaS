@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { createPrismaPublicAvailabilityRepository } from "./prisma-public-availability";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
 
-function makeRepository(timeZone: string) {
+function makeRepository(timeZone: string, tenantStatus: "ACTIVE" | "INACTIVE" = "ACTIVE") {
   const appointmentFindMany = vi.fn().mockResolvedValue([]);
   const tx = {
     $executeRaw: vi.fn().mockResolvedValue(1),
     tenantMembership: { findUnique: vi.fn() },
-    tenant: { findUnique: vi.fn().mockResolvedValue({ id: "tenant-a", timezone: timeZone }) },
+    tenant: { findUnique: vi.fn().mockResolvedValue({ id: "tenant-a", timezone: timeZone, status: tenantStatus }) },
     service: { findUnique: vi.fn().mockResolvedValue({ id: "service-a", durationMinutes: 30, bufferMinutes: 0, active: true }) },
     staff: { findUnique: vi.fn().mockResolvedValue({ id: "staff-a", status: "ACTIVE" }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([]) },
@@ -34,5 +34,15 @@ describe("public availability local day boundaries", () => {
         endAt: { gt: new Date(start) },
       },
     });
+  });
+});
+
+describe("public availability tenant status (WP-07)", () => {
+  it("returns tenant_inactive without reading appointments for an inactive salon", async () => {
+    const { repository, appointmentFindMany } = makeRepository("Europe/Istanbul", "INACTIVE");
+
+    await expect(repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-05" }))
+      .resolves.toEqual({ status: "tenant_inactive" });
+    expect(appointmentFindMany).not.toHaveBeenCalled();
   });
 });

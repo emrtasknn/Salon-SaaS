@@ -11,7 +11,7 @@ describe("prisma booking repository", () => {
     };
     const findConflicts = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([existingAppointment]);
     const tx = {
-      $executeRaw: executeRaw, tenantMembership: { findUnique: vi.fn() },
+      $executeRaw: executeRaw, $queryRaw: vi.fn().mockResolvedValue([{ status: "ACTIVE" }]), tenantMembership: { findUnique: vi.fn() },
       tenant: { findUnique: vi.fn().mockResolvedValue({ id: "t", timezone: "Europe/Istanbul" }) },
       service: { findUnique: vi.fn().mockResolvedValue({ id: "svc", tenantId: "t", name: "Cut", durationMinutes: 60, bufferMinutes: 15, active: true }) },
       staff: { findUnique: vi.fn().mockResolvedValue({ id: "s", tenantId: "t", profileId: "p", status: "ACTIVE" }) },
@@ -38,6 +38,27 @@ describe("prisma booking repository", () => {
       .map((call) => call[1]);
     expect(lockKeys).toEqual(["t:s", "t:s"]);
     expect(tx.appointment.create).toHaveBeenCalledOnce();
+  });
+
+  it("returns tenant_inactive from the in-tx FOR SHARE read before conflict checks or inserts (WP-07)", async () => {
+    const queryRaw = vi.fn().mockResolvedValue([{ status: "INACTIVE" }]);
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(0), $queryRaw: queryRaw, tenantMembership: { findUnique: vi.fn() },
+      service: { findUnique: vi.fn().mockResolvedValue({ id: "svc", tenantId: "t", name: "Cut", durationMinutes: 60, bufferMinutes: 15, active: true }) },
+      staff: { findUnique: vi.fn().mockResolvedValue({ id: "s", tenantId: "t", profileId: "p", status: "ACTIVE" }) },
+      appointment: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn(), updateMany: vi.fn() },
+    };
+    const prisma = { $transaction: vi.fn() } as unknown as PrismaTenantClient;
+    vi.spyOn(prisma, "$transaction").mockImplementation(async (callback) => callback(tx as never));
+
+    await expect(createPrismaBookingRepository(prisma).createAppointment({ tenantId: "t" as never }, {
+      staffId: "s", serviceId: "svc", customerProfileId: "c",
+      startAt: new Date("2026-10-26T06:00:00.000Z"), endAt: new Date("2026-10-26T07:15:00.000Z"),
+    })).resolves.toBe("tenant_inactive");
+    expect(String((queryRaw.mock.calls[0][0] as TemplateStringsArray).join("?"))).toMatch(/FROM "Tenant" WHERE "id" = \? FOR SHARE/);
+    expect(queryRaw.mock.calls[0][1]).toBe("t");
+    expect(tx.appointment.findMany).not.toHaveBeenCalled();
+    expect(tx.appointment.create).not.toHaveBeenCalled();
   });
 
   it("maps invalid transition without writing", async () => {

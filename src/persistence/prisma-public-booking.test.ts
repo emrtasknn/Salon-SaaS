@@ -15,9 +15,12 @@ function makeTransaction(overrides: Readonly<{
   service?: unknown;
   staff?: unknown;
   profile?: unknown;
+  tenantStatus?: string | null;
 }> = {}) {
+  const tenantStatus = overrides.tenantStatus !== undefined ? overrides.tenantStatus : "ACTIVE";
   return {
     $executeRaw: vi.fn().mockResolvedValue(0),
+    $queryRaw: vi.fn().mockResolvedValue(tenantStatus === null ? [] : [{ status: tenantStatus }]),
     tenantMembership: { findUnique: vi.fn() },
     tenant: { findUnique: vi.fn().mockResolvedValue({ id: "tenant-a", timezone: "Europe/Istanbul" }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([{ id: "wh", tenantId: "tenant-a", dayOfWeek: 1, openMinute: 540, closeMinute: 1080 }]) },
@@ -182,5 +185,34 @@ describe("public booking repository", () => {
     const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
     await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toEqual({ status: "created", appointmentId: "a" });
     expect(transaction.appointment.create).toHaveBeenCalledOnce();
+  });
+
+  describe("tenant status gate (WP-07)", () => {
+    it("returns tenant_inactive from the in-tx FOR SHARE read before conflict checks or inserts", async () => {
+      const transaction = makeTransaction({ tenantStatus: "INACTIVE" });
+      await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("tenant_inactive");
+      expect(transaction.appointment.findMany).not.toHaveBeenCalled();
+      expect(transaction.profile.create).not.toHaveBeenCalled();
+      expect(transaction.appointment.create).not.toHaveBeenCalled();
+      expect(transaction.appointmentAccessToken.create).not.toHaveBeenCalled();
+    });
+
+    it("reads Tenant.status FOR SHARE with the context tenant id, after the advisory lock", async () => {
+      const transaction = makeTransaction();
+      await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput);
+      expect(transaction.$queryRaw).toHaveBeenCalledOnce();
+      const [sql, tenantId] = transaction.$queryRaw.mock.calls[0];
+      expect(String((sql as TemplateStringsArray).join("?"))).toMatch(/FROM "Tenant" WHERE "id" = \? FOR SHARE/);
+      expect(tenantId).toBe("tenant-a");
+      const lockCall = transaction.$executeRaw.mock.calls.findIndex((call) => String(call[0]).includes("pg_advisory_xact_lock"));
+      expect(transaction.$executeRaw.mock.invocationCallOrder[lockCall]).toBeLessThan(transaction.$queryRaw.mock.invocationCallOrder[0]);
+      expect(transaction.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(transaction.appointment.findMany.mock.invocationCallOrder[0]);
+    });
+
+    it("treats a missing tenant row as invalid_resource, distinct from tenant_inactive", async () => {
+      const transaction = makeTransaction({ tenantStatus: null });
+      await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("invalid_resource");
+      expect(transaction.appointment.create).not.toHaveBeenCalled();
+    });
   });
 });

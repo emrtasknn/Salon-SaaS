@@ -5,8 +5,9 @@ import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma
 import { withPrismaTenantContext } from "./prisma-tenant-context";
 import { calculateAvailability, utcToLocalDateAndMinute } from "../domain/availability";
 import { appointmentAccessTokenExpiry } from "../domain/appointment-access-token";
+import { readTenantStatusForShare, type TenantStatusQueryTransaction } from "./tenant-status-guard";
 
-type Tx = PrismaTenantTransactionClient & {
+type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string } | null> };
   service: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null> };
   staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
@@ -31,6 +32,10 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
         return await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
           // Serialize booking attempts per tenant + staff so overlapping start times cannot race.
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenantContext.tenantId + ":" + input.staffId}, 0))`;
+          // WP-07: tenant status gate (FOR SHARE) before any conflict check or insert.
+          const tenantStatus = await readTenantStatusForShare(tx, tenantContext.tenantId);
+          if (tenantStatus === null) return "invalid_resource";
+          if (tenantStatus !== "ACTIVE") return "tenant_inactive";
           const [tenant, service, staff, workingHours] = await Promise.all([
             tx.tenant.findUnique({ where: { id: tenantContext.tenantId } }),
             tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId } } }),

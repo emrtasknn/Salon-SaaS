@@ -112,4 +112,11 @@ describe("public availability", () => {
 
     expect(result).toEqual({ status: "INVALID_RESOURCE", slots: [] });
   });
+
+  it("returns TENANT_INACTIVE with no slots, distinct from INVALID_RESOURCE (WP-07)", async () => {
+    const repository = { read: vi.fn().mockResolvedValue({ status: "tenant_inactive" }) };
+    await expect(createPublicAvailability(repository).list({ tenantId: "t" as never }, {
+      serviceId: "svc", staffId: "staff", dateIso: availabilityDate,
+    })).resolves.toEqual({ status: "TENANT_INACTIVE", slots: [] });
+  });
 });

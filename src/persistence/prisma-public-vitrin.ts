@@ -5,7 +5,7 @@ import type { WorkingHoursRecord } from "../domain/working-hours";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
 type Tx = PrismaTenantTransactionClient & {
-  tenant: { findUnique(args: { where: { slug: string } }): Promise<{ id: string; name: string; timezone: string } | null> };
+  tenant: { findUnique(args: { where: { slug: string } }): Promise<{ id: string; name: string; timezone: string; status: "ACTIVE" | "INACTIVE"; contactPhone: string | null } | null> };
   service: { findMany(args: { where: { tenantId: string; active: boolean }; orderBy: { name: "asc" } }): Promise<ServiceRecord[]> };
   staff: { findMany(args: { where: { tenantId: string; status: "ACTIVE" }; orderBy: { id: "asc" } }): Promise<Array<{ id: string; profileId: string; status: "ACTIVE" }>> };
   profile: { findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; displayName: string }>> };
@@ -17,7 +17,10 @@ export function createPrismaPublicSalonRepository(prisma: PrismaTenantClient): P
     async resolveBySlug(slug) {
       const tenant = await prisma.$transaction(async (tx) => (tx as Tx).tenant.findUnique({ where: { slug } }));
       if (!tenant) return null;
-      return { tenantContext: { tenantId: tenant.id as never }, name: tenant.name, timezone: tenant.timezone };
+      return {
+        tenantContext: { tenantId: tenant.id as never }, name: tenant.name, timezone: tenant.timezone,
+        status: tenant.status === "ACTIVE" ? "ACTIVE" : "INACTIVE", contactPhone: tenant.contactPhone ?? null,
+      };
     },
     async catalog(tenantContext: TenantContext) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {

@@ -6,7 +6,7 @@ import { localWallTimeToUtc } from "../domain/availability";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
 type Tx = PrismaTenantTransactionClient & {
-  tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string } | null> };
+  tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string; status: "ACTIVE" | "INACTIVE" } | null> };
   service: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null> };
   staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
   workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
@@ -31,6 +31,8 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
             tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
           ]);
           if (!tenant || !service || !staff) return { status: "invalid_resource" as const };
+          // WP-07: an inactive salon offers no slots (distinct from invalid_resource).
+          if (tenant.status !== "ACTIVE") return { status: "tenant_inactive" as const };
 
           // Compute each local midnight independently: a timezone day may be 23 or 25 hours across DST.
           const dayStart = localWallTimeToUtc(input.dateIso, 0, tenant.timezone);

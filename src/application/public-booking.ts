@@ -10,7 +10,7 @@ export type PublicBookingRepository = Readonly<{
       /** SHA-256 hex of the status-link token; the raw token never reaches persistence. */
       accessTokenHash: string;
     }>,
-  ): Promise<{ status: "created"; appointmentId: string } | "slot_unavailable" | "invalid_resource" | "persistence_failure">;
+  ): Promise<{ status: "created"; appointmentId: string } | "slot_unavailable" | "invalid_resource" | "tenant_inactive" | "persistence_failure">;
 }>;
 
 function normalizeText(value: unknown, required: boolean): string | null | "INVALID" {
@@ -40,6 +40,7 @@ export function createPublicBooking(repository: PublicBookingRepository) {
       }
       if (result === "slot_unavailable") return { status: "SLOT_UNAVAILABLE" as const };
       if (result === "invalid_resource") return { status: "INVALID_RESOURCE" as const };
+      if (result === "tenant_inactive") return { status: "TENANT_INACTIVE" as const };
       return { status: "PERSISTENCE_FAILURE" as const };
     },
   };

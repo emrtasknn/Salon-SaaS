@@ -13,7 +13,7 @@ export type BookingDataRepository = Readonly<{
   }> | null>;
   createAppointment(tenantContext: TenantContext, input: Readonly<{
     staffId: string; serviceId: string; customerProfileId: string; startAt: Date; endAt: Date;
-  }>): Promise<"created" | "conflict" | "invalid_resource" | "persistence_failure">;
+  }>): Promise<"created" | "conflict" | "invalid_resource" | "tenant_inactive" | "persistence_failure">;
   transition(tenantContext: TenantContext, appointmentId: string, expectedFrom: AppointmentStatus, to: AppointmentStatus):
     Promise<"updated" | "not_found" | "invalid_transition" | "persistence_failure">;
 }>;
@@ -57,6 +57,7 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
       if (result === "created") return { status: "created" as const };
       if (result === "conflict") return { status: "SLOT_UNAVAILABLE" as const };
       if (result === "invalid_resource") return { status: "INVALID_RESOURCE" as const };
+      if (result === "tenant_inactive") return { status: "TENANT_INACTIVE" as const };
       return { status: "PERSISTENCE_FAILURE" as const };
     },
 

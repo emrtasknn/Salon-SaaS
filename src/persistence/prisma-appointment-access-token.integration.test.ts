@@ -556,4 +556,23 @@ describeDatabase("AppointmentAccessToken tenant isolation integration", () => {
       await expect(appointmentStatus(aMain.appointmentId)).resolves.toBe("PENDING");
     });
   });
+
+  describe("inactive tenant (WP-07)", () => {
+    it("keeps the status link and self-cancel working while the tenant is INACTIVE", async () => {
+      const seeded = await seedAppointment(tenantB, { status: "PENDING", startsIn: "4 days" });
+      await db().query(`UPDATE "Tenant" SET "status" = 'INACTIVE' WHERE "id" = $1`, [tenantB.tenantId]);
+      try {
+        const service = statusService();
+        await expect(service.view(tenantB.slug, seeded.token)).resolves.toMatchObject({
+          status: "ok", appointment: { salonName: "Access Token Salon B", status: "PENDING", canCancel: true },
+        });
+        await expect(service.cancel(tenantB.slug, seeded.token)).resolves.toEqual({ status: "CANCELLED" });
+        await expect(appointmentStatus(seeded.appointmentId)).resolves.toBe("CANCELLED");
+        // Still tenant-scoped: Tenant A's slug never resolves Tenant B's token.
+        await expect(service.view(tenantA.slug, seeded.token)).resolves.toEqual({ status: "NOT_FOUND" });
+      } finally {
+        await db().query(`UPDATE "Tenant" SET "status" = 'ACTIVE' WHERE "id" = $1`, [tenantB.tenantId]);
+      }
+    });
+  });
 });

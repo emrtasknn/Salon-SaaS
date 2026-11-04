@@ -20,6 +20,8 @@ export async function getPublicAvailability(input: {
 }) {
   const v = await loadTenant(input.slug);
   if (v.status !== "ok") return { status: v.status, slots: [] as const };
+  // WP-07: an inactive salon offers no slots.
+  if (!v.active) return { status: "TENANT_INACTIVE" as const, slots: [] as const };
   // WP-5: per-IP limit before any availability query.
   const limit = await checkRateLimit([{ bucket: "booking.availability", subject: await readClientIp() }]);
   if (limit.status === "RATE_LIMITED") {

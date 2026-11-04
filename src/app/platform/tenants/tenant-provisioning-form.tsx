@@ -1,19 +1,22 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createTenantAction } from "./actions";
 
 export function TenantProvisioningForm() {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setMessage("");
     setIsSubmitting(true);
 
     try {
-      const form = new FormData(event.currentTarget);
+      const form = new FormData(formElement);
       const result = await createTenantAction({
         name: String(form.get("name") ?? ""),
         slug: String(form.get("slug") ?? ""),
@@ -25,7 +28,8 @@ export function TenantProvisioningForm() {
       });
 
       if (result.status === "created") {
-        event.currentTarget.reset();
+        router.refresh();
+        formElement.reset();
         setMessage("Salon ve ilk tenant admin hesabı oluşturuldu.");
         return;
       }
@@ -59,7 +63,7 @@ export function TenantProvisioningForm() {
         <label htmlFor="slug">Adres</label>
         <input id="slug" name="slug" placeholder="salon-adi" required />
         <label htmlFor="timezone">Saat dilimi</label>
-        <input id="timezone" name="timezone" placeholder="Europe/Istanbul" required />
+        <input id="timezone" name="timezone" defaultValue="Europe/Istanbul" required />
       </fieldset>
 
       <fieldset disabled={isSubmitting}>

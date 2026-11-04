@@ -1,38 +1,35 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-04 — WP-5 rate limiting for public booking surfaces (owner-approved decisions in `docs/tasks/WP-05.md`).
+2026-11-04 — WP-07 salon settings + tenant ACTIVE/INACTIVE + wa.me CTA (owner decisions in `docs/tasks/WP-07.md` agent log).
 
 ## State
-- Branch: `claude/friendly-easley-4bbf0e`, merged with `main` (incl. #136–#139); PR #137 to `main`, not merged.
-- Environment touched: none (no DB connection, no migration applied, no workflow runs; `prisma generate` / build with a placeholder URL only).
-- Previous session (WP-12 staging runbook/workflow/log masking): see this file at commit `fbca154`.
+- Branch: `claude/optimistic-heyrovsky-a0edaa`, based on `main` 786a5f1 (incl. WP-05 #137, WP-06 #140); PR to `main`, not merged.
+- Environment touched: none (no DB connection, no migration applied; `prisma generate` / `npm ci` / build with a placeholder URL only).
+- Previous session (WP-5 rate limiting): see this file at commit `90e9023`.
 
 ## Done
-- `prisma/migrations/20261104100000_rate_limit` — `private."RateLimitBucket"` + `private.rate_limit_hit` (SECURITY DEFINER, `search_path=''`, FORCE RLS + flag-gated policy `TO postgres`, opportunistic cleanup).
-- Limiter: `src/application/rate-limit.ts` (policies, fail-open, skip on missing subject), `src/infrastructure/client-ip.ts` (`TRUSTED_IP_HEADER`, IPv6 /64), `src/infrastructure/rate-limit-secret.ts` (HMAC), `src/persistence/prisma-rate-limit.ts`, `src/app/rate-limit-runtime.ts` (reusable by WP-6), `src/instrumentation.ts` (production startup check for the secret).
-- Wired into `submitBooking` (tenant+IP, IP global, tenant+phone) and `getPublicAvailability` (IP); `form.tsx` shows the rate-limited message. Login out of scope (Supabase Auth limits).
-- Docs: `docs/RLS_TENANT_ISOLATION.md` (non-tenant `private` tables), P8 checklist rate-limit line, `.env.example`.
-- Reviewer (salon-saas-reviewer): approve; mediums fixed (merge main, docs), lows fixed (integration-test window, env comment) or noted below.
+- Migration `prisma/migrations/20261104120000_tenant_status_contact_phone` — `TenantStatus` enum, `Tenant.status` default ACTIVE, nullable `Tenant.contactPhone` + E.164 CHECK. Owner-approved for PR; apply needs separate approval.
+- Active-tenant booking rule: `src/persistence/tenant-status-guard.ts` reads status `FOR SHARE` inside the booking tx (public booking + admin/staff booking engine), after the advisory lock, before conflict checks → `TENANT_INACTIVE`. Availability returns no slots for inactive tenants.
+- Salon settings: `src/app/admin/settings-actions.ts` (name + contact phone; TENANT_ADMIN of session tenant only), `tenant-settings-form.tsx`, inactive banner in `/admin`.
+- Platform: `listPlatformTenants` / `setTenantStatusAction` (SUPER_ADMIN only), `tenant-status-list.tsx`; provisioning timezone defaults to `Europe/Istanbul`.
+- Storefront: `[slug]` and `[slug]/book` show "online randevu alınmıyor" + wa.me CTA when inactive; CTA only when a validated phone exists. WP-06 status link / self-cancel unchanged.
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
 | Lint | `npm run lint` | PASS (0 errors, 4 pre-existing warnings) |
 | Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `env -u DATABASE_URL npx vitest run` on the 7 WP-5 unit files | PASS (136) |
-| Build | `npm run build` (placeholder DB URL) | PASS after merge with `main` |
-| Integration | PR #137 CI | pending |
+| Unit tests | `vitest run --exclude "**/*.integration.test.ts"` (DATABASE_URL unset) | PASS 75 files / 699 tests |
+| Integration | CI (new `prisma-tenant-settings.integration.test.ts`, extended public-booking + access-token tests) | not run locally — see PR CI |
+| Build | `npm run build` | PASS |
 
 ## Decisions
-- Phone subject canonicalised to digits with Türkiye default (`+90…`, `0…`, `5…` share one bucket).
-- Missing secret: production fails at startup; dev/test disable the limiter with a warning.
+- (a) status toggle SUPER_ADMIN only; (b) inactive page = name + notice + wa.me; (c) staff/admin login allowed, no new bookings on any path; (d) timezone not editable, default Europe/Istanbul — `docs/tasks/WP-07.md`.
 
 ## Open risks
-- `staging-migrate.yml` (from #139) could apply this migration to staging once merged; owner approved CI validation only — staging/Pilot apply needs separate approval.
-- Vercel previews run with `NODE_ENV=production` and need `RATE_LIMIT_HMAC_SECRET`, otherwise they refuse to start.
-- Phone bucket (3/h) counts failed attempts too; a known number can be locked out for an hour. Tune after Pilot.
-- Owner: run `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname='postgres'` on Pilot; check Supabase Auth rate-limit settings.
+- `Tenant` table has no RLS / no REVOKE from anon/authenticated — separate work item proposed (guarded REVOKE migration).
+- FOR SHARE serialization vs. concurrent status toggle has no concurrency test.
 
 ## Next task
-- WP-6 status link `/[slug]/randevu/[token]`: reuse `checkRateLimit` with `status.view` / `status.miss` buckets.
+- After CI green + merge: owner approval to apply `20261104120000_tenant_status_contact_phone`; then WP-08 (touches booking — sequence after WP-07).

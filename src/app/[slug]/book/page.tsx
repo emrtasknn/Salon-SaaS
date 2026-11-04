@@ -29,6 +29,32 @@ export default async function BookingPage({
   const vitrin = await createPublicVitrin(createPrismaPublicSalonRepository(prisma)).load(slug);
   if (vitrin.status !== "ok") notFound();
 
+  if (!vitrin.active) {
+    return (
+      <main className="min-h-screen bg-zinc-50">
+        <div className="mx-auto max-w-xl p-4 sm:p-8">
+          <section className="space-y-4 rounded-2xl border bg-white p-6 shadow-sm">
+            <h1 className="text-2xl font-semibold">{vitrin.name}</h1>
+            <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              Şu anda online randevu alınmıyor.
+            </p>
+            {vitrin.whatsAppUrl && (
+              <a
+                href={vitrin.whatsAppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+              >
+                WhatsApp&apos;tan yaz
+                <span className="sr-only"> (yeni sekmede açılır)</span>
+              </a>
+            )}
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <PublicBookingForm
       slug={slug}

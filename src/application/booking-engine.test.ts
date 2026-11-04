@@ -60,4 +60,14 @@ describe("booking engine", () => {
     await createBookingEngine({ repository, authorizer }).transition(identity, tenant, appointment, "CONFIRMED");
     expect(authorizer.authorizeStaffDecision).toHaveBeenCalled();
   });
+
+  it("surfaces TENANT_INACTIVE from the persistence tenant gate, distinct from INVALID_RESOURCE (WP-07)", async () => {
+    repository.createAppointment.mockClear();
+    repository.createAppointment.mockResolvedValueOnce("tenant_inactive");
+    const startAt = localWallTimeToUtc(availabilityDate, 9 * 60, "Europe/Istanbul");
+    const result = await createBookingEngine({ repository, authorizer }).create(identity, tenant, {
+      serviceId: "svc", staffId: "staff", customerProfileId: "p", startAt,
+    });
+    expect(result).toEqual({ status: "TENANT_INACTIVE" });
+  });
 });

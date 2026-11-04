@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -17,7 +17,11 @@ import {
   updateStaffProfileAction,
 } from "./actions";
 
-type Props = { initialData: Awaited<ReturnType<typeof listAdminData>> };
+type Props = {
+  initialData: Awaited<ReturnType<typeof listAdminData>>;
+  /** WP-07: server-rendered "Salon ayarları" section (tenant from session only). */
+  settings?: ReactNode;
+};
 
 const days = [
   "Pazar",
@@ -42,7 +46,7 @@ function message(status: string) {
   return map[status] ?? "İşlem tamamlandı.";
 }
 
-export function AdminManagement({ initialData }: Props) {
+export function AdminManagement({ initialData, settings }: Props) {
   const [data, setData] = useState(initialData);
   const [busy, startTransition] = useTransition();
   const [feedback, setFeedback] = useState("");
@@ -501,6 +505,8 @@ export function AdminManagement({ initialData }: Props) {
             </div>
           </section>
         </div>
+
+        {settings}
       </div>
     </main>
   );

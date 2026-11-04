@@ -12,6 +12,9 @@ model Tenant {
   slug      String   @unique
   name      String
   timezone  String
+  status    TenantStatus @default(ACTIVE)
+  // E.164 (e.g. +905551112233); public wa.me CTA. DB CHECK "Tenant_contactPhone_e164_check".
+  contactPhone String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -55,6 +58,11 @@ enum TenantRole {
 }
 
 enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TenantStatus {
   ACTIVE
   INACTIVE
 }
