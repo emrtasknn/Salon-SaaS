@@ -24,6 +24,7 @@ model Tenant {
   memberships  TenantMembership[]
   workingHours WorkingHours[]
   customerNotes CustomerNote[]
+  appointmentAccessTokens AppointmentAccessToken[]
 }
 
 model Profile {
@@ -190,6 +191,27 @@ model NotificationDelivery {
   @@index([tenantId, status, createdAt])
 }
 
+// WP-06 / ADR-044 §5: customer status-link token. Only the SHA-256 hex hash of the
+// raw token is stored. RLS (ENABLE + FORCE, 4 tenant policies) and the tokenHash
+// format CHECK live in migration 20261104110000_appointment_access_token (not
+// representable in Prisma schema).
+model AppointmentAccessToken {
+  id            String    @id @default(cuid())
+  tenantId      String
+  appointmentId String
+  tokenHash     String
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointment Appointment @relation(fields: [tenantId, appointmentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, appointmentId])
+  @@unique([tenantId, tokenHash])
+}
+
 model WhatsAppIntegration {
   id            String   @id @default(cuid())
   tenantId      String
@@ -223,6 +245,7 @@ model Appointment {
   service         Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   notificationDeliveries NotificationDelivery[]
+  accessTokens    AppointmentAccessToken[]
 
   @@unique([tenantId, id])
   @@index([tenantId, startAt])
