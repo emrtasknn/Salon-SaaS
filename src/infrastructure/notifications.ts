@@ -1,4 +1,5 @@
 import { NotificationProviderError, type NotificationChannel } from "../domain/notification";
+import { logError } from "./log-redaction";
 
 export type NotificationProvider = Readonly<{
   channel: NotificationChannel;
@@ -55,7 +56,7 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
     async send(input) {
       const template = config.templates[input.templateKey];
       if (!template) {
-        console.error("whatsapp_template_not_configured", { templateKey: input.templateKey });
+        logError("whatsapp_template_not_configured", { templateKey: input.templateKey });
         throw new NotificationProviderError(
           "WHATSAPP_TEMPLATE_NOT_CONFIGURED",
           "rejected",
@@ -88,7 +89,7 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
       try {
         response = await fetchImpl(url, init);
       } catch {
-        console.error("whatsapp_provider_network_error", {
+        logError("whatsapp_provider_network_error", {
           errorCode: "WHATSAPP_PROVIDER_NETWORK_ERROR",
         });
         throw new NotificationProviderError("WHATSAPP_PROVIDER_NETWORK_ERROR", "unknown");
@@ -97,7 +98,7 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
       const raw = await response.text().catch(() => "");
       if (!response.ok) {
         const metaError = safeParseMetaError(raw);
-        console.error("whatsapp_provider_http_error", {
+        logError("whatsapp_provider_http_error", {
           status: response.status,
           metaErrorCode: metaError?.code ?? null,
           metaErrorSubcode: metaError?.error_subcode ?? null,
@@ -118,7 +119,7 @@ export function createMetaWhatsAppProvider(config: MetaWhatsAppProviderConfig): 
       const payload = json as MetaSendResponse | null;
       const providerMessageId = payload?.messages?.[0]?.id;
       if (typeof providerMessageId !== "string" || providerMessageId.trim().length === 0) {
-        console.error("whatsapp_provider_message_id_missing", {
+        logError("whatsapp_provider_message_id_missing", {
           hasMessages: Array.isArray(payload?.messages),
           hasValidMessageId: false,
         });
