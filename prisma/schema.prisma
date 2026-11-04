@@ -28,6 +28,7 @@ model Tenant {
   workingHours WorkingHours[]
   customerNotes CustomerNote[]
   appointmentAccessTokens AppointmentAccessToken[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Profile {
@@ -44,6 +45,7 @@ model Profile {
   memberships  TenantMembership[]
   appointments Appointment[] @relation("AppointmentCustomer")
   notes       CustomerNote[]
+  pushSubscriptions PushSubscription[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -83,6 +85,7 @@ enum NotificationEventType {
 
 enum NotificationChannel {
   WHATSAPP
+  WEB_PUSH
 }
 
 enum NotificationDeliveryStatus {
@@ -218,6 +221,37 @@ model AppointmentAccessToken {
   @@unique([tenantId, id])
   @@unique([tenantId, appointmentId])
   @@unique([tenantId, tokenHash])
+}
+
+// WP-09 / ADR-044 §4 (phase 3): Web Push subscription of a STAFF/TENANT_ADMIN
+// profile, one row per (tenant, browser endpoint). endpoint/p256dh/auth are
+// server-only secrets (never returned to clients or logged). Unique per tenant,
+// not globally: a global unique under tenant RLS would leak cross-tenant
+// existence via P2002. RLS (ENABLE + FORCE, 4 tenant policies) and the
+// endpoint/key/userAgent/failureCount CHECKs live in migration
+// 20261105130000_web_push_subscription (not representable in Prisma schema).
+model PushSubscription {
+  id            String    @id @default(cuid())
+  tenantId      String
+  profileId     String
+  endpoint      String
+  p256dh        String
+  auth          String
+  userAgent     String?
+  failureCount  Int       @default(0)
+  lastSuccessAt DateTime?
+  lastFailureAt DateTime?
+  lastSeenAt    DateTime  @default(now())
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  profile Profile @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, endpoint])
+  @@index([tenantId, profileId, revokedAt])
 }
 
 model WhatsAppIntegration {
