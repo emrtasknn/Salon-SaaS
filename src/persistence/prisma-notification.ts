@@ -1,5 +1,7 @@
-import type { NotificationRepository } from "../application/notification-service";
-import type { NotificationEventType, NotificationRecipient } from "../domain/notification";
+import type { NotificationRepository, PushNotificationRepository } from "../application/notification-service";
+import type { NotificationChannel, NotificationEventType, NotificationRecipient } from "../domain/notification";
+import { selectPushRecipients } from "../domain/web-push";
+import type { TenantContext } from "../domain/tenant-context";
 import { dedupeRecipients } from "../domain/notification";
 import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma-tenant-context";
 import { withPrismaTenantContext } from "./prisma-tenant-context";
@@ -19,7 +21,7 @@ type Tx = PrismaTenantTransactionClient & {
     }>>;
   };
   notificationDelivery: {
-    findUnique(args: { where: { tenantId_appointmentId_eventType_channel_recipientProfileId: { tenantId: string; appointmentId: string; eventType: NotificationEventType; channel: "WHATSAPP"; recipientProfileId: string } } }): Promise<{ status: "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN" } | null>;
+    findUnique(args: { where: { tenantId_appointmentId_eventType_channel_recipientProfileId: { tenantId: string; appointmentId: string; eventType: NotificationEventType; channel: NotificationChannel; recipientProfileId: string } } }): Promise<{ status: "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN" } | null>;
     create(args: { data: Record<string, unknown> }): Promise<unknown>;
     updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<{ count: number }>;
   };
@@ -148,4 +150,58 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
       });
     },
   };
+}
+
+type PushRoutingTx = PrismaTenantTransactionClient & {
+  tenant: { findUnique(args: { where: { id: string }; select: { timezone: true } }): Promise<{ timezone: string } | null> };
+  appointment: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } }; select: unknown }): Promise<{
+    id: string;
+    startAt: Date;
+    service: { name: string };
+    staff: { profileId: string; status: "ACTIVE" | "INACTIVE" };
+  } | null> };
+  tenantMembership: {
+    findMany(args: { where: Record<string, unknown>; select: { profileId: true; role: true }; orderBy: { profileId: "asc" } }): Promise<Array<{
+      profileId: string;
+      role: "SUPER_ADMIN" | "TENANT_ADMIN" | "STAFF" | "CUSTOMER";
+    }>>;
+  };
+};
+
+/**
+ * WP-09 send-time Web Push routing for APPOINTMENT_CREATED (ADR-044 §4.4, §10-3),
+ * read inside the caller tenant transaction. No customer data is selected.
+ */
+export async function readPushRecipients(
+  prisma: PrismaTenantClient,
+  tenantContext: TenantContext,
+  appointmentId: string,
+): ReturnType<PushNotificationRepository["pushRecipients"]> {
+  return withPrismaTenantContext(prisma, tenantContext, async (tx: PushRoutingTx) => {
+    const appointment = await tx.appointment.findUnique({
+      where: { tenantId_id: { tenantId: tenantContext.tenantId, id: appointmentId } },
+      select: { id: true, startAt: true, service: { select: { name: true } }, staff: { select: { profileId: true, status: true } } },
+    });
+    if (!appointment) return null;
+    const tenant = await tx.tenant.findUnique({ where: { id: tenantContext.tenantId }, select: { timezone: true } });
+    if (!tenant) return null;
+    // Tenant id comes from the trusted server context; explicit filter is defence in depth on top of RLS.
+    const memberships = await tx.tenantMembership.findMany({
+      where: {
+        tenantId: tenantContext.tenantId,
+        OR: [{ role: "TENANT_ADMIN" }, { profileId: appointment.staff.profileId, role: { in: ["STAFF", "TENANT_ADMIN"] } }],
+      },
+      select: { profileId: true, role: true },
+      orderBy: { profileId: "asc" },
+    });
+    const adminProfileIds = memberships.filter((membership) => membership.role === "TENANT_ADMIN").map((membership) => membership.profileId);
+    const staffHasMembership = memberships.some((membership) => membership.profileId === appointment.staff.profileId);
+    return {
+      appointment: { id: appointment.id, serviceName: appointment.service.name, startAt: appointment.startAt, timeZone: tenant.timezone },
+      recipients: selectPushRecipients({
+        assignedStaff: { profileId: appointment.staff.profileId, status: appointment.staff.status, hasMembership: staffHasMembership },
+        adminProfileIds,
+      }),
+    };
+  });
 }

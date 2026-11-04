@@ -338,3 +338,10 @@ describe("logInfo", () => {
     expect(() => logInfo("event_b", { appointmentId: "appt-1" })).not.toThrow();
   });
 });
+
+describe("Web Push subscription fields (WP-09)", () => {
+  it("redacts endpoint, p256dh and auth values", () => {
+    expect(redactForLog({ endpoint: "https://push.example.com/device", keys: { p256dh: "B".repeat(87), auth: "a".repeat(22) }, status: 410 }))
+      .toEqual({ endpoint: REDACTED, keys: { p256dh: REDACTED, auth: REDACTED }, status: 410 });
+  });
+});

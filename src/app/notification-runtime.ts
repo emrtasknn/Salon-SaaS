@@ -1,10 +1,16 @@
 import "server-only";
 import { createNotificationService } from "../application/notification-service";
 import { createMetaWhatsAppProvider } from "../infrastructure/notifications";
+import { createWebPushProvider } from "../infrastructure/web-push-provider";
 import { createPrismaNotificationRepository } from "../persistence/prisma-notification";
+import { createPrismaPushNotificationRepository } from "../persistence/prisma-push-subscription";
 import type { TenantContext } from "../domain/tenant-context";
 import type { NotificationEventType } from "../domain/notification";
+import { readVapidConfig } from "../domain/web-push";
 import { getPrisma } from "../infrastructure/prisma-runtime";
+import { logError } from "../infrastructure/log-redaction";
+
+// Node runtime only: web-push needs node:https / node:crypto (never import from Edge code).
 
 function provider() {
   const accessToken=process.env.WHATSAPP_ACCESS_TOKEN;
@@ -17,11 +23,26 @@ function provider() {
   return createMetaWhatsAppProvider({accessToken,phoneNumberId,apiVersion,templates});
 }
 
+function webPushProvider() {
+  const config=readVapidConfig(process.env);
+  if(!config&&(process.env.WEB_PUSH_VAPID_PUBLIC_KEY||process.env.WEB_PUSH_VAPID_PRIVATE_KEY||process.env.WEB_PUSH_VAPID_SUBJECT)) {
+    logError("web_push_config_invalid",{errorCode:"WEB_PUSH_VAPID_CONFIG_INVALID"});
+  }
+  return config ? createWebPushProvider(config) : null;
+}
+
 export async function publishAppointmentNotification(tenantContext:TenantContext,appointmentId:string,eventType:NotificationEventType) {
+  // Channels are configured independently; NOT_CONFIGURED only when neither is available.
   const p=provider();
-  if(!p) return {status:"NOT_CONFIGURED" as const};
+  const push=webPushProvider();
+  if(!p&&!push) return {status:"NOT_CONFIGURED" as const};
   try {
-    return await createNotificationService({repository:createPrismaNotificationRepository(getPrisma()),provider:p}).publish(tenantContext,appointmentId,eventType);
+    const prisma=getPrisma();
+    return await createNotificationService({
+      repository:createPrismaNotificationRepository(prisma),
+      provider:p,
+      webPush:push?{repository:createPrismaPushNotificationRepository(prisma),provider:push}:null,
+    }).publish(tenantContext,appointmentId,eventType);
   } catch {
     return {status:"FAILED" as const};
   }

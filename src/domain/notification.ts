@@ -10,7 +10,7 @@ export class NotificationProviderError extends Error {
 }
 
 export type NotificationEventType = "APPOINTMENT_CREATED" | "APPOINTMENT_CONFIRMED" | "APPOINTMENT_REJECTED";
-export type NotificationChannel = "WHATSAPP";
+export type NotificationChannel = "WHATSAPP" | "WEB_PUSH";
 export type NotificationDeliveryStatus = "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN";
 
 export type NotificationRecipient = Readonly<{

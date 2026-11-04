@@ -56,6 +56,8 @@ model PushSubscription {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   lastSuccessAt DateTime?
+  lastFailureAt DateTime?
+  lastSeenAt    DateTime  @default(now())
   failureCount  Int       @default(0)
   revokedAt     DateTime?
 
@@ -67,6 +69,8 @@ model PushSubscription {
   @@index([tenantId, profileId, revokedAt])
 }
 ```
+
+Amended 2026-11-04 (WP-09, migration `20261105130000_web_push_subscription`): added `lastFailureAt` (last transient/gone failure) and `lastSeenAt` (refreshed on every subscribe/re-subscribe). DB CHECKs, mirrored by server-side validation after stripping `=` padding: `endpoint` starts with `https://` and is ≤ 2048 chars; `p256dh` matches `^B[A-Za-z0-9_-]{86}$` (65-byte uncompressed P-256 point, unpadded base64url); `auth` matches `^[A-Za-z0-9_-]{22}$` (16 bytes); `userAgent` ≤ 256 chars; `failureCount` ≥ 0.
 
 ### 4.2 ADR-043 constraints, resolved
 
@@ -80,7 +84,7 @@ model PushSubscription {
 | Staff deactivation | Authoritative **send-time** check: deliver only if the profile currently has a membership in the tenant and, for STAFF, `Staff.status = ACTIVE`. Optional cleanup revokes subscriptions on deactivation. |
 | Cleanup | Revoked rows are purged after 30 days by an explicit, tenant-scoped maintenance job (separate approval; not part of MVP critical path). |
 | RLS / server authz | Subscribe/unsubscribe are server actions that require an authenticated STAFF/TENANT_ADMIN identity in the resolved tenant. No client tenant/profile IDs are trusted. |
-| Idempotency / delivery | One `NotificationDelivery` row per `(appointment, event, WEB_PUSH, recipientProfile)`, the existing unique key, unchanged. Fan-out to all active devices; `SENT` if ≥1 device accepted, `FAILED` if none, `UNKNOWN` on ambiguous error. |
+| Idempotency / delivery | One `NotificationDelivery` row per `(appointment, event, WEB_PUSH, recipientProfile)`, the existing unique key, unchanged. Fan-out to all active devices; `SENT` if ≥1 device accepted, `FAILED` if none, `UNKNOWN` on ambiguous error. Amended 2026-11-04 (owner, WP-09): when the recipient has **no active subscription**, no `WEB_PUSH` delivery row is created (the recipient is skipped, not recorded as `FAILED`). |
 
 ### 4.3 Payload and permission UX
 

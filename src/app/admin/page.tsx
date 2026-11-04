@@ -10,16 +10,42 @@ import { listClosures } from "./closure-actions";
 import { AdminClosures } from "./closures";
 import { upcomingClosureRange } from "../../domain/closure-date";
 import type { ClosureListResult } from "../appointment-create-contract";
+import { createHash } from "node:crypto";
+import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
+import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
+import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
+import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
+import { PushPermission } from "../pwa/push-permission";
+
+/**
+ * WP-09: opaque, non-authoritative device-binding key for the push opt-in UI
+ * (hash of tenant + auth subject). Never used for authorization; the push
+ * actions derive tenant/profile from the session themselves.
+ */
+async function readPushBindingKey(): Promise<string | null> {
+  try {
+    const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
+    const request = await readAuthenticatedTenantRequest(createSupabaseAuthAdapter({ client: supabase as never }));
+    if (request.state !== "authenticated") return null;
+    return createHash("sha256")
+      .update(`${request.tenantContext.tenantId}:${request.identity.subjectId}`)
+      .digest("hex")
+      .slice(0, 32);
+  } catch {
+    return null;
+  }
+}
 
 export default async function AdminPage() {
   const closureRange = upcomingClosureRange();
-  const [data, notifications, settings, closures] = await Promise.all([
+  const [data, notifications, settings, closures, pushBindingKey] = await Promise.all([
     listAdminData(),
     listAdminNotifications(),
     loadTenantSettings(),
     // A closure read failure must not take down the whole admin page; the panel
     // shows "could not load" for INVALID_INPUT.
     listClosures(closureRange).catch((): ClosureListResult => ({ status: "INVALID_INPUT" })),
+    readPushBindingKey(),
   ]);
   const authorized = data.status !== "UNAUTHORIZED";
   return <>
@@ -29,6 +55,9 @@ export default async function AdminPage() {
           Salonunuz şu anda pasif — online ve yeni randevu alınmıyor.
         </p>
       </div>
+    )}
+    {authorized && pushBindingKey && (
+      <PushPermission bindingKey={pushBindingKey} className="bg-zinc-100 px-4 pt-4 sm:px-6" widthClassName="max-w-6xl" />
     )}
     <InAppNotifications initialData={notifications} reload={listAdminNotifications} href="/admin/calendar" className="bg-zinc-100 px-4 pt-4 sm:px-6" widthClassName="max-w-6xl" />
     <AdminManagement
