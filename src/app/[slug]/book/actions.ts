@@ -2,8 +2,6 @@
 
 import { createPublicAvailability } from "../../../application/public-availability";
 import { createPrismaPublicAvailabilityRepository } from "../../../persistence/prisma-public-availability";
-import { createPublicBooking } from "../../../application/public-booking";
-import { createPrismaPublicBookingRepository } from "../../../persistence/prisma-public-booking";
 import { createPublicVitrin } from "../../../application/public-vitrin";
 import { createPrismaPublicSalonRepository } from "../../../persistence/prisma-public-vitrin";
 import { getPrisma } from "../../../infrastructure/prisma-runtime";
@@ -24,23 +22,6 @@ export async function getPublicAvailability(input: {
   return createPublicAvailability(createPrismaPublicAvailabilityRepository(getPrisma())).list(v.tenantContext, input);
 }
 
-export async function submitPublicBooking(input: {
-  slug: string;
-  serviceId: string;
-  staffId: string;
-  startAtIso: string;
-  displayName: string;
-  email: string;
-  phone: string;
-}) {
-  const v = await loadTenant(input.slug);
-  if (v.status !== "ok") return { status: "NOT_FOUND" as const };
-  return createPublicBooking(createPrismaPublicBookingRepository(getPrisma())).create(v.tenantContext, {
-    serviceId: input.serviceId,
-    staffId: input.staffId,
-    startAt: new Date(input.startAtIso),
-    displayName: input.displayName,
-    email: input.email,
-    phone: input.phone,
-  });
-}
+// Booking submission lives only in `./submit.ts` (`submitBooking`), which also
+// publishes APPOINTMENT_CREATED. Do not add a second booking server action here;
+// `submit.test.ts` pins this module's exports.
