@@ -15,6 +15,12 @@ model Tenant {
   status    TenantStatus @default(ACTIVE)
   // E.164 (e.g. +905551112233); public wa.me CTA. DB CHECK "Tenant_contactPhone_e164_check".
   contactPhone String?
+  // WP-10 KVKK data-controller identity shown in the customer notice; public
+  // booking form stays closed until all three are set. Trimmed/non-blank and
+  // email-shape CHECKs live in migration 20261106100000_kvkk_notice_whatsapp_optin.
+  legalName        String? @db.VarChar(200)
+  legalAddress     String? @db.VarChar(500)
+  kvkkContactEmail String? @db.VarChar(254)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -30,6 +36,7 @@ model Tenant {
   appointmentAccessTokens AppointmentAccessToken[]
   pushSubscriptions PushSubscription[]
   closureDates ClosureDate[]
+  appointmentContacts AppointmentContact[]
 }
 
 model Profile {
@@ -48,6 +55,7 @@ model Profile {
   notes       CustomerNote[]
   pushSubscriptions PushSubscription[]
   closureDatesCreated ClosureDate[]
+  appointmentContactOptInsRecorded AppointmentContact[] @relation("AppointmentContactOptInRecordedBy")
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -69,6 +77,11 @@ enum StaffStatus {
 enum TenantStatus {
   ACTIVE
   INACTIVE
+}
+
+enum AppointmentContactSource {
+  PUBLIC_FORM
+  STAFF
 }
 
 enum AppointmentStatus {
@@ -251,6 +264,39 @@ model AppointmentAccessToken {
   @@unique([tenantId, tokenHash])
 }
 
+// WP-10 (design A): per-appointment contact snapshot + KVKK notice record +
+// WhatsApp opt-in/opt-out. Customer WhatsApp may only use this row's phone and
+// only while whatsappOptIn = true AND optOutAt IS NULL. Opt-out keeps
+// whatsappOptIn = true and sets optOutAt (audit trail). No IP/UA columns.
+// RLS (ENABLE + FORCE, 4 tenant policies) and the format/consistency CHECKs
+// live in migration 20261106100000_kvkk_notice_whatsapp_optin.
+model AppointmentContact {
+  id                       String                   @id @default(cuid())
+  tenantId                 String
+  appointmentId            String
+  source                   AppointmentContactSource
+  displayName              String                   @db.VarChar(160)
+  email                    String?                  @db.VarChar(254)
+  phone                    String?
+  noticeVersion            String?                  @db.VarChar(64)
+  noticeHash               String?
+  noticeShownAt            DateTime?
+  whatsappOptIn            Boolean                  @default(false)
+  optInVersion             String?                  @db.VarChar(64)
+  optInHash                String?
+  optInAt                  DateTime?
+  optInRecordedByProfileId String?
+  optOutAt                 DateTime?
+  createdAt                DateTime                 @default(now())
+
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointment     Appointment @relation(fields: [tenantId, appointmentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  optInRecordedBy Profile?    @relation("AppointmentContactOptInRecordedBy", fields: [tenantId, optInRecordedByProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, appointmentId])
+}
+
 // WP-09 / ADR-044 §4 (phase 3): Web Push subscription of a STAFF/TENANT_ADMIN
 // profile, one row per (tenant, browser endpoint). endpoint/p256dh/auth are
 // server-only secrets (never returned to clients or logged). Unique per tenant,
@@ -316,6 +362,7 @@ model Appointment {
   customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   notificationDeliveries NotificationDelivery[]
   accessTokens    AppointmentAccessToken[]
+  contact         AppointmentContact?
 
   @@unique([tenantId, id])
   @@index([tenantId, startAt])
