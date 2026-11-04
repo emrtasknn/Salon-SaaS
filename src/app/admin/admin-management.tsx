@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
+import { releaseWebPushSubscription } from "../pwa/push-permission";
 import {
   createServiceAction,
   createStaffAction,
@@ -54,6 +55,9 @@ export function AdminManagement({ initialData, settings }: Props) {
   const router = useRouter();
 
   async function handleLogout() {
+    // WP-09: best-effort, time-boxed; never blocks logout.
+    await releaseWebPushSubscription();
+
     const supabase = createNextSupabaseBrowserClient();
 
     await supabase.auth.signOut();

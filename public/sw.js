@@ -142,3 +142,84 @@ self.addEventListener("fetch", (event) => {
     })(),
   );
 });
+
+// WP-09 Web Push. Display-only: the payload never drives auth, tenant or appointment state.
+
+const PUSH_ICON_PATH = "/icons/icon-192.png";
+const PUSH_FALLBACK_TITLE = "Yeni bildirim";
+const PUSH_URL_ALLOWLIST = new Set(["/staff/appointments", "/admin/calendar"]);
+
+function readPushPayload(event) {
+  try {
+    const data = event.data ? event.data.json() : null;
+    if (!data || typeof data !== "object") return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function safeNotificationUrl(value) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+    return "/";
+  }
+  try {
+    const url = new URL(value, self.location.origin);
+    if (url.origin !== self.location.origin) return "/";
+    return PUSH_URL_ALLOWLIST.has(url.pathname) ? url.pathname : "/";
+  } catch {
+    return "/";
+  }
+}
+
+self.addEventListener("push", (event) => {
+  const payload = readPushPayload(event);
+  const title =
+    payload && typeof payload.title === "string" && payload.title.trim()
+      ? payload.title.slice(0, 120)
+      : PUSH_FALLBACK_TITLE;
+  const options = {
+    icon: PUSH_ICON_PATH,
+    data: { url: payload ? safeNotificationUrl(payload.url) : "/" },
+  };
+  if (payload && typeof payload.body === "string") options.body = payload.body.slice(0, 240);
+  if (payload && typeof payload.tag === "string" && payload.tag) options.tag = payload.tag.slice(0, 100);
+
+  // Always show a notification: iOS revokes subscriptions after silent pushes.
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = safeNotificationUrl(
+    event.notification.data && event.notification.data.url,
+  );
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      const existing = windows.find((client) => {
+        try {
+          return new URL(client.url).origin === self.location.origin;
+        } catch {
+          return false;
+        }
+      });
+
+      if (existing) {
+        try {
+          const focused = await existing.focus();
+          if (typeof focused.navigate === "function") await focused.navigate(target);
+          return;
+        } catch {
+          // Fall through to opening a new window.
+        }
+      }
+
+      await self.clients.openWindow(target);
+    })(),
+  );
+});

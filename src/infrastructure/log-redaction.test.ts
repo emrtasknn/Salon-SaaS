@@ -338,3 +338,23 @@ describe("logInfo", () => {
     expect(() => logInfo("event_b", { appointmentId: "appt-1" })).not.toThrow();
   });
 });
+
+describe("Web Push subscription fields (WP-09)", () => {
+  it("redacts endpoint, p256dh and auth values", () => {
+    expect(redactForLog({ endpoint: "https://push.example.com/device", keys: { p256dh: "B".repeat(87), auth: "a".repeat(22) }, status: 410 }))
+      .toEqual({ endpoint: REDACTED, keys: { p256dh: REDACTED, auth: REDACTED }, status: 410 });
+  });
+});
+
+describe("Web Push logError output (WP-09 QA)", () => {
+  it("never prints endpoint or key values through logError", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    logError("web_push_test_event", { endpoint: "https://fcm.googleapis.com/fcm/send/device-secret", p256dh: "B".repeat(87), auth: "z".repeat(22), status: 410 });
+    const printed = JSON.stringify(spy.mock.calls);
+    expect(printed).not.toContain("device-secret");
+    expect(printed).not.toContain("B".repeat(87));
+    expect(printed).not.toContain("z".repeat(22));
+    expect(printed).toContain("410");
+    spy.mockRestore();
+  });
+});
