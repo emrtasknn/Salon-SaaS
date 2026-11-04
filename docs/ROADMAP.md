@@ -47,6 +47,8 @@ This checkpoint records merged implementation and validation evidence. It does n
 
 ### Recently completed and merged
 
+See the current checkpoint below for #121–#131.
+
 ### Local validation checkpoint — 2026-10-25 (not yet merged)
 
 - **W11.5 outbound smoke test:** two real WhatsApp messages for one new `APPOINTMENT_CREATED` booking were received on the pilot device (staff and customer templates). The two matching delivery records were `SENT`, each had a provider message ID, `attemptCount = 1`, and no error code. Earlier `UNKNOWN` deliveries were left unchanged. This is local test evidence; the corresponding diagnostic code changes remain to be reconciled with the local working tree and reviewed before committing. It does not complete webhook status persistence, full W11.5 negative/idempotency scenarios, W11.4, W11.7, pilot acceptance, or production readiness.
@@ -55,19 +57,21 @@ This checkpoint records merged implementation and validation evidence. It does n
 - **PR #98 — staff Auth/tenant binding:** staff provisioning now binds the new Auth user to the trusted tenant through the existing server-side adapter, fails closed and compensates when binding fails, and rolls back a new binding when staff persistence conflicts. This does not automatically repair the existing Pilot Staff account; that remains a separate controlled follow-up.
 - **PR #99 — admin calendar display names:** the admin calendar now displays staff, customer, and service names instead of raw IDs, and admin management links to the calendar. Local typecheck and test evidence was reported; 237 tests passed and 5 RLS integration tests were skipped in that local run. The calendar workflow was manually exercised in the local browser, including completing an appointment.
 
-### Current checkpoint — 2026-11-01
+### Current checkpoint — 2026-11-04
 
-- **W11.6 C3:** the owner approved the tenant-routing/status-mapping decision on 2026-11-01. PR #121 records the decision (documentation-only; CI run #377 passed). Approval does not authorize merge or production deployment.
-- **W11.6 verification:** existing schema, migration, resolver function, RLS/FORCE RLS, webhook route, and tenant-scoped update code were inspected. A PostgreSQL integration-test PR #123 is open; its CI run #380 was still in progress at the latest check. Live Pilot Supabase migration state, resolver owner/grants/runtime role, and real signed Meta webhook evidence remain unverified.
-- **P7:** PR #122 adds a pilot acceptance checklist. Its CI run #381 was in progress after a correction that marks the guest-booking product decision as awaiting explicit confirmation. P7 remains OPEN.
-- **P8/P9:** production-readiness and MVP-closure checklists are being prepared in PR work. Neither phase is complete; P8 cannot authorize production deployment.
+- **Merged since 2026-11-01:** #121 (W11.6 C3 decision), #122 (P7 checklist), #123 (W11.6 PostgreSQL routing tests), #124 (P8/P9 gates), #125 (guest booking approved), #126 (admin calendar notifications), #127/#130 (Claude Code agents/tooling), #128 (C2 scope), #129 (ADR-044), #131 (staging lockfile/config).
+- **ADR-044:** Accepted by the owner on 2026-11-04 (in-app, status link, Web Push).
+- **MVP work packages:** the owner approved WP-00..WP-14 on 2026-11-04 (`docs/tasks/`). Additional MVP scope (C2): tenant active/inactive, closed days, customer self-cancel via status link, staff/admin-created appointments, Postgres rate limiting, one shared Meta sender that also informs tenant admins. P9 is proven on staging + pilot; production deployment is approved separately.
+- **W11.6 verification:** CI coverage is merged (#123). Live Pilot Supabase migration state, resolver owner/grants/runtime role, and real signed Meta webhook evidence remain unverified (WP-02).
+- **P7/P8/P9:** checklists are merged; P7 OPEN, P8 BLOCKED / NOT APPROVED, P9 OPEN.
 - **P6 / W11.7:** COMPLETE / CLOSED (PR #119 merged; post-merge main CI #375 passed), as recorded in the project execution checkpoint.
-- **MVP scope (C2, owner-approved 2026-11-03):** MVP = basic end-to-end booking incl. guest booking; notifications = in-app + Web Push + WhatsApp; customer status link proposed; WhatsApp CTA (wa.me) in MVP; review funnel moved post-MVP. Recorded in `PROJECT_GOVERNANCE.md` §1/§4. Channel schema/routing still requires C3 architecture review.
+- **MVP scope (C2, owner-approved 2026-11-03):** MVP = basic end-to-end booking incl. guest booking; notifications = in-app + Web Push + WhatsApp; customer status link proposed (now ADR-044 Accepted, 2026-11-04); WhatsApp CTA (wa.me) in MVP; review funnel moved post-MVP. Recorded in `PROJECT_GOVERNANCE.md` §1/§4. Channel schema/routing still requires C3 architecture review.
 - **WP-2b (C3, owner-approved 2026-11-04):** shared single Meta sender for MVP.
   - `APPOINTMENT_CREATED` WhatsApp messages now also go to the same tenant's TENANT_ADMINs.
   - Admins are deduped by profile and phone, and admins without a phone are skipped. No migration.
   - Details: `docs/tasks/WP-02b.md`; recorded in the ADR-042 addendum.
   - Still open: the Meta-terms gate, and status-webhook routing for tenants other than the one bound to the shared number (needs a separate C3).
+- **Merged 2026-11-04:** #133 (WP-2b admin WhatsApp recipients), #134 (WP-3 PWA foundation), #135 (WP-4 in-app notifications). Real-device PWA evidence remains for WP-13.
 
 ### Remaining W11 gates
 
