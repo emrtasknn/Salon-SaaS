@@ -63,9 +63,9 @@ ALTER TABLE "PushSubscription" ADD CONSTRAINT "PushSubscription_endpoint_https_c
 -- point (87 chars), auth = 16-byte secret (22 chars). Bounds leave slack; the
 -- app validates exact decoded lengths and strips '=' padding before insert.
 ALTER TABLE "PushSubscription" ADD CONSTRAINT "PushSubscription_p256dh_base64url_check"
-  CHECK ("p256dh" ~ '^[A-Za-z0-9_-]{80,100}$');
+  CHECK ("p256dh" ~ '^B[A-Za-z0-9_-]{86}$');
 ALTER TABLE "PushSubscription" ADD CONSTRAINT "PushSubscription_auth_base64url_check"
-  CHECK ("auth" ~ '^[A-Za-z0-9_-]{16,32}$');
+  CHECK ("auth" ~ '^[A-Za-z0-9_-]{22}$');
 
 ALTER TABLE "PushSubscription" ADD CONSTRAINT "PushSubscription_userAgent_length_check"
   CHECK ("userAgent" IS NULL OR char_length("userAgent") <= 256);
