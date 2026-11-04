@@ -1,0 +1,124 @@
+name: WP-12 Staging Supabase Migration
+
+# Owner-run only (docs/STAGING_RUNBOOK.md). Applies prisma/migrations to the
+# staging Supabase branch and checks for schema drift. Never touches pilot.
+#
+# Required GitHub Environment "staging" (Settings → Environments), with
+# required reviewers = owner:
+#   secret   STAGING_DATABASE_URL           direct or session-pooler (5432) URL of the staging branch
+#   variable STAGING_SUPABASE_PROJECT_REF   project ref of the staging branch
+#   variable PILOT_SUPABASE_PROJECT_REF     project ref of the pilot (main) project, used only as a deny-guard
+#
+# A distinct secret name is used on purpose: the repo-level DATABASE_URL secret
+# is pilot, and an Environment secret that is missing would silently fall back
+# to a repo secret of the same name.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check = drift/status only (no writes); deploy = migrate deploy + drift check"
+        type: choice
+        options: [check, deploy]
+        default: check
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+    env:
+      # Placeholder for `npm ci` (postinstall runs `prisma generate`, which does
+      # not connect). The real staging URL is passed only to the Prisma steps so
+      # dependency install scripts never see it.
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+      STAGING_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      PILOT_REF: ${{ vars.PILOT_SUPABASE_PROJECT_REF }}
+      MODE: ${{ inputs.mode }}
+    steps:
+      - name: Guard - staging target only
+        id: guard
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::STAGING_DATABASE_URL is not set in the 'staging' environment."; exit 1
+          fi
+          if [ -z "${STAGING_REF:-}" ] || [ -z "${PILOT_REF:-}" ]; then
+            echo "::error::Set STAGING_SUPABASE_PROJECT_REF and PILOT_SUPABASE_PROJECT_REF variables on the 'staging' environment."; exit 1
+          fi
+          if [ "$STAGING_REF" = "$PILOT_REF" ]; then
+            echo "::error::Staging ref equals pilot ref."; exit 1
+          fi
+          case "$DATABASE_URL" in
+            *"$PILOT_REF"*) echo "::error::STAGING_DATABASE_URL points at the pilot project."; exit 1 ;;
+          esac
+          case "$DATABASE_URL" in
+            *"$STAGING_REF"*) echo "Target is the staging branch." ;;
+            *) echo "::error::STAGING_DATABASE_URL does not contain the staging project ref."; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.1
+          cache: npm
+      - run: npm ci
+
+      - name: Migration status (before)
+        # Exits non-zero when migrations are pending; that is expected before a deploy.
+        continue-on-error: ${{ inputs.mode == 'deploy' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: npx prisma migrate status
+
+      - name: Apply migrations
+        if: ${{ inputs.mode == 'deploy' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Migration status (after)
+        if: ${{ inputs.mode == 'deploy' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: npx prisma migrate status
+
+      - name: Drift check (database vs prisma/schema.prisma)
+        # Exit 0 = no drift, 2 = drift. RLS policies/grants are not covered by
+        # Prisma; the runbook has a separate read-only SQL check for those.
+        # Runs even if an earlier step failed (e.g. pending migrations in check
+        # mode), but never after the guard failed.
+        if: ${{ !cancelled() && steps.guard.outcome == 'success' }}
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          set +e
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code > drift.txt
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "No schema drift." | tee -a "$GITHUB_STEP_SUMMARY"
+          elif [ "$code" -eq 2 ]; then
+            echo "::error::Schema drift detected between staging and prisma/schema.prisma."
+            { echo "### Schema drift (staging DB → schema.prisma)"; echo '```'; cat drift.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          else
+            echo "::error::prisma migrate diff failed (exit $code)."; exit "$code"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "mode=$MODE commit=$GITHUB_SHA run=$GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"

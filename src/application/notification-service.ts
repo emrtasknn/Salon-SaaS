@@ -1,6 +1,7 @@
 import type { TenantContext } from "../domain/tenant-context";
 import { NotificationProviderError, type NotificationEventType } from "../domain/notification";
 import type { NotificationProvider } from "../infrastructure/notifications";
+import { logError } from "../infrastructure/log-redaction";
 
 export type NotificationRepository = Readonly<{
   recipients(
@@ -135,7 +136,7 @@ export function createNotificationService(
             continue;
           }
 
-          console.error("notification_delivery_unknown", {
+          logError("notification_delivery_unknown", {
             tenantId: tenantContext.tenantId,
             appointmentId,
             channel: "WHATSAPP",

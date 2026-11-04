@@ -1,49 +1,39 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-04: WP-2b. `APPOINTMENT_CREATED` WhatsApp messages also go to the same tenant's TENANT_ADMINs (shared single Meta sender for MVP).
+2026-11-04 — WP-12 artifacts for the owner: staging runbook, staging-migrate workflow, log masking (no environment changes).
 
 ## State
-- Branch: `claude/cool-jang-378bf2` (worktree). Local commit only; not pushed. A PR to `main` is drafted.
-- Environment touched: none (no DB, migration, deploy or real Meta send).
+- Branch / commit: `claude/relaxed-shamir-0b440c` (from `main` @ 11bd35c), one local commit, not pushed, no PR.
+- Working tree: clean after commit.
+- Environment touched: none (local only; `prisma generate` with a placeholder URL, no DB connection).
 
 ## Done
-- Plan `docs/tasks/WP-02b.md`: C3 routing change, owner-approved 2026-11-04 with the proposed defaults.
-- Admin recipients for CREATED in `src/persistence/prisma-notification.ts`:
-  - the lookup filters on `tenantId` explicitly, inside the tenant-context tx;
-  - admins with no phone are skipped;
-  - admins reuse the `appointment-created-staff` template.
-- Pure `dedupeRecipients` / `phoneDedupeKey` in `src/domain/notification.ts`, deduping by profile and by staff/admin phone.
-- Tests:
-  - new `src/domain/notification.test.ts`;
-  - `recipients()` unit tests;
-  - service failure-isolation and replay tests;
-  - a new CI-only integration block.
-- ADR-042 addendum (shared sender for MVP) and a ROADMAP line.
-- Reviewer: clean, no blocking findings.
+- `docs/STAGING_RUNBOOK.md` — owner steps: Supabase persistent branch, GitHub Environment `staging`, first migrate, RLS/`private` parity SQL, Vercel staging env, auth Site/Redirect URLs, smoke checklist, timed backup/restore rehearsal, logs, uptime, evidence log.
+- `.github/workflows/staging-migrate.yml` — manual dispatch, `environment: staging`, secret `STAGING_DATABASE_URL` only on Prisma steps, ref guard against pilot, `check`/`deploy` modes, `migrate status` + `migrate diff --from-config-datasource --to-schema --exit-code` drift check.
+- `src/infrastructure/log-redaction.ts` — `logError`/`redactForLog` mask phone, email, tokens, JWT, Bearer, secret params, DB URL passwords, content keys; never throws. Wired into the 5 existing `console.error` sites.
+- `.env.example` — variable names only.
+- Reviewer (salon-saas-reviewer): no blocking findings; mediums fixed (dump `private` schema, never-throw logError); lows fixed except masking heuristics (documented) and pilot workflow gate (follow-up).
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| Lint | `npm run lint` | PASS (0 errors, 4 pre-existing warnings) |
+| Lint | `npm run lint` | PASS (4 existing warnings, none in changed files) |
 | Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run src/domain/notification.test.ts src/persistence/prisma-notification.test.ts src/application/notification-service.test.ts` | PASS (35) |
-| Integration | CI | not run (CI only) |
+| Unit tests | `env -u DATABASE_URL npx vitest run src/infrastructure/log-redaction.test.ts src/infrastructure/notifications.test.ts src/application/notification-service.test.ts` | PASS 74/74 |
+| Integration | CI | not run |
 | Build | `npm run build` | not run |
 
 ## Decisions
-- Admins receive CREATED only.
-- Admins reuse the staff template.
-- Admins with no phone are skipped silently.
-- The Meta-terms gate is NOT waived.
-- Having no explicit opt-in is an accepted MVP risk.
-- No migration is needed, because the NotificationDelivery unique key includes `recipientProfileId`. Recorded in the ADR-042 addendum.
+- Distinct secret name `STAGING_DATABASE_URL` so a missing Environment secret can't fall back to the pilot repo secret `DATABASE_URL`.
+- Drift check via `--from-config-datasource` (no shadow DB). RLS/grants checked by owner-run SQL.
+- Supabase↔Vercel Marketplace integration and Supabase GitHub branch migrations stay off.
 
 ## Open risks
-- **Shared-sender webhook status routing.** `WhatsAppIntegration` is unique on `(provider, phoneNumberId)`, which binds the number to one tenant. Status updates for other tenants fail closed and stay at SENT. Needs a separate C3 review and probably a schema proposal.
-- **The CI integration test does not exercise RLS.** It runs as a superuser, so it proves the explicit `tenantId` filter and the composite FK. A non-superuser `SET ROLE` variant is a follow-up.
-- **Phone dedupe is digits only**, so `+90…` and `0…` count as different numbers.
+- Owner must record acceptance of "branch of pilot project" vs WP-12/P8 §H "new staging project".
+- `docs/tasks/WP-12.md` lives in open PR #132 (`docs/wp-0-hygiene`); not edited here to avoid a conflict. Update its agent log after merge.
+- Unverified in docs: branch backup coverage, Supabase log retention per plan, `pgbouncer=true` need with `@prisma/adapter-pg`.
+- Pilot migrate workflow has no Environment approval gate.
 
 ## Next task
-- Push the branch and open the PR once the owner approves; the integration tests must pass in CI.
-- Then do the C3 review of shared-sender webhook routing.
+- Owner executes runbook §2–§8. Optional: draft scheduled uptime workflow; gate pilot workflow behind a `pilot` Environment.
