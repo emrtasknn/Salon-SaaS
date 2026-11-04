@@ -94,7 +94,7 @@ model PushSubscription {
 
 ### 4.5 New dependency
 
-`web-push` (npm, MIT) handles VAPID signing and RFC 8291 payload encryption. Implementing this ourselves is error-prone, so a vetted library is justified. Owner-approved 2026-11-03 (§10-2) per AGENTS.md rule 6; it is added only in the phase 3 PR.
+`web-push` (npm, MPL-2.0 — corrected 2026-11-04; owner accepted it as an unmodified dependency) handles VAPID signing and RFC 8291 payload encryption. Implementing this ourselves is error-prone, so a vetted library is justified. Owner-approved 2026-11-03 (§10-2) per AGENTS.md rule 6; it is added only in the phase 3 PR.
 
 ## 5. Customer status link
 

@@ -41,3 +41,6 @@ WP-02b, WP-03, WP-04 and WP-05 files are created by their own sessions.
 ## Status (2026-11-04)
 - Merged: WP-02b (#133), WP-03 (#134), WP-04 (#135).
 - WP-05: proposal committed on its branch, awaiting owner decisions.
+- WP-11 early fix (unused public booking action): PR #136.
+- Research done and owner decisions recorded: WP-02 (shared sender: pilot only, production gated), WP-09 (device list, `web-push` MPL-2.0), WP-10 (WhatsApp opt-in optional), WP-12 (Vercel, Supabase branch, built-in logs).
+- New C3 follow-up: shared-sender status-webhook routing (see WP-02 log).
