@@ -1,12 +1,20 @@
 ﻿/// <reference lib="webworker" />
 
-const CACHE_NAME = "salon-saas-pwa-v1";
+const CACHE_NAME = "salon-saas-pwa-v2";
 
-const LEGACY_CACHE_NAMES = ["salon-saas-v1"];
+const LEGACY_CACHE_NAMES = ["salon-saas-v1", "salon-saas-pwa-v1"];
+
+const PNG_ICON_PATHS = new Set([
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/icon-maskable-512.png",
+  "/icons/apple-touch-icon-180.png",
+]);
 
 const ALLOWED_STATIC_PATHS = new Set([
   "/manifest.json",
   "/icons/app-icon.svg",
+  ...PNG_ICON_PATHS,
 ]);
 
 function hasExpectedContentType(path, response) {
@@ -26,6 +34,10 @@ function hasExpectedContentType(path, response) {
 
   if (path === "/icons/app-icon.svg") {
     return contentType === "image/svg+xml";
+  }
+
+  if (PNG_ICON_PATHS.has(path)) {
+    return contentType === "image/png";
   }
 
   return false;
