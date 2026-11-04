@@ -38,9 +38,27 @@ Parallel WPs run in separate sessions/worktrees; one writer per file set. Schema
 
 WP-02b, WP-03, WP-04 and WP-05 files are created by their own sessions.
 
-## Status (2026-11-04)
-- Merged: WP-02b (#133), WP-03 (#134), WP-04 (#135).
-- WP-05: proposal committed on its branch, awaiting owner decisions.
-- WP-11 early fix (unused public booking action): PR #136.
-- Research done and owner decisions recorded: WP-02 (shared sender: pilot only, production gated), WP-09 (device list, `web-push` MPL-2.0), WP-10 (WhatsApp opt-in optional), WP-12 (Vercel, Supabase branch, built-in logs).
-- New C3 follow-up: shared-sender status-webhook routing (see WP-02 log).
+## Status (2026-11-05) — MVP code complete, gates open
+| WP | State | PR |
+|---|---|---|
+| 00 Docs hygiene | merged | #132 |
+| 01 Release governance | `.env.example` merged; branch protection active (owner) | #132 |
+| 02 P7 external evidence | **owner: live Meta tests + shared-sender confirmation before production** | — |
+| 02b Admin WhatsApp recipients | merged | #133 |
+| 02c Shared-sender webhook routing | merged | #138 (design), #145 |
+| 03 PWA foundation | merged | #134 |
+| 04 In-app notifications | merged | #135 |
+| 05 Rate limiting | merged | #137 |
+| 06 Status link + self-cancel | merged | #140 |
+| 07 Salon settings + status + wa.me | merged | #141 |
+| 08 Closed dates + staff/admin-created appointments | merged | #142 |
+| 09 Web Push | merged | #144 |
+| 10 KVKK notice + WhatsApp opt-in | **owner: approve notice text (+ legal counsel); then implement** | — |
+| 11 QA hardening | merged (part 1 #136, #143; part 2 push RLS in #144) | #136, #143, #144 |
+| 12 Staging + operations | artifacts merged; **owner: create staging, apply 7 migrations, §4.5 gate** | #139 |
+| 13 P7 re-run on staging/pilot | blocked on 02, 10, 12 | — |
+| 14 P8 go/no-go + P9 closure | blocked on 13 | — |
+
+Migrations on `main`, none applied anywhere: `20261104100000_rate_limit`, `20261104110000_appointment_access_token`, `20261104120000_tenant_status_contact_phone`, `20261105120000_closure_date`, `20261105130000_web_push_subscription`, `20261105140000_whatsapp_delivery_tenant_resolver`.
+
+Deferred (owner 2026-11-04): DST timezones (MVP locked to Europe/Istanbul), per-tenant WhatsApp senders, reschedule by link.

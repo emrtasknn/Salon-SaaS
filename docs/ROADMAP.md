@@ -57,7 +57,13 @@ See the current checkpoint below for #121–#131.
 - **PR #98 — staff Auth/tenant binding:** staff provisioning now binds the new Auth user to the trusted tenant through the existing server-side adapter, fails closed and compensates when binding fails, and rolls back a new binding when staff persistence conflicts. This does not automatically repair the existing Pilot Staff account; that remains a separate controlled follow-up.
 - **PR #99 — admin calendar display names:** the admin calendar now displays staff, customer, and service names instead of raw IDs, and admin management links to the calendar. Local typecheck and test evidence was reported; 237 tests passed and 5 RLS integration tests were skipped in that local run. The calendar workflow was manually exercised in the local browser, including completing an appointment.
 
-### Current checkpoint — 2026-11-04
+### Current checkpoint — 2026-11-05
+
+- **MVP code complete:** WP-00..WP-09, WP-02b, WP-02c and WP-11 are merged (#132–#145; status table in `docs/tasks/README.md`). 6 new migrations are on `main` and **not applied** to staging or pilot.
+- **Open gates (owner):** WP-12 staging setup and migration rollout incl. the `docs/STAGING_RUNBOOK.md` §4.5 resolver/BYPASSRLS check; WP-02 live Meta evidence and written shared-sender confirmation before production; WP-10 KVKK notice text; then WP-13 (P7 re-run) and WP-14 (P8/P9).
+- **MVP constraints recorded:** tenants locked to Europe/Istanbul (DST fix deferred, #143); shared Meta sender pilot-only until confirmed (WP-02).
+
+### Checkpoint — 2026-11-04
 
 - **Merged since 2026-11-01:** #121 (W11.6 C3 decision), #122 (P7 checklist), #123 (W11.6 PostgreSQL routing tests), #124 (P8/P9 gates), #125 (guest booking approved), #126 (admin calendar notifications), #127/#130 (Claude Code agents/tooling), #128 (C2 scope), #129 (ADR-044), #131 (staging lockfile/config).
 - **ADR-044:** Accepted by the owner on 2026-11-04 (in-app, status link, Web Push).
