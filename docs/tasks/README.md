@@ -37,3 +37,7 @@ Parallel WPs run in separate sessions/worktrees; one writer per file set. Schema
 | 14 | P8 go/no-go + P9 closure | 13 |
 
 WP-02b, WP-03, WP-04 and WP-05 files are created by their own sessions.
+
+## Status (2026-11-04)
+- Merged: WP-02b (#133), WP-03 (#134), WP-04 (#135).
+- WP-05: proposal committed on its branch, awaiting owner decisions.

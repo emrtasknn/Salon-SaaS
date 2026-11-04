@@ -2,12 +2,14 @@
 
 import { createBookingEngine } from "../../application/booking-engine";
 import { createStaffAppointments } from "../../application/staff-appointments";
+import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
 import { authorizeStaffDecision } from "../../application/staff-appointment-authorization";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
 import { createPrismaStaffAppointmentsRepository } from "../../persistence/prisma-staff-appointments";
 import { createPrismaBookingRepository } from "../../persistence/prisma-booking-engine";
+import { createPrismaInAppNotificationRepository } from "../../persistence/prisma-in-app-notifications";
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
 import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
@@ -115,4 +117,37 @@ export async function decideStaffAppointment(
   if (checked.status !== "AUTHORIZED") return checked;
   const result = await booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, checked.appointment, to);
   return result.status === "updated" ? { ...result, tenantId: context.tenantContext.tenantId } : result;
+}
+
+/**
+ * WP-04: in-app notifications for the signed-in STAFF member (own appointments only).
+ * No arguments: tenant and staffId come only from trusted server context (WP4-R5).
+ * Returns InAppNotificationView; staff items never include customerDisplayName.
+ */
+export async function listStaffNotifications(): Promise<InAppNotificationView> {
+  try {
+    const context = await getStaffContext();
+    if (!context) return { status: "UNAUTHORIZED" };
+    const { prisma, reader } = context;
+    const notifications = createInAppNotifications({
+      repository: createPrismaInAppNotificationRepository(prisma),
+      authorizer: {
+        async authorizeAdmin() {
+          return false;
+        },
+        async authorizeStaffScope(identity, tenantContext, staffId) {
+          if (identity.state !== "authenticated") return false;
+          const membership = await reader.readMembership({ tenantContext, identity });
+          if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
+          const staff = await prisma.staff.findUnique({
+            where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId: membership.membership.profileId } },
+          });
+          return staff !== null && staff.status === "ACTIVE" && staff.id === staffId && staff.tenantId === tenantContext.tenantId;
+        },
+      },
+    });
+    return toInAppNotificationView(await notifications.forStaff(context.identity, context.tenantContext, context.staffId));
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
 }

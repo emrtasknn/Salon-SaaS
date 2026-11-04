@@ -1,29 +1,31 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-04 — Plan all remaining MVP work as work packages with agent-to-agent workflows; execute WP-00 (docs hygiene).
+2026-11-04 — MVP work packages (WP-00..WP-14) with agent-to-agent workflows; WP-00 docs hygiene; parallel WP-2b/03/04/05 sessions.
 
 ## State
-- Branch: `docs/wp-0-hygiene` (from `origin/main` @ `8394a59`); PR to `main` opened for WP-00.
-- Environment touched: none (no DB, migrations, deploy).
+- `main` now includes #133 (WP-2b), #134 (WP-3 PWA), #135 (WP-4 in-app). WP-00 PR #132 updated with `main` (conflicts in ROADMAP and this file resolved).
+- WP-05 rate-limit proposal: commit `f168350` on `claude/friendly-easley-4bbf0e`, not pushed; migration draft not applied or CI-validated.
+- Environment touched: none (no DB, migrations, deploy, real Meta sends).
 
 ## Done
-- Owner-approved plan: WP-00..WP-14 in `docs/tasks/` (README has the standard agent workflow and dependency table).
-- Owner decisions recorded (Gov §4/§7, ADR-044, P9, ROADMAP, W11.8): staging + pilot evidence for P9; ADR-044 Accepted (+ customer self-cancel); MVP adds tenant active/inactive, closed days, staff/admin-created appointments, Postgres rate limiting, one shared Meta sender incl. tenant admins.
-- `.env.example` (names only). Stale docs fixed (PROJECT_CONTEXT, README, W11.8, ROADMAP checkpoint).
-- Agent workflow run: salon-saas-planner (gap analysis + task contents) → main session edits → salon-saas-reviewer (1 blocking + 7 nits, all fixed).
+- Owner-approved plan in `docs/tasks/` (README = workflow + dependency table). Owner decisions recorded in Gov §4/§7, ADR-044 (Accepted + customer self-cancel), P9, ROADMAP, W11.8. `.env.example` (names only).
+- WP-2b: `APPOINTMENT_CREATED` WhatsApp also to same-tenant TENANT_ADMINs (deduped by profile/phone, no-phone admins skipped, staff template reused, no migration; ADR-042 addendum).
+- Agent workflows run in every WP: planner → (research/database) → owner gate → backend ∥ uiux → qa → reviewer → PR.
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| Reviewer | salon-saas-reviewer on diff | changes requested → fixed |
-| Lint / typecheck / tests | — | not run (docs + `.env.example` only); PR CI covers |
+| WP-00 | salon-saas-reviewer; PR CI | changes requested → fixed; CI PASS before merge-from-main |
+| WP-2b | lint, typecheck, 35 unit tests; reviewer | PASS; integration in CI |
+| WP-3 / WP-4 | their PR CI | merged to `main` |
 
 ## Open risks
-- Proposed sessions (cards): WP-02b admin WhatsApp recipients, WP-03 PWA, WP-04 in-app notifications, WP-05 rate-limit proposal. Each creates its own `docs/tasks/WP-0X.md`.
-- Supabase connector stays write-capable (owner accepted); never write without explicit approval.
-- PR #106 (stale CRM integration test) not yet closed — needs owner OK.
-- Branch protection on `main` (WP-01) is an owner GitHub setting.
+- Shared-sender webhook status routing: `WhatsAppIntegration` unique on `(provider, phoneNumberId)` binds the number to one tenant; status updates for other tenants fail closed (stay SENT). Needs C3 review, probably a schema proposal.
+- WP-2b CI integration test runs as superuser (no RLS proof); non-superuser `SET ROLE` variant is a follow-up. Phone dedupe is digits-only (`+90…` vs `0…`).
+- WP-05 uses fail-open and an RLS-protected non-tenant table; owner decisions pending in that session.
+- Meta-terms gate for the shared sender still open (WP-02). Branch protection (WP-01) is an owner GitHub setting.
+- Low disk space limits parallel worktree sessions.
 
 ## Next task
-- Owner merges the WP-00 PR; start WP-03/WP-04/WP-02b/WP-05 sessions; schema line WP-05 → 09 serial.
+- Merge #132; owner answers WP-05 questions → PR; then schema line WP-06 → 07 → 08 → 09 serially; WP-10 research and WP-12 staging decisions in parallel.

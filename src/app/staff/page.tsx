@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
 
-import { listStaffAppointments } from "./actions";
+import { listStaffAppointments, listStaffNotifications } from "./actions";
 import { StaffCalendar } from "./calendar";
+import { InAppNotifications } from "../in-app-notifications";
 
 function todayIso() {
   const now = new Date();
@@ -10,6 +11,9 @@ function todayIso() {
 
 export default async function StaffPage() {
   const date = todayIso();
-  const data = await listStaffAppointments(date);
-  return <StaffCalendar initialDate={date} initialData={data} />;
+  const [data, notifications] = await Promise.all([listStaffAppointments(date), listStaffNotifications()]);
+  return <>
+    <InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff/appointments" className="bg-zinc-50 px-4 pt-4 sm:px-6" widthClassName="max-w-5xl" />
+    <StaffCalendar initialDate={date} initialData={data} />
+  </>;
 }

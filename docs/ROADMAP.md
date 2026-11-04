@@ -66,6 +66,12 @@ See the current checkpoint below for #121–#131.
 - **P7/P8/P9:** checklists are merged; P7 OPEN, P8 BLOCKED / NOT APPROVED, P9 OPEN.
 - **P6 / W11.7:** COMPLETE / CLOSED (PR #119 merged; post-merge main CI #375 passed), as recorded in the project execution checkpoint.
 - **MVP scope (C2, owner-approved 2026-11-03):** MVP = basic end-to-end booking incl. guest booking; notifications = in-app + Web Push + WhatsApp; customer status link proposed (now ADR-044 Accepted, 2026-11-04); WhatsApp CTA (wa.me) in MVP; review funnel moved post-MVP. Recorded in `PROJECT_GOVERNANCE.md` §1/§4. Channel schema/routing still requires C3 architecture review.
+- **WP-2b (C3, owner-approved 2026-11-04):** shared single Meta sender for MVP.
+  - `APPOINTMENT_CREATED` WhatsApp messages now also go to the same tenant's TENANT_ADMINs.
+  - Admins are deduped by profile and phone, and admins without a phone are skipped. No migration.
+  - Details: `docs/tasks/WP-02b.md`; recorded in the ADR-042 addendum.
+  - Still open: the Meta-terms gate, and status-webhook routing for tenants other than the one bound to the shared number (needs a separate C3).
+- **Merged 2026-11-04:** #133 (WP-2b admin WhatsApp recipients), #134 (WP-3 PWA foundation), #135 (WP-4 in-app notifications). Real-device PWA evidence remains for WP-13.
 
 ### Remaining W11 gates
 

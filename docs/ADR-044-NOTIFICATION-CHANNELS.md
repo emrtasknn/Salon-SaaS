@@ -17,7 +17,7 @@ Current state (inspected on `main` @ `6c62fec`):
 - `NotificationChannel` = `WHATSAPP` only. `NotificationEventType` = `APPOINTMENT_CREATED | APPOINTMENT_CONFIRMED | APPOINTMENT_REJECTED`.
 - Recipients (`src/persistence/prisma-notification.ts`): CREATED → assigned staff + customer; CONFIRMED/REJECTED → customer.
 - Guest booking (P7 Option A) creates or reuses a `Profile` keyed by `(tenantId, email)` with **no** `TenantMembership`. So every appointment has a `customerProfileId`, but guests cannot authenticate.
-- `public/sw.js` and `public/manifest.json` exist but are not linked or registered by `src/app/layout.tsx`; there is no push dependency or push-subscription model yet (W11.10 / W11.11 are planned).
+- PWA foundation (manifest link, service worker registration, install prompt) is wired since #134 (WP-03, W11.10); there is no push dependency or push-subscription model yet (W11.11 / WP-09).
 
 ## 2. Decision summary
 
