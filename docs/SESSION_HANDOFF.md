@@ -1,32 +1,31 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-04 — Clean up uncommitted work on `staging/webhook`, then update the branch from `origin/main`.
+2026-11-04 — MVP work packages (WP-00..WP-14) with agent-to-agent workflows; WP-00 docs hygiene; parallel WP-2b/03/04/05 sessions.
 
 ## State
-- Branch / commit: `staging/webhook` @ `a91d2fb` (merge of `origin/main` @ `02f30cd`), pushed to `origin/staging/webhook` (owner approved).
-- Only difference from `origin/main`: `adb84ce` (`package-lock.json` npm reorder for staging build).
-- Follow-up commits: `next.config.ts` (`logging.serverFunctions: false`, dev log noise only); `.ai-memory.toml` gitignored; `.agents/mpix.py` (26-byte `import sys` stub) deleted. PR `staging/webhook` → `main` opened for Linux CI.
-- Environment touched: none (no DB, migrations, deploy).
+- `main` now includes #133 (WP-2b), #134 (WP-3 PWA), #135 (WP-4 in-app). WP-00 PR #132 updated with `main` (conflicts in ROADMAP and this file resolved).
+- WP-05 rate-limit proposal: commit `f168350` on `claude/friendly-easley-4bbf0e`, not pushed; migration draft not applied or CI-validated.
+- Environment touched: none (no DB, migrations, deploy, real Meta sends).
 
 ## Done
-- Restored `src/application/notification-service.test.ts` (truncated to 0 bytes on 2026-11-03).
-- Reverted half-done `@emnapi/*` optionalDependencies (lock had no entries) and dev-generated `next-env.d.ts`.
-- Deleted `src/infrastructure/whatsapp-webhook-security.test.fixed.repaired.ts` (identical to file removed in `6b5408f`; recoverable from `6b5408f^`).
-- Removed local copies identical to main (only CRLF differed), then `git merge origin/main` — no conflicts. Pre-merge backup: session scratchpad `pre-merge-backup/files.tar`.
+- Owner-approved plan in `docs/tasks/` (README = workflow + dependency table). Owner decisions recorded in Gov §4/§7, ADR-044 (Accepted + customer self-cancel), P9, ROADMAP, W11.8. `.env.example` (names only).
+- WP-2b: `APPOINTMENT_CREATED` WhatsApp also to same-tenant TENANT_ADMINs (deduped by profile/phone, no-phone admins skipped, staff template reused, no migration; ADR-042 addendum).
+- Agent workflows run in every WP: planner → (research/database) → owner gate → backend ∥ uiux → qa → reviewer → PR.
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| Unit test | `npx vitest run src/application/notification-service.test.ts` (DATABASE_URL unset) | PASS 10/10 |
-| Typecheck | `npm run typecheck` | PASS |
-| Lint | `npm run lint` | PASS (0 errors, 4 warnings) |
-| Integration / build | — | not run locally (CI only) |
+| WP-00 | salon-saas-reviewer; PR CI | changes requested → fixed; CI PASS before merge-from-main |
+| WP-2b | lint, typecheck, 35 unit tests; reviewer | PASS; integration in CI |
+| WP-3 / WP-4 | their PR CI | merged to `main` |
 
 ## Open risks
-- Lockfile reorder (`adb84ce`) only verified on Windows locally; PR CI is the Linux check.
-- Supabase connector stays write-capable (owner accepted 2026-11-04); never use it for writes without explicit approval.
-- Resolved by owner 2026-11-04: plain-text secrets file rotated/removed; old worktrees removed.
+- Shared-sender webhook status routing: `WhatsAppIntegration` unique on `(provider, phoneNumberId)` binds the number to one tenant; status updates for other tenants fail closed (stay SENT). Needs C3 review, probably a schema proposal.
+- WP-2b CI integration test runs as superuser (no RLS proof); non-superuser `SET ROLE` variant is a follow-up. Phone dedupe is digits-only (`+90…` vs `0…`).
+- WP-05 uses fail-open and an RLS-protected non-tenant table; owner decisions pending in that session.
+- Meta-terms gate for the shared sender still open (WP-02). Branch protection (WP-01) is an owner GitHub setting.
+- Low disk space limits parallel worktree sessions.
 
 ## Next task
-- Owner reviews the `staging/webhook` → `main` PR once CI is green, then merges.
+- Merge #132; owner answers WP-05 questions → PR; then schema line WP-06 → 07 → 08 → 09 serially; WP-10 research and WP-12 staging decisions in parallel.

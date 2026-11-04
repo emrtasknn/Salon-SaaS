@@ -1,5 +1,6 @@
 import type { NotificationRepository } from "../application/notification-service";
-import type { NotificationEventType } from "../domain/notification";
+import type { NotificationEventType, NotificationRecipient } from "../domain/notification";
+import { dedupeRecipients } from "../domain/notification";
 import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma-tenant-context";
 import { withPrismaTenantContext } from "./prisma-tenant-context";
 
@@ -11,6 +12,12 @@ type Tx = PrismaTenantTransactionClient & {
     staff: { profile: { id: string; displayName: string; phone: string | null } };
     service: { name: string };
   } | null> };
+  tenantMembership: {
+    findMany(args: { where: { tenantId: string; role: "TENANT_ADMIN" }; include: { profile: true }; orderBy: { profileId: "asc" } }): Promise<Array<{
+      profileId: string;
+      profile: { id: string; displayName: string; phone: string | null };
+    }>>;
+  };
   notificationDelivery: {
     findUnique(args: { where: { tenantId_appointmentId_eventType_channel_recipientProfileId: { tenantId: string; appointmentId: string; eventType: NotificationEventType; channel: "WHATSAPP"; recipientProfileId: string } } }): Promise<{ status: "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN" } | null>;
     create(args: { data: Record<string, unknown> }): Promise<unknown>;
@@ -34,10 +41,22 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
         const serviceName = appointment.service.name;
         const time = new Intl.DateTimeFormat("tr-TR", { timeZone: tenant.timezone, dateStyle: "short", timeStyle: "short" }).format(appointment.startAt);
 
-        if (eventType === "APPOINTMENT_CREATED") return [
-          { profileId: staff.profileId, displayName: staff.displayName, phone: staff.phone, templateKey: "appointment-created-staff", body: `Yeni randevu talebi: ${customer.displayName} — ${serviceName} — ${time}. Onay bekliyor.`, templateParameters: [customer.displayName, serviceName, time] },
-          { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [serviceName, time, staff.displayName] },
-        ];
+        if (eventType === "APPOINTMENT_CREATED") {
+          const staffBody = `Yeni randevu talebi: ${customer.displayName} — ${serviceName} — ${time}. Onay bekliyor.`;
+          const staffParameters = [customer.displayName, serviceName, time];
+          const staffRecipient: NotificationRecipient = { profileId: staff.profileId, displayName: staff.displayName, phone: staff.phone, templateKey: "appointment-created-staff", body: staffBody, templateParameters: staffParameters };
+          const customerRecipient: NotificationRecipient = { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [serviceName, time, staff.displayName] };
+          // Tenant id comes from the trusted server context; explicit filter is defence in depth on top of RLS.
+          const adminMemberships = await tx.tenantMembership.findMany({
+            where: { tenantId: tenantContext.tenantId, role: "TENANT_ADMIN" },
+            include: { profile: true },
+            orderBy: { profileId: "asc" },
+          });
+          const admins: NotificationRecipient[] = adminMemberships
+            .filter((membership) => membership.profile.phone !== null && membership.profile.phone.trim() !== "")
+            .map((membership) => ({ profileId: membership.profile.id, displayName: membership.profile.displayName, phone: membership.profile.phone, templateKey: "appointment-created-staff", body: staffBody, templateParameters: [...staffParameters] }));
+          return dedupeRecipients({ staff: staffRecipient, customer: customerRecipient, admins });
+        }
 
         return [{
           profileId: customer.profileId,
