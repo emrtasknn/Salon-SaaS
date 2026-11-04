@@ -55,7 +55,17 @@ export function localWallTimeToUtc(dateIso: string, minute: number, timeZone: st
   const { year, month, day } = parseAndValidateDateIso(dateIso);
   if (!Number.isInteger(minute) || minute < 0 || minute >= 1440) throw new TypeError("Minute is invalid");
   assertValidTimeZone(timeZone);
+  const candidates = localWallTimeCandidates(year, month, day, minute, timeZone);
+  if (candidates.length === 0) {
+    throw new RangeError("Local time does not exist in this timezone");
+  }
+  if (candidates.length > 1) {
+    throw new RangeError("Local time is ambiguous in this timezone");
+  }
+  return candidates[0];
+}
 
+function localWallTimeCandidates(year: number, month: number, day: number, minute: number, timeZone: string): Date[] {
   const wallUtc = Date.UTC(year, month - 1, day, Math.floor(minute / 60), minute % 60);
   // Sample offsets around the requested wall time instead of assuming a fixed offset.
   const offsets = new Set<number>();
@@ -73,14 +83,58 @@ export function localWallTimeToUtc(dateIso: string, minute: number, timeZone: st
         local.hour === Math.floor(minute / 60) &&
         local.minute === minute % 60;
     });
+  return candidates.sort((a, b) => a.getTime() - b.getTime());
+}
 
-  if (candidates.length === 0) {
-    throw new RangeError("Local time does not exist in this timezone");
+/** Calendar date arithmetic on "YYYY-MM-DD", independent of any timezone. */
+export function addDaysToDateIso(dateIso: string, days: number): string {
+  const { year, month, day } = parseAndValidateDateIso(dateIso);
+  if (!Number.isInteger(days)) throw new TypeError("Days is invalid");
+  const next = new Date(Date.UTC(year, month - 1, day));
+  if (year >= 0 && year < 100) next.setUTCFullYear(year);
+  next.setUTCDate(next.getUTCDate() + days);
+  return `${next.getUTCFullYear().toString().padStart(4, "0")}-${(next.getUTCMonth() + 1).toString().padStart(2, "0")}-${next.getUTCDate().toString().padStart(2, "0")}`;
+}
+
+/** First UTC instant whose local date in `timeZone` is `dateIso`. Never throws for a midnight DST gap. */
+function localDayStartUtc(dateIso: string, timeZone: string): Date {
+  const { year, month, day } = parseAndValidateDateIso(dateIso);
+  for (let minute = 0; minute < 1440; minute += 1) {
+    const candidates = localWallTimeCandidates(year, month, day, minute, timeZone);
+    if (candidates.length > 0) return candidates[0];
   }
-  if (candidates.length > 1) {
-    throw new RangeError("Local time is ambiguous in this timezone");
-  }
-  return candidates[0];
+  throw new RangeError("Local date does not exist in this timezone");
+}
+
+/**
+ * WP-08: the UTC half-open range [startAt, endAt) covering one local calendar day.
+ * DST-safe (23/25-hour days) and tolerant of zones whose midnight does not exist
+ * (the day then starts at the first existing local minute).
+ */
+export function localDayUtcRange(dateIso: string, timeZone: string): Readonly<{ startAt: Date; endAt: Date }> {
+  assertValidTimeZone(timeZone);
+  return Object.freeze({
+    startAt: localDayStartUtc(dateIso, timeZone),
+    endAt: localDayStartUtc(addDaysToDateIso(dateIso, 1), timeZone),
+  });
+}
+
+/**
+ * WP-08: a slot touches a closed date when the local date of its start, or of its
+ * last occupied instant (endAt incl. buffer minus 1 ms), is closed. Pure local-date
+ * comparison, so it is DST-safe.
+ */
+export function isSlotOnClosedDate(
+  slot: Readonly<{ startAt: Date; endAt: Date }>,
+  timeZone: string,
+  closedDates: ReadonlySet<string> | ReadonlyArray<string>,
+): boolean {
+  const closed = closedDates instanceof Set ? closedDates : new Set(closedDates as ReadonlyArray<string>);
+  if (closed.size === 0) return false;
+  const startDate = utcToLocalDateAndMinute(slot.startAt, timeZone).dateIso;
+  if (closed.has(startDate)) return true;
+  const lastInstant = new Date(Math.max(slot.startAt.getTime(), slot.endAt.getTime() - 1));
+  return closed.has(utcToLocalDateAndMinute(lastInstant, timeZone).dateIso);
 }
 
 export function dateDayOfWeek(dateIso: string): number {
@@ -113,9 +167,15 @@ export function calculateAvailability(input: {
   bufferMinutes: number;
   now?: Date;
   slotIntervalMinutes?: number;
+  /** WP-08: closed local dates ("YYYY-MM-DD") in the tenant timezone. */
+  closedDates?: ReadonlySet<string> | ReadonlyArray<string>;
 }): ReadonlyArray<AvailabilitySlot> {
   assertValidTimeZone(input.timeZone);
   const day = dateDayOfWeek(input.dateIso);
+  const closedDates: ReadonlySet<string> = input.closedDates instanceof Set
+    ? input.closedDates
+    : new Set((input.closedDates ?? []) as ReadonlyArray<string>);
+  if (closedDates.has(input.dateIso)) return [];
   const hours = input.workingHours.find((h) => h.dayOfWeek === day);
   if (!hours) return [];
   const interval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL_MINUTES;
@@ -135,6 +195,7 @@ export function calculateAvailability(input: {
     }
     const endAt = new Date(startAt.getTime() + requiredMinutes * 60_000);
     if (input.now && startAt <= input.now) continue;
+    if (isSlotOnClosedDate({ startAt, endAt }, input.timeZone, closedDates)) continue;
     const conflicts = input.appointments.some((a) =>
       a.staffId === input.staffId &&
       a.status !== "CANCELLED" && a.status !== "REJECTED" &&

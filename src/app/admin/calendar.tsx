@@ -2,9 +2,22 @@
 
 import { useState, useTransition } from "react";
 import {
+  createAdminAppointment,
+  getAdminCreateOptions,
   listAdminAppointments,
+  listAdminSlots,
+  searchAdminCustomers,
   transitionAdminAppointment,
 } from "./calendar-actions";
+import { CreateAppointmentDialog } from "../create-appointment-dialog";
+
+const createVariant = {
+  kind: "admin",
+  loadOptions: getAdminCreateOptions,
+  listSlots: listAdminSlots,
+  searchCustomers: searchAdminCustomers,
+  create: createAdminAppointment,
+} as const;
 
 type Props = {
   initialDate: string;
@@ -44,6 +57,19 @@ export function AdminCalendar({ initialDate, initialData }: Props) {
             : "Takvim yüklenemedi.",
         );
       }
+    });
+  }
+
+  function onCreated(created: { date: string; notified: boolean }) {
+    setDate(created.date);
+    startTransition(async () => {
+      const result = await listAdminAppointments(created.date);
+      setData(result);
+      setFeedback(
+        created.notified
+          ? "Randevu oluşturuldu ve onaylandı. Müşteri bildirimi gönderime alındı."
+          : "Randevu oluşturuldu ve onaylandı.",
+      );
     });
   }
 
@@ -104,7 +130,12 @@ export function AdminCalendar({ initialDate, initialData }: Props) {
             </h1>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <CreateAppointmentDialog
+              variant={createVariant}
+              initialDate={date}
+              onCreated={onCreated}
+            />
             <input
               aria-label="Tarih"
               type="date"

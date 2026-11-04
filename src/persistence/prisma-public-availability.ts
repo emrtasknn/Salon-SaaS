@@ -3,9 +3,10 @@ import type { TenantContext } from "../domain/tenant-context";
 import type { WorkingHoursRecord } from "../domain/working-hours";
 import type { AppointmentRecord } from "../domain/appointment";
 import { localWallTimeToUtc } from "../domain/availability";
+import { readClosedDates, type ClosureDateReadTransaction } from "./prisma-booking-engine";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
-type Tx = PrismaTenantTransactionClient & {
+type Tx = PrismaTenantTransactionClient & ClosureDateReadTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string; status: "ACTIVE" | "INACTIVE" } | null> };
   service: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null> };
   staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
@@ -45,6 +46,8 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
               endAt: { gt: dayStart },
             },
           });
+          // WP-08: closed local dates (this day, and the next one for slots ending after midnight).
+          const closedDates = await readClosedDates(tx, tenantContext.tenantId, input.staffId, [input.dateIso, nextCalendarDate(input.dateIso)]);
 
           return {
             status: "ok" as const,
@@ -53,6 +56,7 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
             bufferMinutes: service.bufferMinutes,
             workingHours,
             appointments,
+            closedDates,
             serviceActive: service.active,
             staffActive: staff.status === "ACTIVE",
           };
