@@ -19,6 +19,10 @@ import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import type { AppointmentRecord, AppointmentStatus } from "../../domain/appointment";
 import type { NotificationEventType } from "../../domain/notification";
 import { publishAppointmentNotification } from "../notification-runtime";
+import { createOnBehalf, createOnBehalfBookingEngine, listSlotsOnBehalf, readCreateOptions } from "../appointment-create-runtime";
+import type {
+  AdminCreateAppointmentInput, CreateAppointmentResult, CreateOptionsView, CustomerSearchResultView, LocalDateIso, SlotListResult,
+} from "../appointment-create-contract";
 
 type AppointmentLookupTx = PrismaTenantTransactionClient & {
   appointment: {
@@ -69,6 +73,8 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
         });
         return staff !== null && staff.status === "ACTIVE" && staff.id === appointment.staffId && staff.tenantId === appointment.tenantId && appointment.status === "PENDING";
       },
+      // Transitions only; create-on-behalf uses createOnBehalfBookingEngine (WP-08).
+      async resolveCreateScope() { return null; },
     },
   });
 }
@@ -143,4 +149,46 @@ export async function listAdminNotifications(): Promise<InAppNotificationView> {
   } catch {
     return { status: "PERSISTENCE_FAILURE" };
   }
+}
+
+/**
+ * WP-08: services + all ACTIVE staff for the admin create dialog. Tenant from trusted context.
+ * Returns null when the caller is not TENANT_ADMIN (or SUPER_ADMIN) of the tenant.
+ */
+export async function getAdminCreateOptions(): Promise<CreateOptionsView | null> {
+  const context = await getAdminContext();
+  if (!context) return null;
+  return readCreateOptions(createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext);
+}
+
+/** WP-08: free slots for any ACTIVE staff of the tenant (closures, working hours, conflicts applied). */
+export async function listAdminSlots(input: { serviceId: string; staffId: string; date: LocalDateIso }): Promise<SlotListResult> {
+  const context = await getAdminContext();
+  if (!context) return { status: "FORBIDDEN" };
+  if (typeof input !== "object" || input === null) return { status: "INVALID_INPUT" };
+  return listSlotsOnBehalf(createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext, {
+    serviceId: input.serviceId, staffId: input.staffId, date: input.date,
+  });
+}
+
+/** WP-08: CRM customer search for the admin create dialog (TENANT_ADMIN-only CRM listing). */
+export async function searchAdminCustomers(query: string): Promise<ReadonlyArray<CustomerSearchResultView>> {
+  const context = await getAdminContext();
+  if (!context) return [];
+  const result = await calendar(context.prisma, context.reader).customers(context.identity, context.tenantContext, query);
+  if (result.status !== "ok") return [];
+  return result.customers.slice(0, 20).map((c) => ({ profileId: c.id, displayName: c.displayName, phone: c.phone, email: c.email }));
+}
+
+/**
+ * WP-08: admin-created appointment for any ACTIVE staff; starts CONFIRMED. Existing CRM customer or
+ * guest (a guest email matching an existing profile returns EMAIL_EXISTS, never attaches silently).
+ */
+export async function createAdminAppointment(input: AdminCreateAppointmentInput): Promise<CreateAppointmentResult> {
+  const context = await getAdminContext();
+  if (!context) return { status: "FORBIDDEN" };
+  if (typeof input !== "object" || input === null) return { status: "INVALID_INPUT" };
+  return createOnBehalf(createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext, {
+    serviceId: input.serviceId, staffId: input.staffId, startAt: input.startAt, customer: input.customer, notifyCustomer: input.notifyCustomer,
+  });
 }

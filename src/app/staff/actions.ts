@@ -16,6 +16,10 @@ import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supaba
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import type { AppointmentStatus } from "../../domain/appointment";
+import { createOnBehalf, createOnBehalfBookingEngine, listSlotsOnBehalf, readCreateOptions } from "../appointment-create-runtime";
+import type {
+  CreateAppointmentResult, CreateOptionsView, LocalDateIso, SlotListResult, StaffCreateAppointmentInput,
+} from "../appointment-create-contract";
 
 async function getStaffContext() {
   const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
@@ -88,6 +92,8 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
           appointment,
         );
       },
+      // Transitions only; create-on-behalf uses createOnBehalfBookingEngine (WP-08).
+      async resolveCreateScope() { return null; },
     },
   });
 }
@@ -150,4 +156,34 @@ export async function listStaffNotifications(): Promise<InAppNotificationView> {
   } catch {
     return { status: "PERSISTENCE_FAILURE" };
   }
+}
+
+/** WP-08: services + only the signed-in staff member. Tenant and staff come from server context. */
+export async function getStaffCreateOptions(): Promise<CreateOptionsView | null> {
+  const context = await getStaffContext();
+  if (!context) return null;
+  return readCreateOptions(createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext);
+}
+
+/** WP-08: free slots for the signed-in staff member only (no staffId accepted from the client). */
+export async function listStaffSlots(input: { serviceId: string; date: LocalDateIso }): Promise<SlotListResult> {
+  const context = await getStaffContext();
+  if (!context) return { status: "FORBIDDEN" };
+  if (typeof input !== "object" || input === null) return { status: "INVALID_INPUT" };
+  return listSlotsOnBehalf(createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext, {
+    serviceId: input.serviceId, staffId: context.staffId, date: input.date,
+  });
+}
+
+/**
+ * WP-08: staff create for themselves only (decision e), guest customer without email; starts CONFIRMED.
+ * staffId is the server-side context value; the engine re-derives and compares it as well.
+ */
+export async function createStaffAppointment(input: StaffCreateAppointmentInput): Promise<CreateAppointmentResult> {
+  const context = await getStaffContext();
+  if (!context) return { status: "FORBIDDEN" };
+  if (typeof input !== "object" || input === null) return { status: "INVALID_INPUT" };
+  return createOnBehalf(createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext, {
+    serviceId: input.serviceId, staffId: context.staffId, startAt: input.startAt, customer: input.customer, notifyCustomer: input.notifyCustomer,
+  });
 }
