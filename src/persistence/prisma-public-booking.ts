@@ -4,6 +4,7 @@ import type { WorkingHoursRecord } from "../domain/working-hours";
 import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma-tenant-context";
 import { withPrismaTenantContext } from "./prisma-tenant-context";
 import { calculateAvailability, utcToLocalDateAndMinute } from "../domain/availability";
+import { appointmentAccessTokenExpiry } from "../domain/appointment-access-token";
 
 type Tx = PrismaTenantTransactionClient & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string } | null> };
@@ -17,6 +18,9 @@ type Tx = PrismaTenantTransactionClient & {
   appointment: {
     findMany(args: { where: { tenantId: string; staffId: string; startAt: { lt: Date }; endAt: { gt: Date } } }): Promise<Array<{ id: string; tenantId: string; staffId: string; serviceId: string; customerProfileId: string; startAt: Date; endAt: Date; status: "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED" }>>;
     create(args: { data: { tenantId: string; staffId: string; serviceId: string; customerProfileId: string; startAt: Date; endAt: Date; status: "PENDING" } }): Promise<{ id: string }>;
+  };
+  appointmentAccessToken: {
+    create(args: { data: { tenantId: string; appointmentId: string; tokenHash: string; expiresAt: Date }; select: { id: true } }): Promise<{ id: string }>;
   };
 };
 
@@ -54,6 +58,11 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
           let profile = await tx.profile.findUnique({ where: { tenantId_email: { tenantId: tenantContext.tenantId, email: input.email } } });
           if (!profile) profile = await tx.profile.create({ data: { tenantId: tenantContext.tenantId, displayName: input.displayName, email: input.email, phone: input.phone } });
           const appointment = await tx.appointment.create({ data: { tenantId: tenantContext.tenantId, staffId: input.staffId, serviceId: input.serviceId, customerProfileId: profile.id, startAt: input.startAt, endAt, status: "PENDING" } });
+          // WP-06: status-link token row in the same tx; a failed insert rolls the booking back.
+          await tx.appointmentAccessToken.create({
+            data: { tenantId: tenantContext.tenantId, appointmentId: appointment.id, tokenHash: input.accessTokenHash, expiresAt: appointmentAccessTokenExpiry(endAt) },
+            select: { id: true },
+          });
           return { status: "created" as const, appointmentId: appointment.id };
         });
       } catch { return "persistence_failure"; }

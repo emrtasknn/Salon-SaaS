@@ -1,4 +1,5 @@
 import type { TenantContext } from "../domain/tenant-context";
+import { generateAppointmentAccessToken } from "../domain/appointment-access-token";
 
 export type PublicBookingRepository = Readonly<{
   create(
@@ -6,6 +7,8 @@ export type PublicBookingRepository = Readonly<{
     input: Readonly<{
       serviceId: string; staffId: string; startAt: Date;
       displayName: string; email: string; phone: string | null;
+      /** SHA-256 hex of the status-link token; the raw token never reaches persistence. */
+      accessTokenHash: string;
     }>,
   ): Promise<{ status: "created"; appointmentId: string } | "slot_unavailable" | "invalid_resource" | "persistence_failure">;
 }>;
@@ -27,11 +30,14 @@ export function createPublicBooking(repository: PublicBookingRepository) {
       const phone = normalizeText(input.phone, false);
       if (displayName === "INVALID" || email === "INVALID" || phone === "INVALID" || displayName === null || email === null ||
         !(input.startAt instanceof Date) || Number.isNaN(input.startAt.getTime())) return { status: "INVALID_INPUT" as const };
+      const { token, tokenHash } = generateAppointmentAccessToken();
       const result = await repository.create(tenantContext, {
         serviceId: input.serviceId, staffId: input.staffId, startAt: input.startAt,
-        displayName, email, phone,
+        displayName, email, phone, accessTokenHash: tokenHash,
       });
-      if (typeof result === "object" && result.status === "created") return { status: "created" as const, appointmentId: result.appointmentId };
+      if (typeof result === "object" && result.status === "created") {
+        return { status: "created" as const, appointmentId: result.appointmentId, accessToken: token };
+      }
       if (result === "slot_unavailable") return { status: "SLOT_UNAVAILABLE" as const };
       if (result === "invalid_resource") return { status: "INVALID_RESOURCE" as const };
       return { status: "PERSISTENCE_FAILURE" as const };

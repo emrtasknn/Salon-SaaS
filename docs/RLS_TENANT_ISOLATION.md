@@ -31,6 +31,7 @@ RLS is enabled and forced on:
 - `Service`
 - `Appointment`
 - `TenantMembership`
+- `AppointmentAccessToken` (WP-06, migration `20261104110000_appointment_access_token`: ENABLE + FORCE, `appointment_access_token_tenant_isolation_select` / `_insert` / `_update` / `_delete`). Stores only the SHA-256 hash of the customer status-link token; lookups always filter by the slug-resolved `tenantId`.
 
 The `Tenant` root table is intentionally not covered by this migration because trusted tenant resolution may need to discover a tenant before a tenant context exists. Tenant-owned data remains protected by the listed policies.
 

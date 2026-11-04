@@ -25,6 +25,7 @@ function makeTransaction(overrides: Readonly<{
     staff: { findUnique: vi.fn().mockResolvedValue(overrides.staff !== undefined ? overrides.staff : { id: "staff-a", status: "ACTIVE" }) },
     profile: { findUnique: vi.fn().mockResolvedValue(overrides.profile !== undefined ? overrides.profile : { id: "c" }), create: vi.fn() },
     appointment: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: "a" }) },
+    appointmentAccessToken: { create: vi.fn().mockResolvedValue({ id: "t" }) },
   };
 }
 
@@ -41,6 +42,7 @@ const validInput = {
   displayName: "Customer",
   email: "c@example.com",
   phone: null,
+  accessTokenHash: "a".repeat(64),
 };
 
 describe("public booking repository", () => {
@@ -48,6 +50,48 @@ describe("public booking repository", () => {
     const transaction = makeTransaction();
     await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toEqual({ status: "created", appointmentId: "a" });
     expect(transaction.$executeRaw).toHaveBeenCalled();
+  });
+
+  it("stores only the access-token hash, expiring 7 days after endAt, in the booking transaction", async () => {
+    const transaction = makeTransaction();
+    await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput);
+    const endAt = new Date(validInput.startAt.getTime() + 75 * 60_000);
+    expect(transaction.appointmentAccessToken.create).toHaveBeenCalledWith({
+      data: { tenantId: "tenant-a", appointmentId: "a", tokenHash: "a".repeat(64), expiresAt: new Date(endAt.getTime() + 7 * 24 * 60 * 60_000) },
+      select: { id: true },
+    });
+  });
+
+  it("fails the booking when the token insert fails", async () => {
+    const transaction = makeTransaction();
+    transaction.appointmentAccessToken.create.mockRejectedValueOnce(new Error("check violation"));
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("persistence_failure");
+  });
+
+  it("inserts exactly one token, after the appointment, inside the same tenant-context transaction", async () => {
+    const transaction = makeTransaction();
+    const prisma = makePrisma(transaction);
+    await createPrismaPublicBookingRepository(prisma).create({ tenantId: "tenant-a" as never }, validInput);
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+    expect(transaction.appointmentAccessToken.create).toHaveBeenCalledOnce();
+    expect(transaction.appointment.create.mock.invocationCallOrder[0])
+      .toBeLessThan(transaction.appointmentAccessToken.create.mock.invocationCallOrder[0]);
+    const tenantGuc = transaction.$executeRaw.mock.calls.find((call) => String(call[0]).includes("app.tenant_id"));
+    expect(tenantGuc?.[1]).toBe("tenant-a");
+  });
+
+  it("does not insert a token when the slot is unavailable or the resource is foreign", async () => {
+    const conflict = makeTransaction();
+    conflict.appointment.findMany.mockResolvedValueOnce([{
+      id: "x", tenantId: "tenant-a", staffId: "staff-a", serviceId: "svc-a", customerProfileId: "c",
+      startAt: validInput.startAt, endAt: new Date(validInput.startAt.getTime() + 75 * 60_000), status: "PENDING" as const,
+    }]);
+    await expect(createPrismaPublicBookingRepository(makePrisma(conflict)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("slot_unavailable");
+    expect(conflict.appointmentAccessToken.create).not.toHaveBeenCalled();
+
+    const foreign = makeTransaction({ service: null });
+    await expect(createPrismaPublicBookingRepository(makePrisma(foreign)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("invalid_resource");
+    expect(foreign.appointmentAccessToken.create).not.toHaveBeenCalled();
   });
 
   it("uses one lock for overlapping appointments with different start times", async () => {

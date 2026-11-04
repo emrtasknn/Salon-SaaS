@@ -96,6 +96,8 @@ Establish that the application, infrastructure, integrations, security controls,
 ### G. Operations, privacy, and support
 
 - [ ] Production logs are structured and redact credentials, tokens, phone numbers, and unnecessary PII.
+- [ ] WP-06 customer status link: the raw token is in the URL path (`/<slug>/randevu/<token>`), so hosting/edge request logs store it in plain text. App logs mask it; confirm hosting log retention is acceptable (owner accepted this risk 2026-11-04).
+- [ ] WP-06 status-link rate limiting is a no-op until the WP-05 limiter and a trusted client-IP header (`TRUSTED_IP_HEADER`) are in place; replace `createNoopStatusLinkRateLimiter` in `src/app/[slug]/randevu/[token]/data.ts`.
 - [ ] Monitoring/alerts cover application errors, database health, webhook failures, and notification delivery outcomes.
 - [ ] Webhook retry/duplicate behavior and failure visibility are understood.
 - [ ] UNKNOWN/PENDING delivery reconciliation is an operator-controlled documented process.

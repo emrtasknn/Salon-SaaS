@@ -152,6 +152,8 @@ There are no changes to existing columns or data and no backfill.
 
 **Pilot apply:** only after CI is green and the owner gives explicit approval (P8 gates).
 
+**Note (WP-06, 2026-11-04):** the plan above is split per §9 phasing. Phase 2 ships `AppointmentAccessToken` alone in `20261104110000_appointment_access_token` (steps 3–4 for that table only); `WEB_PUSH` and `PushSubscription` follow in their own phase migration. Step 5 resolves to **no explicit GRANTs**: existing tenant tables have none, so the new table keeps the same grant posture (an optional `REVOKE ALL … FROM anon, authenticated` across all tables is a separate owner decision).
+
 ## 8. Tests required before merge
 
 - Unit: token generation/hash/verify; expiry and revoked handling; routing matrix; per-channel independence; payload has no PII leakage.

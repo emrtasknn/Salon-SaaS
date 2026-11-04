@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { REDACTED, logError, maskEmail, maskPhone, redactForLog, redactString } from "./log-redaction";
+import { REDACTED, logError, logInfo, maskEmail, maskPhone, redactForLog, redactString } from "./log-redaction";
 
 const UUID_VALUE = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -22,6 +22,12 @@ describe("maskEmail / maskPhone", () => {
 });
 
 describe("redactString", () => {
+  it("masks the token in a customer status link path (WP-06)", () => {
+    const token = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde";
+    expect(redactString(`GET /salon-a/randevu/${token} failed`)).toBe("GET /salon-a/randevu/[REDACTED] failed");
+    expect(redactString("https://x.test/salon-a/randevu/" + token + "?a=1")).not.toContain(token);
+  });
+
   it("masks emails inside free text", () => {
     expect(redactString("lookup failed for ayse@example.com.tr today")).toBe("lookup failed for a***@example.com.tr today");
   });
@@ -292,5 +298,43 @@ describe("logError never throws", () => {
     expect(() => logError("event_b", withGetter as Record<string, unknown>)).not.toThrow();
     expect(consoleError).toHaveBeenCalledWith("event_a", "[unloggable]");
     expect(consoleError).toHaveBeenCalledWith("event_b", "[unloggable]");
+  });
+});
+
+describe("logInfo", () => {
+  it("calls console.info (not console.error) with a redacted context", () => {
+    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    logInfo("customer_appointment_cancelled", {
+      tenantId: UUID_VALUE, appointmentId: "appt-1", actorKind: "customer_token",
+      accessToken: "raw-token-value", email: "ayse@example.com", phone: "+905551112233",
+    });
+    expect(consoleInfo).toHaveBeenCalledTimes(1);
+    expect(consoleInfo).toHaveBeenCalledWith("customer_appointment_cancelled", {
+      tenantId: UUID_VALUE, appointmentId: "appt-1", actorKind: "customer_token",
+      accessToken: REDACTED, email: "a***@example.com", phone: "***33",
+    });
+    expect(JSON.stringify(consoleInfo.mock.calls)).not.toContain("raw-token-value");
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it("logs only the event when no context is given and redacts the event string", () => {
+    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {});
+    logInfo("customer_appointment_cancelled");
+    logInfo("cancelled for ayse@example.com");
+    expect(consoleInfo.mock.calls[0]).toEqual(["customer_appointment_cancelled"]);
+    expect(consoleInfo.mock.calls[1]).toEqual(["cancelled for a***@example.com"]);
+  });
+
+  it("never throws: unreadable context falls back to [unloggable]", () => {
+    const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {});
+    const hostile = new Proxy({}, { ownKeys() { throw new Error("boom"); } });
+    expect(() => logInfo("event_a", hostile as Record<string, unknown>)).not.toThrow();
+    expect(consoleInfo).toHaveBeenCalledWith("event_a", "[unloggable]");
+  });
+
+  it("never throws even when console.info itself throws", () => {
+    vi.spyOn(console, "info").mockImplementation(() => { throw new Error("stdout closed"); });
+    expect(() => logInfo("event_b", { appointmentId: "appt-1" })).not.toThrow();
   });
 });
