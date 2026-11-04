@@ -55,6 +55,15 @@ RLS does not create a global SUPER_ADMIN bypass. The role continues to operate i
 
 RLS must be effective for the runtime database role. The migration uses `FORCE ROW LEVEL SECURITY` so table ownership alone does not silently bypass the policies. A role with PostgreSQL `BYPASSRLS` (including superuser semantics) can still bypass RLS; such a privileged role must not be used as the normal tenant-scoped runtime path.
 
+## Non-tenant server-only tables (`private` schema)
+
+Some server-only data has no tenant column and is used before or outside a tenant context. These objects live in the `private` schema, are not modelled in Prisma, and are reachable only through a narrow `SECURITY DEFINER` function with `SET search_path = ''`:
+
+- `private.resolve_whatsapp_tenant_id` (webhook tenant routing, migration `20261006190000_whatsapp_integration`).
+- `private."RateLimitBucket"` via `private.rate_limit_hit` (WP-5, migration `20261104100000_rate_limit`, `docs/tasks/WP-05.md`). The table is ENABLE + FORCE RLS with one policy `TO postgres` that admits rows only while the transaction-local flag `app.rate_limit_access = 'on'` is set; only the function sets and clears it. Rows hold HMAC keys and counters only — no tenant data, no raw IP/phone/email. `PUBLIC`, `anon` and `authenticated` have no grants.
+
+Owner-approved exception (2026-11-04): this pattern is for non-tenant data only and must never be used to reach tenant-owned rows.
+
 ## Migration validation
 
 The migration should be validated against disposable PostgreSQL before merge and against the actual Supabase role model before production deployment.
