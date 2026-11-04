@@ -346,6 +346,17 @@ describeDatabase("ClosureDate tenant isolation + booking re-check integration (W
         { code: "42501" },
       );
     });
+
+    it("blocks UPDATE and DELETE without a tenant context (0 rows) and leaves both tenants' rows unchanged (WP-11)", async () => {
+      const counts = await inRolledBackTx({ tenantId: null, asRole: true }, async (c) => [
+        (await c.query(`UPDATE "${TABLE}" SET "reason" = 'hijack' WHERE "id" IN ($1, $2)`, [tenantA.closureId, tenantB.closureId])).rowCount,
+        (await c.query(`DELETE FROM "${TABLE}" WHERE "id" IN ($1, $2)`, [tenantA.closureId, tenantB.closureId])).rowCount,
+        (await c.query(`DELETE FROM "${TABLE}" WHERE "tenantId" IN ($1, $2)`, [tenantA.tenantId, tenantB.tenantId])).rowCount,
+      ]);
+      expect(counts).toEqual([0, 0, 0]);
+      await expect(closureRows(tenantA.tenantId, seededDate)).resolves.toEqual([{ id: tenantA.closureId, staffId: null, reason: "Seeded A" }]);
+      await expect(closureRows(tenantB.tenantId, seededDate)).resolves.toEqual([{ id: tenantB.closureId, staffId: null, reason: "Seeded B" }]);
+    });
   });
 
   describe("constraints", () => {

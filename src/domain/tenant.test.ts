@@ -50,6 +50,14 @@ describe("tenant domain", () => {
     });
     expect(createTenantTimezone("Not/A_Timezone").ok).toBe(false);
   });
+
+  it("accepts only Europe/Istanbul in the MVP (DST zones are rejected)", () => {
+    for (const zone of ["Europe/Berlin", "America/New_York", "UTC", "Europe/London"]) {
+      const result = createTenantTimezone(zone);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("INVALID_TIMEZONE");
+    }
+  });
 });
 
 describe("tenant contact phone (WP-07)", () => {
