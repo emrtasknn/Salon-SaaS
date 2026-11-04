@@ -23,7 +23,7 @@ export function parseClosureDate(value: unknown): string | null {
 
 /**
  * Optional reason: trimmed; blank/missing -> null (matches the DB CHECK "reason IS NULL OR
- * btrim(reason) <> ''"); longer than 200 characters or containing control characters -> invalid.
+ * reason ~ '[^[:space:]]'"; JS trim() removes tabs/newlines too, so whitespace-only input becomes null); longer than 200 characters or containing control characters -> invalid.
  */
 export function normalizeClosureReason(value: unknown): { ok: true; value: string | null } | { ok: false } {
   if (value === undefined || value === null) return { ok: true, value: null };

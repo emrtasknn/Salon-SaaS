@@ -50,8 +50,10 @@ ALTER TABLE "ClosureDate" ADD CONSTRAINT "ClosureDate_tenantId_createdByProfileI
 -- ---------------------------------------------------------------------------
 
 -- Optional reason must not be blank/whitespace-only (length capped by VARCHAR(200)).
+-- Needs at least one non-whitespace character; btrim() alone strips only
+-- spaces, so a tab-only reason would pass it.
 ALTER TABLE "ClosureDate" ADD CONSTRAINT "ClosureDate_reason_not_blank_check"
-  CHECK ("reason" IS NULL OR btrim("reason") <> '');
+  CHECK ("reason" IS NULL OR "reason" ~ '[^[:space:]]');
 
 -- Tenant isolation (same pattern as AppointmentAccessToken / NotificationDelivery / CustomerNote).
 ALTER TABLE "ClosureDate" ENABLE ROW LEVEL SECURITY;

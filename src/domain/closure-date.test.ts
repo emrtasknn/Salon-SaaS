@@ -39,6 +39,11 @@ describe("closure date (WP-08)", () => {
     expect(normalizeClosureReason(undefined)).toEqual({ ok: true, value: null });
     expect(normalizeClosureReason(null)).toEqual({ ok: true, value: null });
     expect(normalizeClosureReason("   ")).toEqual({ ok: true, value: null });
+    // Mirrors ClosureDate_reason_not_blank_check: any whitespace-only reason is stored as null, never sent to the DB.
+    for (const blank of ["", "\t ", "\t", " \n ", "\r\n", "\u00a0"]) {
+      expect(normalizeClosureReason(blank)).toEqual({ ok: true, value: null });
+    }
+    expect(normalizeClosureReason("\tBayram\t")).toEqual({ ok: true, value: "Bayram" });
     expect(normalizeClosureReason("  Bayram  ")).toEqual({ ok: true, value: "Bayram" });
     expect(normalizeClosureReason("x".repeat(200))).toEqual({ ok: true, value: "x".repeat(200) });
     expect(normalizeClosureReason("x".repeat(201))).toEqual({ ok: false });
