@@ -1,14 +1,14 @@
 # Salon SaaS — Project Context
 
 Compact, verified orientation for agents. Link to canonical docs instead of copying them.
-Last verified: 2026-11-03 against GitHub `main` @ `71d73c8` and the local working copy listing.
+Last verified: 2026-11-04 against GitHub `main` @ `8394a59`.
 
 ## Product
 
 - Multi-tenant SaaS for appointment-based small businesses (salons, barbers, beauty centers). Source: `docs/PROJECT_GOVERNANCE.md` §1.
 - Actors: `SUPER_ADMIN`, `TENANT_ADMIN`, `STAFF`, `CUSTOMER` (enum `TenantRole` in `prisma/schema.prisma`).
 - MVP scope (canonical): `docs/PROJECT_GOVERNANCE.md` §4. Customer booking model: guest booking without a customer account (approved 2026-11-02, `docs/P7_PILOT_ACCEPTANCE_CHECKLIST.md`).
-- Stage: foundation complete; P7 pilot acceptance OPEN, P8 production readiness BLOCKED, P9 MVP closure OPEN. Status source: `docs/ROADMAP.md` "Current checkpoint".
+- Stage: foundation complete; P7 pilot acceptance OPEN, P8 production readiness BLOCKED, P9 MVP closure OPEN. Status source: `docs/ROADMAP.md` "Current checkpoint". Remaining MVP work: `docs/tasks/` (WP-00..WP-14, approved 2026-11-04).
 
 ## Repository layout (verified)
 
@@ -65,10 +65,10 @@ Next.js 16.3.8 · React 19.2.8 · TypeScript 5 · Tailwind 4 · Prisma 7.10 (`@p
 
 ## Local environment facts
 
-- Active local working copy: `C:\Users\emret\OneDrive\Masaüstü\proje\Salon SaaS\Salon-SaaS\salon-saas` (git branch `staging/webhook` on 2026-11-03, with uncommitted changes). Sibling folders (`salon-saas-app`, `-sync`, `-notifications`, `-worktree-sw`, backups) are other copies — see `docs/DISK_CLEANUP_POLICY.md`.
+- Active local working copy: `C:\Users\emret\OneDrive\Masaüstü\proje\Salon SaaS\Salon-SaaS\salon-saas` (work happens on short-lived branches cut from `main`; parallel work packages use separate worktrees). Sibling folders (`salon-saas-app`, `-sync`, `-notifications`, `-worktree-sw`, backups) are other copies — see `docs/DISK_CLEANUP_POLICY.md`.
 - The folder is inside OneDrive (synced). Keep secrets out of plain-text files there.
-- `.ai-memory.toml` binds the local ai-memory MCP to workspace `default`, project `emrtasknn-salon-saas`.
-- Local `package.json` differs from `main` (adds `@emnapi/core`/`@emnapi/runtime` optional deps) — uncommitted user change, do not revert.
+- `.ai-memory.toml` (gitignored) binds the local ai-memory MCP to workspace `default`, project `emrtasknn-salon-saas`.
+- Environment variable names: `.env.example` (names only, no values).
 
 ## Known risks / unknowns
 
