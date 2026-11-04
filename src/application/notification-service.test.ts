@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { createNotificationService } from "./notification-service";
+import { describe, expect, it, vi, type Mock } from "vitest";
+import { createNotificationService, type NotificationRepository } from "./notification-service";
 import { NotificationProviderError } from "../domain/notification";
 import { createMockWhatsAppProvider } from "../infrastructure/notifications";
 
@@ -416,5 +416,135 @@ describe("notification service", () => {
         recipientProfileId: "customer-1",
       }),
     );
+  });
+
+  describe("with tenant admin recipients (WP-02b)", () => {
+    const createdRecipients = [
+      { profileId: "staff-1", displayName: "Staff", phone: "+905550000001", templateKey: "appointment-created-staff", body: "staff", templateParameters: ["Customer", "Kesim", "t"] },
+      { profileId: "customer-1", displayName: "Customer", phone: "+905550000002", templateKey: "appointment-created-customer", body: "customer", templateParameters: ["Kesim", "t", "Staff"] },
+      { profileId: "admin-1", displayName: "Admin 1", phone: "+905550000011", templateKey: "appointment-created-staff", body: "staff", templateParameters: ["Customer", "Kesim", "t"] },
+      { profileId: "admin-2", displayName: "Admin 2", phone: "+905550000012", templateKey: "appointment-created-staff", body: "staff", templateParameters: ["Customer", "Kesim", "t"] },
+    ];
+
+    type ClaimResult = Awaited<ReturnType<NotificationRepository["claim"]>>;
+
+    function repositoryWith(claim: Mock<NotificationRepository["claim"]>) {
+      return {
+        recipients: vi.fn().mockResolvedValue(createdRecipients),
+        claim,
+        markSent: vi.fn().mockResolvedValue(undefined),
+        markFailed: vi.fn().mockResolvedValue(undefined),
+        markUnknown: vi.fn().mockResolvedValue(undefined),
+      };
+    }
+
+    it("isolates a rejected and an ambiguous send so the remaining recipients still receive", async () => {
+      const repository = repositoryWith(vi.fn<NotificationRepository["claim"]>().mockResolvedValue("claimed"));
+      const provider = {
+        channel: "WHATSAPP" as const,
+        send: vi.fn(async (message: { to: string }) => {
+          if (message.to === "+905550000002") throw new NotificationProviderError("WHATSAPP_PROVIDER_HTTP_400", "rejected");
+          if (message.to === "+905550000011") throw new TypeError("fetch failed");
+          return { providerMessageId: `wamid.${message.to}` };
+        }),
+      };
+
+      const result = await createNotificationService({ repository, provider }).publish(
+        { tenantId: "tenant-1" as never },
+        "appointment-1",
+        "APPOINTMENT_CREATED",
+      );
+
+      expect(result.results).toEqual([
+        { profileId: "staff-1", status: "SENT" },
+        { profileId: "customer-1", status: "FAILED" },
+        { profileId: "admin-1", status: "UNKNOWN" },
+        { profileId: "admin-2", status: "SENT" },
+      ]);
+      expect(provider.send).toHaveBeenCalledTimes(4);
+      expect(repository.claim).toHaveBeenCalledTimes(4);
+      expect(repository.claim).toHaveBeenCalledWith(
+        { tenantId: "tenant-1" },
+        expect.objectContaining({ recipientProfileId: "admin-2", templateKey: "appointment-created-staff", eventType: "APPOINTMENT_CREATED" }),
+      );
+      expect(repository.markFailed).toHaveBeenCalledOnce();
+      expect(repository.markFailed).toHaveBeenCalledWith(
+        { tenantId: "tenant-1" },
+        expect.objectContaining({ recipientProfileId: "customer-1", errorCode: "WHATSAPP_PROVIDER_HTTP_400" }),
+      );
+      expect(repository.markUnknown).toHaveBeenCalledOnce();
+      expect(repository.markUnknown).toHaveBeenCalledWith(
+        { tenantId: "tenant-1" },
+        expect.objectContaining({ recipientProfileId: "admin-1", errorCode: "PROVIDER_OUTCOME_UNKNOWN" }),
+      );
+      expect(repository.markSent).toHaveBeenCalledTimes(2);
+      expect(repository.markSent).toHaveBeenCalledWith(
+        { tenantId: "tenant-1" },
+        expect.objectContaining({ recipientProfileId: "admin-2", providerMessageId: "wamid.+905550000012" }),
+      );
+    });
+
+    it("does not resend to admins already SENT, PENDING or UNKNOWN on re-publish", async () => {
+      const extended = [
+        ...createdRecipients,
+        { profileId: "admin-3", displayName: "Admin 3", phone: "+905550000013", templateKey: "appointment-created-staff", body: "staff", templateParameters: ["Customer", "Kesim", "t"] },
+      ];
+      const claimByProfile: Record<string, ClaimResult> = {
+        "staff-1": "already_sent",
+        "customer-1": "already_sent",
+        "admin-1": "already_sent",
+        "admin-2": "already_pending",
+        "admin-3": "already_unknown",
+      };
+      const repository = {
+        ...repositoryWith(vi.fn<NotificationRepository["claim"]>(async (_context, input) => claimByProfile[input.recipientProfileId])),
+        recipients: vi.fn().mockResolvedValue(extended),
+      };
+      const provider = { channel: "WHATSAPP" as const, send: vi.fn() };
+
+      const result = await createNotificationService({ repository, provider }).publish(
+        { tenantId: "tenant-1" as never },
+        "appointment-1",
+        "APPOINTMENT_CREATED",
+      );
+
+      expect(result.results).toEqual([
+        { profileId: "staff-1", status: "SENT" },
+        { profileId: "customer-1", status: "SENT" },
+        { profileId: "admin-1", status: "SENT" },
+        { profileId: "admin-2", status: "PENDING" },
+        { profileId: "admin-3", status: "UNKNOWN" },
+      ]);
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(repository.markSent).not.toHaveBeenCalled();
+      expect(repository.markFailed).not.toHaveBeenCalled();
+      expect(repository.markUnknown).not.toHaveBeenCalled();
+    });
+
+    it("sends only to the admin whose earlier attempt failed when re-publishing", async () => {
+      const claimByProfile: Record<string, ClaimResult> = {
+        "staff-1": "already_sent",
+        "customer-1": "already_sent",
+        "admin-1": "already_unknown",
+        "admin-2": "claimed",
+      };
+      const repository = repositoryWith(vi.fn<NotificationRepository["claim"]>(async (_context, input) => claimByProfile[input.recipientProfileId]));
+      const provider = { channel: "WHATSAPP" as const, send: vi.fn().mockResolvedValue({ providerMessageId: "wamid.retry" }) };
+
+      const result = await createNotificationService({ repository, provider }).publish(
+        { tenantId: "tenant-1" as never },
+        "appointment-1",
+        "APPOINTMENT_CREATED",
+      );
+
+      expect(result.results).toEqual([
+        { profileId: "staff-1", status: "SENT" },
+        { profileId: "customer-1", status: "SENT" },
+        { profileId: "admin-1", status: "UNKNOWN" },
+        { profileId: "admin-2", status: "SENT" },
+      ]);
+      expect(provider.send).toHaveBeenCalledOnce();
+      expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ to: "+905550000012", templateKey: "appointment-created-staff" }));
+    });
   });
 });

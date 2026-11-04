@@ -47,3 +47,38 @@ export function recipientsForEvent(eventType: NotificationEventType, input: Read
     templateParameters: eventType === "APPOINTMENT_CONFIRMED" ? [input.serviceName, time, input.staff.displayName] : [input.serviceName, time],
   }];
 }
+
+/** Digits-only phone key used for internal-recipient phone dedupe. Returns null when no digits remain. */
+export function phoneDedupeKey(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  return digits.length > 0 ? digits : null;
+}
+
+/**
+ * Builds the APPOINTMENT_CREATED recipient list: staff, customer, then admins.
+ * Staff and customer are always kept unchanged. An admin is skipped when their
+ * profileId is already present, or when their digits-only phone key matches the
+ * staff phone or an earlier admin's. The customer phone is never used for phone dedupe.
+ */
+export function dedupeRecipients(input: Readonly<{
+  staff: NotificationRecipient;
+  customer: NotificationRecipient;
+  admins: ReadonlyArray<NotificationRecipient>;
+}>): ReadonlyArray<NotificationRecipient> {
+  const result: NotificationRecipient[] = [input.staff, input.customer];
+  const profileIds = new Set<string>([input.staff.profileId, input.customer.profileId]);
+  const internalPhoneKeys = new Set<string>();
+  const staffKey = phoneDedupeKey(input.staff.phone);
+  if (staffKey) internalPhoneKeys.add(staffKey);
+
+  for (const admin of input.admins) {
+    if (profileIds.has(admin.profileId)) continue;
+    const key = phoneDedupeKey(admin.phone);
+    if (key && internalPhoneKeys.has(key)) continue;
+    profileIds.add(admin.profileId);
+    if (key) internalPhoneKeys.add(key);
+    result.push(admin);
+  }
+  return result;
+}
