@@ -159,11 +159,11 @@ describe("submitBooking rate limiting (WP-5)", () => {
 
   it("keeps the ALLOWED path unchanged (create + notify once)", async () => {
     vitrinLoad.mockResolvedValue({ status: "ok", tenantContext: vitrinTenantContext });
-    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-2" });
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-2", accessToken: "tok-2" });
 
     const result = await submitBooking(input);
 
-    expect(result).toEqual({ status: "created", appointmentId: "appt-2" });
+    expect(result).toEqual({ status: "created", appointmentId: "appt-2", statusPath: "/salon-a/randevu/tok-2" });
     expect(checkRateLimit.mock.invocationCallOrder[0]).toBeLessThan(bookingCreate.mock.invocationCallOrder[0]);
     expect(publishAppointmentNotification).toHaveBeenCalledWith(vitrinTenantContext, "appt-2", "APPOINTMENT_CREATED");
   });

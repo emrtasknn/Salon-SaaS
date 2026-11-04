@@ -90,6 +90,19 @@ describe("customer appointment status — view", () => {
     expect(repository.findDetailsByTokenHash).not.toHaveBeenCalled();
   });
 
+  it("returns RATE_LIMITED for a miss once the IP is over the status.miss budget", async () => {
+    const ctx = setup();
+    ctx.limiter.hit.mockImplementation(async (bucket: "status.view" | "status.miss") => {
+      ctx.hits.push(bucket);
+      return bucket === "status.miss" ? "limited" as const : "allowed" as const;
+    });
+    await expect(ctx.service.view("salon-b", ctx.token)).resolves.toEqual({ status: "RATE_LIMITED" });
+    await expect(ctx.service.cancel("salon-b", ctx.token)).resolves.toEqual({ status: "RATE_LIMITED" });
+    // A valid token is unaffected by the miss budget.
+    await expect(ctx.service.view("salon-a", ctx.token)).resolves.toMatchObject({ status: "ok" });
+    expect(ctx.row.status).toBe("PENDING");
+  });
+
   it.each([
     ["malformed token", {}, "salon-a", "not-a-token"],
     ["unknown slug", {}, "salon-x", null],

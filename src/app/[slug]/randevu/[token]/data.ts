@@ -3,7 +3,8 @@ import {
   createCustomerAppointmentStatus,
   type CustomerAppointmentLoadResult,
 } from "../../../../application/customer-appointment-status";
-import { createNoopStatusLinkRateLimiter } from "../../../../application/status-link-rate-limit";
+import { createStatusLinkRateLimiter } from "../../../../application/status-link-rate-limit";
+import { checkRateLimit, readClientIp } from "../../../rate-limit-runtime";
 import { getPrisma } from "../../../../infrastructure/prisma-runtime";
 import { logInfo } from "../../../../infrastructure/log-redaction";
 import { createPrismaAppointmentAccessTokenRepository } from "../../../../persistence/prisma-appointment-access-token";
@@ -16,8 +17,8 @@ export function customerAppointmentStatusService() {
   return createCustomerAppointmentStatus({
     resolveTenantBySlug: (slug) => salons.resolveBySlug(slug),
     repository: createPrismaAppointmentAccessTokenRepository(prisma),
-    // TODO(WP-05): replace with the persistent IP limiter (status.view 30/10 min, status.miss 10/10 min).
-    limiter: createNoopStatusLinkRateLimiter(),
+    // WP-05 persistent IP limiter: status.view 30/10 min, status.miss 10/10 min (skipped without a trusted IP).
+    limiter: createStatusLinkRateLimiter({ check: checkRateLimit, readClientIp }),
     // Redacted console.info; context never includes the token.
     logCancelled: (event) => logInfo("customer_appointment_cancelled", event),
   });

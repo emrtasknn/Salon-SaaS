@@ -85,8 +85,9 @@ function evaluate(state: CustomerAppointmentState, now: Date): "ALREADY_CANCELLE
 export function createCustomerAppointmentStatus(dependencies: CustomerAppointmentStatusDependencies) {
   const now = dependencies.now ?? (() => new Date());
 
-  async function miss(): Promise<{ status: "NOT_FOUND" }> {
-    await dependencies.limiter.hit("status.miss");
+  // Counts invalid lookups; once an IP is over the miss budget it gets RATE_LIMITED.
+  async function miss(): Promise<{ status: "NOT_FOUND" } | { status: "RATE_LIMITED" }> {
+    if ((await dependencies.limiter.hit("status.miss")) === "limited") return { status: "RATE_LIMITED" };
     return { status: "NOT_FOUND" };
   }
 
