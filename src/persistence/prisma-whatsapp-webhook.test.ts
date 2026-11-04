@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTenantId } from "../domain/tenant-context";
-import { applyWhatsAppWebhookStatuses, resolveWhatsAppTenantId } from "./prisma-whatsapp-webhook";
+import { applyWhatsAppWebhookStatuses, resolveWhatsAppDeliveryTenantId, resolveWhatsAppTenantId } from "./prisma-whatsapp-webhook";
 
 function fakePrisma() {
   const executeRaw = vi.fn().mockResolvedValue(1);
@@ -14,6 +14,49 @@ describe("WhatsApp webhook tenant routing", () => {
     const prisma = fakePrisma();
     await expect(resolveWhatsAppTenantId(prisma as never, "phone-a")).resolves.toBe("tenant-a");
     expect(prisma.queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves a shared-sender delivery tenant through the parameterized wamid resolver", async () => {
+    const prisma = fakePrisma();
+    await expect(resolveWhatsAppDeliveryTenantId(prisma as never, "wamid.abc")).resolves.toBe("tenant-a");
+    expect(prisma.queryRaw).toHaveBeenCalledTimes(1);
+    const [strings, ...values] = prisma.queryRaw.mock.calls[0];
+    expect((strings as string[]).join("?")).toContain("private.resolve_whatsapp_delivery_tenant_id(?)");
+    expect((strings as string[]).join("")).not.toContain("wamid.abc");
+    expect(values).toEqual(["wamid.abc"]);
+  });
+
+  it("returns null when the wamid resolver finds no single tenant", async () => {
+    const prisma = fakePrisma();
+    prisma.queryRaw.mockResolvedValueOnce([{ tenantId: null }]);
+    await expect(resolveWhatsAppDeliveryTenantId(prisma as never, "wamid.collision")).resolves.toBeNull();
+    prisma.queryRaw.mockResolvedValueOnce([]);
+    await expect(resolveWhatsAppDeliveryTenantId(prisma as never, "wamid.none")).resolves.toBeNull();
+  });
+
+  it("rejects empty and oversized wamids without querying", async () => {
+    const prisma = fakePrisma();
+    await expect(resolveWhatsAppDeliveryTenantId(prisma as never, "")).resolves.toBeNull();
+    await expect(resolveWhatsAppDeliveryTenantId(prisma as never, "w".repeat(257))).resolves.toBeNull();
+    expect(prisma.queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("filters every status update by tenant and WhatsApp channel", async () => {
+    const prisma = fakePrisma();
+    const tenantId = createTenantId("tenant-a");
+    if (!tenantId.ok) throw new Error("test tenant id must be valid");
+    await applyWhatsAppWebhookStatuses(prisma as never, { tenantId: tenantId.value }, [
+      { providerMessageId: "wamid.s", status: "sent" },
+      { providerMessageId: "wamid.d", status: "delivered" },
+      { providerMessageId: "wamid.f", status: "failed" },
+    ]);
+    const updates = prisma.executeRaw.mock.calls.slice(1);
+    expect(updates).toHaveLength(3);
+    for (const [strings] of updates) {
+      const sql = (strings as string[]).join("?");
+      expect(sql).toContain(`"tenantId" = ?`);
+      expect(sql).toContain(`"channel" = 'WHATSAPP'`);
+    }
   });
 
   it("updates delivery status inside the resolved tenant context", async () => {

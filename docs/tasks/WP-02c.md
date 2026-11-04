@@ -1,6 +1,6 @@
 # Task — WP-2c: Status-webhook tenant routing under the shared WhatsApp sender
 
-Status: **Proposal — waiting for owner decision.** No migration, code or data change has been made. The salon-saas-reviewer tenant-isolation review (2026-11-04) raised two blocking items: RLS proof under a non-bypass role, and Supabase grants/owner. Both are folded into the migration outline, test plan and acceptance criteria below.
+Status: **Approved and implemented (2026-11-04), pending CI.** Owner approved Option A, the non-unique `providerMessageId` index and HTTP 200 + log for unresolved statuses. Migration `20261105140000_whatsapp_delivery_tenant_resolver` (not applied anywhere). Original proposal text below. The salon-saas-reviewer tenant-isolation review (2026-11-04) raised two blocking items: RLS proof under a non-bypass role, and Supabase grants/owner. Both are folded into the migration outline, test plan and acceptance criteria below.
 
 ## Objective
 Meta status webhooks (`sent` / `delivered` / `failed`) for a message sent through the single shared platform number update the `NotificationDelivery` row of the tenant that sent it. Every other tenant's data stays untouched, and anything ambiguous fails closed.
@@ -166,3 +166,7 @@ Integration (CI only, isolated PostgreSQL 17; extend `src/persistence/prisma-wha
 
 ## Report
 `AGENTS.md` Required Report + update `docs/SESSION_HANDOFF.md`.
+
+## Agent log
+- 2026-11-04 (salon-saas-database): owner approved (1) Option A, amending the W11.6 rule for this one wamid-keyed pre-tenant lookup; (2) the non-unique index on `NotificationDelivery.providerMessageId`; (3) unresolved statuses return HTTP 200 and are logged. Wrote migration `20261105140000_whatsapp_delivery_tenant_resolver` (index `NotificationDelivery_providerMessageId_idx` + `private.resolve_whatsapp_delivery_tenant_id(TEXT)`, explicit owner `postgres`, EXECUTE only to `postgres`) and `@@index([providerMessageId])` in `schema.prisma`. Not applied; no prisma/SQL run. Open: whether `postgres` has BYPASSRLS on Pilot is unverified (pre-rollout gate; see WP-05 open check).
+- 2026-11-04 main session: route + persistence by salon-saas-backend (23 unit tests pass); integration tests 1–8 by salon-saas-qa (CI only). Docs amended: W11.6 step 3 exception, ADR-042 addendum item 2 resolved, `docs/STAGING_RUNBOOK.md` §4.5 pre-rollout BYPASSRLS gate for both resolvers.

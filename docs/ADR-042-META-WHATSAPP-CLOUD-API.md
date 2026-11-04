@@ -130,8 +130,8 @@ All recipients are resolved server-side from the appointment's trusted tenant co
 
 **Still open / not approved by this addendum.**
 1. The external validation gate above still applies before production use. The owner has not waived it.
-2. Webhook status routing under the shared sender is unresolved.
-   - `WhatsAppIntegration` maps a phone-number ID to exactly one tenant.
+2. ~~Webhook status routing under the shared sender is unresolved.~~ Resolved by WP-02c (owner-approved 2026-11-04): statuses on the shared number are routed by `providerMessageId` via `private.resolve_whatsapp_delivery_tenant_id`; unresolved statuses return HTTP 200 and are logged (masked).
+   - *Historical (before WP-02c):* `WhatsAppIntegration` maps a phone-number ID to exactly one tenant.
    - Status updates for other tenants' messages therefore fail closed. There is no cross-tenant mutation, but there is also no DELIVERED/FAILED update.
    - Fixing this changes the W11.6-approved routing and requires a separate C3 review.
 3. Recipient consent/opt-in is not modelled. The owner accepted this as an MVP risk.

@@ -227,6 +227,7 @@ model NotificationDelivery {
   @@unique([tenantId, id])
   @@unique([tenantId, appointmentId, eventType, channel, recipientProfileId])
   @@index([tenantId, status, createdAt])
+  @@index([providerMessageId])
 }
 
 // WP-06 / ADR-044 §5: customer status-link token. Only the SHA-256 hex hash of the
