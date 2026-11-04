@@ -1,4 +1,5 @@
--- WP-5 rate limiting: fixed-window counters (DRAFT, pending owner approval).
+-- WP-5 rate limiting: fixed-window counters (owner-approved 2026-11-04 for CI
+-- validation; production/Pilot apply needs a separate approval).
 --
 -- Purpose
 --   Durable, cross-instance rate-limit counters for server-side abuse
