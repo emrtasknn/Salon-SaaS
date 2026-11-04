@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { listStaffAppointments } from "./actions";
+import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots } from "./actions";
+import { CreateAppointmentDialog } from "../create-appointment-dialog";
+
+// Staff create for themselves only (staffId derived server-side), guest customer only.
+const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listSlots: listStaffSlots, create: createStaffAppointment } as const;
 import { decideAndNotify } from "./decide";
 
 type Props = { initialDate: string; initialData: Awaited<ReturnType<typeof listStaffAppointments>> };
@@ -22,6 +26,14 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
       const result = await listStaffAppointments(nextDate);
       setData(result);
       if (result.status !== "ok") setFeedback(result.status === "UNAUTHORIZED" ? "Bu alan için yetkiniz yok." : "Randevular yüklenemedi.");
+    });
+  }
+
+  function onCreated(created: { date: string; notified: boolean }) {
+    setDate(created.date);
+    startTransition(async () => {
+      setData(await listStaffAppointments(created.date));
+      setFeedback(created.notified ? "Randevu oluşturuldu ve onaylandı. Müşteri bildirimi gönderime alındı." : "Randevu oluşturuldu ve onaylandı.");
     });
   }
 
@@ -51,7 +63,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
   return <main className="min-h-screen bg-zinc-50"><div className="mx-auto max-w-5xl p-4 sm:p-6">
     <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div><p className="text-sm text-zinc-500">Salon-SaaS</p><h1 className="text-3xl font-semibold tracking-tight">Personel randevularım</h1></div>
-      <div className="flex gap-2"><input aria-label="Tarih" type="date" value={date} onChange={(e) => { setDate(e.target.value); refresh(e.target.value); }} className="rounded-lg border bg-white px-3 py-2 text-sm" /><button onClick={() => refresh()} disabled={busy} className="rounded-lg border bg-white px-3 py-2 text-sm">{busy ? "Yükleniyor…" : "Yenile"}</button></div>
+      <div className="flex flex-wrap gap-2"><CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} /><input aria-label="Tarih" type="date" value={date} onChange={(e) => { setDate(e.target.value); refresh(e.target.value); }} className="rounded-lg border bg-white px-3 py-2 text-sm" /><button onClick={() => refresh()} disabled={busy} className="rounded-lg border bg-white px-3 py-2 text-sm">{busy ? "Yükleniyor…" : "Yenile"}</button></div>
     </header>
     {feedback && <p role="status" className="mb-4 rounded-lg border bg-white p-3 text-sm">{feedback}</p>}
     {appointments.length === 0 ? <div className="rounded-xl border bg-white p-8 text-center text-sm text-zinc-500">Bu gün için randevu yok.</div> :

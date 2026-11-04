@@ -6,12 +6,20 @@ import { loadTenantSettings } from "./settings-actions";
 import { AdminManagement } from "./admin-management";
 import { TenantSettingsForm } from "./tenant-settings-form";
 import { InAppNotifications } from "../in-app-notifications";
+import { listClosures } from "./closure-actions";
+import { AdminClosures } from "./closures";
+import { upcomingClosureRange } from "../../domain/closure-date";
+import type { ClosureListResult } from "../appointment-create-contract";
 
 export default async function AdminPage() {
-  const [data, notifications, settings] = await Promise.all([
+  const closureRange = upcomingClosureRange();
+  const [data, notifications, settings, closures] = await Promise.all([
     listAdminData(),
     listAdminNotifications(),
     loadTenantSettings(),
+    // A closure read failure must not take down the whole admin page; the panel
+    // shows "could not load" for INVALID_INPUT.
+    listClosures(closureRange).catch((): ClosureListResult => ({ status: "INVALID_INPUT" })),
   ]);
   const authorized = data.status !== "UNAUTHORIZED";
   return <>
@@ -25,7 +33,10 @@ export default async function AdminPage() {
     <InAppNotifications initialData={notifications} reload={listAdminNotifications} href="/admin/calendar" className="bg-zinc-100 px-4 pt-4 sm:px-6" widthClassName="max-w-6xl" />
     <AdminManagement
       initialData={data}
-      settings={authorized && settings.ok ? <TenantSettingsForm settings={settings.settings} canEdit={settings.canEdit === true} /> : undefined}
+      settings={authorized ? <>
+        {settings.ok && <TenantSettingsForm settings={settings.settings} canEdit={settings.canEdit === true} />}
+        <AdminClosures initialData={closures} initialRange={closureRange} />
+      </> : undefined}
     />
   </>;
 }

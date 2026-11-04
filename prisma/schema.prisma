@@ -29,6 +29,7 @@ model Tenant {
   customerNotes CustomerNote[]
   appointmentAccessTokens AppointmentAccessToken[]
   pushSubscriptions PushSubscription[]
+  closureDates ClosureDate[]
 }
 
 model Profile {
@@ -46,6 +47,7 @@ model Profile {
   appointments Appointment[] @relation("AppointmentCustomer")
   notes       CustomerNote[]
   pushSubscriptions PushSubscription[]
+  closureDatesCreated ClosureDate[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -124,6 +126,7 @@ model Staff {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   profile      Profile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
   appointments Appointment[]
+  closureDates ClosureDate[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, profileId])
@@ -162,6 +165,30 @@ model WorkingHours {
   @@unique([tenantId, id])
   @@unique([tenantId, dayOfWeek])
   @@index([tenantId])
+}
+
+// WP-08: closed date (tenant-wide when staffId is null, otherwise per staff).
+// `date` is the LOCAL calendar date in the tenant's timezone (no time, no UTC
+// instant). RLS (ENABLE + FORCE, 4 tenant policies) and the reason non-blank
+// CHECK live in migration 20261105120000_closure_date. One tenant-wide closure
+// per date is enforced in the app (Tenant FOR UPDATE + exists check), not by a
+// partial index, to keep `prisma migrate diff` drift-free.
+model ClosureDate {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  staffId            String?
+  date               DateTime @db.Date
+  reason             String?  @db.VarChar(200)
+  createdByProfileId String?
+  createdAt          DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff     Staff?   @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  createdBy Profile? @relation(fields: [tenantId, createdByProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, staffId, date])
+  @@index([tenantId, date])
 }
 
 model CustomerNote {

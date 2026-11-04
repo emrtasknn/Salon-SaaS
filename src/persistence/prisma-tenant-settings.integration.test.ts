@@ -4,6 +4,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "../generated/prisma/client";
 import { localWallTimeToUtc } from "../domain/availability";
+import { generateAppointmentAccessToken } from "../domain/appointment-access-token";
 import { createPrismaBookingRepository } from "./prisma-booking-engine";
 import { createPrismaPlatformTenantRepository, type PrismaPlatformTenantClient } from "./prisma-platform-tenants";
 import { createPrismaPublicAvailabilityRepository } from "./prisma-public-availability";
@@ -279,9 +280,11 @@ describeDatabase("Tenant status / contact phone tenant isolation integration (WP
     it("booking engine (admin/staff): inactive tenant gets tenant_inactive and nothing is inserted; Tenant B still books", async () => {
       const repository = createPrismaBookingRepository(client());
       const startAt = localWallTimeToUtc(bookingDate, 10 * 60, "Europe/Istanbul");
-      const endAt = new Date(startAt.getTime() + 30 * 60_000);
+      // WP-08: createAppointment computes endAt in-tx and takes customer/initialStatus/token hash.
       const input = (fixture: Fixture) => ({
-        staffId: fixture.staffId, serviceId: fixture.serviceId, customerProfileId: fixture.customerProfileId, startAt, endAt,
+        staffId: fixture.staffId, serviceId: fixture.serviceId, startAt,
+        customer: { kind: "existing" as const, profileId: fixture.customerProfileId },
+        initialStatus: "CONFIRMED" as const, accessTokenHash: generateAppointmentAccessToken().tokenHash,
       });
 
       await withTenantAInactive(async () => {
@@ -290,13 +293,13 @@ describeDatabase("Tenant status / contact phone tenant isolation integration (WP
         await expect(appointmentCount(tenantA.tenantId)).resolves.toBe(beforeA);
 
         const beforeB = await appointmentCount(tenantB.tenantId);
-        await expect(repository.createAppointment({ tenantId: tenantB.tenantId as never }, input(tenantB))).resolves.toBe("created");
+        await expect(repository.createAppointment({ tenantId: tenantB.tenantId as never }, input(tenantB))).resolves.toMatchObject({ status: "created" });
         await expect(appointmentCount(tenantB.tenantId)).resolves.toBe(beforeB + 1);
       });
 
       // Reactivated tenant books again (status gate is not sticky).
       const beforeA = await appointmentCount(tenantA.tenantId);
-      await expect(repository.createAppointment({ tenantId: tenantA.tenantId as never }, input(tenantA))).resolves.toBe("created");
+      await expect(repository.createAppointment({ tenantId: tenantA.tenantId as never }, input(tenantA))).resolves.toMatchObject({ status: "created" });
       await expect(appointmentCount(tenantA.tenantId)).resolves.toBe(beforeA + 1);
     });
   });

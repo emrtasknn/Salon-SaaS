@@ -120,3 +120,26 @@ describe("public availability", () => {
     })).resolves.toEqual({ status: "TENANT_INACTIVE", slots: [] });
   });
 });
+
+describe("public availability closed dates (WP-08)", () => {
+  const okRead = (closedDates: string[]) => ({
+    read: vi.fn().mockResolvedValue({
+      status: "ok", timeZone: "Europe/Istanbul", durationMinutes: 30, bufferMinutes: 0,
+      workingHours, appointments: [], closedDates, serviceActive: true, staffActive: true,
+    }),
+  });
+
+  it("offers no slots on a closed date", async () => {
+    const result = await createPublicAvailability(okRead([availabilityDate])).list({ tenantId: "t" as never }, {
+      serviceId: "svc", staffId: "staff", dateIso: availabilityDate,
+    });
+    expect(result).toEqual({ status: "ok", timeZone: "Europe/Istanbul", slots: [] });
+  });
+
+  it("ignores closures on other dates", async () => {
+    const result = await createPublicAvailability(okRead(["2000-01-01"])).list({ tenantId: "t" as never }, {
+      serviceId: "svc", staffId: "staff", dateIso: availabilityDate,
+    });
+    expect(result.slots.length).toBeGreaterThan(0);
+  });
+});

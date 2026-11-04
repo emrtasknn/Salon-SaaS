@@ -16,6 +16,7 @@ function makeTransaction(overrides: Readonly<{
   staff?: unknown;
   profile?: unknown;
   tenantStatus?: string | null;
+  closures?: string[];
 }> = {}) {
   const tenantStatus = overrides.tenantStatus !== undefined ? overrides.tenantStatus : "ACTIVE";
   return {
@@ -29,6 +30,7 @@ function makeTransaction(overrides: Readonly<{
     profile: { findUnique: vi.fn().mockResolvedValue(overrides.profile !== undefined ? overrides.profile : { id: "c" }), create: vi.fn() },
     appointment: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: "a" }) },
     appointmentAccessToken: { create: vi.fn().mockResolvedValue({ id: "t" }) },
+    closureDate: { findMany: vi.fn().mockResolvedValue((overrides.closures ?? []).map((d) => ({ date: new Date(`${d}T00:00:00.000Z`) }))) },
   };
 }
 
@@ -214,5 +216,51 @@ describe("public booking repository", () => {
       await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("invalid_resource");
       expect(transaction.appointment.create).not.toHaveBeenCalled();
     });
+  });
+
+  describe("closed dates (WP-08)", () => {
+    it("rejects a booking on a closed date as slot_unavailable, before conflict reads or inserts", async () => {
+      const transaction = makeTransaction({ closures: [nextMondayIso()] });
+      await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("slot_unavailable");
+      expect(transaction.appointment.findMany).not.toHaveBeenCalled();
+      expect(transaction.profile.create).not.toHaveBeenCalled();
+      expect(transaction.appointment.create).not.toHaveBeenCalled();
+      expect(transaction.appointmentAccessToken.create).not.toHaveBeenCalled();
+    });
+
+    it("reads closures after the FOR SHARE tenant read, on the same tenant-context tx", async () => {
+      const transaction = makeTransaction();
+      await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput);
+      expect(transaction.closureDate.findMany).toHaveBeenCalledOnce();
+      expect(transaction.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(transaction.closureDate.findMany.mock.invocationCallOrder[0]);
+      expect(transaction.closureDate.findMany.mock.invocationCallOrder[0]).toBeLessThan(transaction.appointment.findMany.mock.invocationCallOrder[0]);
+      expect(transaction.closureDate.findMany.mock.calls[0][0].where).toMatchObject({ tenantId: "tenant-a", OR: [{ staffId: null }, { staffId: "staff-a" }] });
+    });
+
+    it("does not read closures for an inactive tenant", async () => {
+      const transaction = makeTransaction({ tenantStatus: "INACTIVE" });
+      await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput);
+      expect(transaction.closureDate.findMany).not.toHaveBeenCalled();
+    });
+  });
+});
+
+// QA (WP-08): public bookings stay PENDING; buffer crossing into a closed date is rejected in-tx.
+describe("public booking QA additions (WP-08)", () => {
+  it("inserts public bookings as PENDING (on-behalf CONFIRMED does not leak into the public path)", async () => {
+    const transaction = makeTransaction();
+    await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput);
+    expect(transaction.appointment.create.mock.calls[0][0].data.status).toBe("PENDING");
+  });
+
+  it("rejects in-tx when the buffer crosses local midnight into a closed next date", async () => {
+    const monday = nextMondayIso();
+    const tuesday = new Date(Date.parse(`${monday}T00:00:00.000Z`) + 86_400_000).toISOString().slice(0, 10);
+    const transaction = makeTransaction({ closures: [tuesday] });
+    transaction.workingHours.findMany.mockResolvedValue([{ id: "wh", tenantId: "tenant-a", dayOfWeek: 1, openMinute: 540, closeMinute: 1440 }]);
+    const startAt = localWallTimeToUtc(monday, 23 * 60, "Europe/Istanbul");
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, { ...validInput, startAt })).resolves.toBe("slot_unavailable");
+    expect(transaction.appointment.create).not.toHaveBeenCalled();
+    expect(transaction.appointmentAccessToken.create).not.toHaveBeenCalled();
   });
 });

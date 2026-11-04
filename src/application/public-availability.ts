@@ -15,6 +15,8 @@ export type PublicAvailabilityRepository = Readonly<{
         bufferMinutes: number;
         workingHours: ReadonlyArray<WorkingHoursRecord>;
         appointments: ReadonlyArray<AppointmentRecord>;
+        /** WP-08: closed local dates; slots touching them are excluded. */
+        closedDates?: ReadonlyArray<string>;
         serviceActive: boolean;
         staffActive: boolean;
       }
@@ -69,6 +71,7 @@ export function createPublicAvailability(repository: PublicAvailabilityRepositor
           durationMinutes: result.durationMinutes,
           bufferMinutes: result.bufferMinutes,
           now: new Date(),
+          closedDates: result.closedDates ?? [],
         });
 
         return {
