@@ -95,3 +95,46 @@ No credentials, production configuration, webhook routing, application code, or 
 - The existing global-env runtime is an implementation gap that must be addressed before claiming the hybrid model is implemented.
 - Production use of the shared platform sender remains blocked on external Meta/provider validation.
 - The mock provider remains useful for tests, but does not establish production readiness.
+
+## Addendum — 2026-11-04: Shared sender for MVP (owner decision)
+
+**Decision.**
+- For MVP, Randevu'N uses **one shared, platform-managed Meta WhatsApp sender** for all tenants.
+- It is configured from server-side environment secrets (`WHATSAPP_*`) and uses centrally managed, Meta-approved templates.
+- Tenant-connected senders and per-tenant sender resolution (the hybrid model above) are **deferred post-MVP**.
+- The architecture constraints in this ADR still apply when the hybrid model is picked up.
+
+**Recipients.**
+The shared sender delivers informational appointment messages to three recipient groups:
+- the **customer**;
+- the **assigned staff member**;
+- the **TENANT_ADMIN** members of the same tenant.
+
+All recipients are resolved server-side from the appointment's trusted tenant context, never from client input.
+
+| Event | Recipients |
+|---|---|
+| `APPOINTMENT_CREATED` | staff, customer, tenant admins (admins reuse the `appointment-created-staff` template) |
+| `APPOINTMENT_CONFIRMED` | customer |
+| `APPOINTMENT_REJECTED` | customer |
+
+**Admin delivery rules.**
+- An admin without a phone is skipped and gets no delivery row.
+- Recipients are deduplicated by profile.
+- Internal recipients (staff and admins) are also deduplicated by the digits-only phone number.
+
+**Idempotency.**
+- There is still one `NotificationDelivery` row per `(tenantId, appointmentId, eventType, channel, recipientProfileId)`.
+- No schema change is required.
+- Implementation and acceptance details: `docs/tasks/WP-02b.md`.
+
+**Still open / not approved by this addendum.**
+1. The external validation gate above still applies before production use. The owner has not waived it.
+2. Webhook status routing under the shared sender is unresolved.
+   - `WhatsAppIntegration` maps a phone-number ID to exactly one tenant.
+   - Status updates for other tenants' messages therefore fail closed. There is no cross-tenant mutation, but there is also no DELIVERED/FAILED update.
+   - Fixing this changes the W11.6-approved routing and requires a separate C3 review.
+3. Recipient consent/opt-in is not modelled. The owner accepted this as an MVP risk.
+4. New or salon-specific templates are out of MVP scope.
+
+Only SUPER_ADMIN controls sender policy. TENANT_ADMIN cannot select or change the sender.
