@@ -158,11 +158,12 @@ describeDatabase("appointment reschedule integration", () => {
   });
 
   it("never moves another tenant's appointment", async () => {
-    const id = await create(tenantA, at(16 * 60 + 30));
+    // 17:00-17:45 is free: earlier scenarios occupy up to 16:45.
+    const id = await create(tenantA, at(17 * 60));
     const result = await repository().rescheduleAppointment(ctx(tenantB), {
-      appointmentId: id, staffId: tenantA.staffId, serviceId: tenantA.serviceId, expectedStartAt: at(16 * 60 + 30), startAt: at(17 * 60),
+      appointmentId: id, staffId: tenantA.staffId, serviceId: tenantA.serviceId, expectedStartAt: at(17 * 60), startAt: at(17 * 60 + 15),
     });
     expect(result === "stale" || result === "invalid_resource").toBe(true);
-    expect((await record(tenantA, id)).startAt.getTime()).toBe(at(16 * 60 + 30).getTime());
+    expect((await record(tenantA, id)).startAt.getTime()).toBe(at(17 * 60).getTime());
   });
 });
