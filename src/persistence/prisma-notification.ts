@@ -13,7 +13,7 @@ type Tx = PrismaTenantTransactionClient & {
     customerProfile: { id: string; displayName: string; phone: string | null };
     staff: { profile: { id: string; displayName: string; phone: string | null } };
     service: { name: string };
-    contact: { phone: string | null; whatsappOptIn: boolean; optOutAt: Date | null } | null;
+    contact: { displayName: string; phone: string | null; whatsappOptIn: boolean; optOutAt: Date | null } | null;
   } | null> };
   tenantMembership: {
     findMany(args: { where: { tenantId: string; role: "TENANT_ADMIN" }; include: { profile: true }; orderBy: { profileId: "asc" } }): Promise<Array<{
@@ -43,7 +43,9 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
         // active opt-in record. Never falls back to Profile.phone (no opt-in record -> no customer delivery).
         const contact = appointment.contact;
         const customerPhone = contact && contact.whatsappOptIn && contact.optOutAt === null && contact.phone ? contact.phone : null;
-        const customer = { profileId: appointment.customerProfile.id, displayName: appointment.customerProfile.displayName, phone: customerPhone };
+        // WP-10 follow-up: staff/admin messages name the customer as entered for this booking
+        // (contact snapshot), falling back to the CRM profile name for pre-WP-10 bookings.
+        const customer = { profileId: appointment.customerProfile.id, displayName: contact?.displayName ?? appointment.customerProfile.displayName, phone: customerPhone };
         const staff = { profileId: appointment.staff.profile.id, displayName: appointment.staff.profile.displayName, phone: appointment.staff.profile.phone };
         const serviceName = appointment.service.name;
         const time = new Intl.DateTimeFormat("tr-TR", { timeZone: tenant.timezone, dateStyle: "short", timeStyle: "short" }).format(appointment.startAt);
