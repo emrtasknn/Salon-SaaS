@@ -7,6 +7,7 @@ import { getPrisma } from "../../../infrastructure/prisma-runtime";
 import { loadPublicLegalView } from "../legal-data";
 import { PublicBookingForm } from "./form";
 import { buttonSecondary } from "../../_ui/styles";
+import { SalonLocationLink } from "../../_ui/salon-location-link";
 
 function todayInTimeZone(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -68,6 +69,7 @@ export default async function BookingPage({
         <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">
           <section className="inset-group space-y-4 p-6">
             <h1 className="text-title">{vitrin.name}</h1>
+            {vitrin.location && <SalonLocationLink location={vitrin.location} />}
             <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
               Bu salon online randevu için henüz hazır değil. Randevu için lütfen salonla doğrudan iletişime geçin.
             </p>
@@ -92,6 +94,7 @@ export default async function BookingPage({
     <PublicBookingForm
       slug={slug}
       legal={legal}
+      location={vitrin.location}
       services={vitrin.services.map((service) => ({
         id: service.id,
         name: service.name,

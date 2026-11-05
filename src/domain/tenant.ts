@@ -21,7 +21,9 @@ export type TenantValidationErrorCode =
   | "INVALID_CONTACT_PHONE"
   | "INVALID_LEGAL_NAME"
   | "INVALID_LEGAL_ADDRESS"
-  | "INVALID_KVKK_EMAIL";
+  | "INVALID_KVKK_EMAIL"
+  | "INVALID_PUBLIC_ADDRESS"
+  | "INVALID_MAPS_URL";
 
 export type TenantValidationResult<T> =
   | { readonly ok: true; readonly value: T }
@@ -231,4 +233,88 @@ export function createTenantKvkkContactEmail(raw: unknown): TenantValidationResu
     return failure("INVALID_KVKK_EMAIL", "KVKK contact e-mail must be a valid e-mail address.");
   }
   return result;
+}
+
+/** Salon location shown to customers (separate from the KVKK legalAddress). Caps equal the VARCHAR(n) columns. */
+export const TENANT_PUBLIC_ADDRESS_MAX_LENGTH = 300;
+export const TENANT_MAPS_URL_MAX_LENGTH = 500;
+
+/**
+ * Must stay identical to the DB CHECK "Tenant_mapsUrl_allowlist_check": https only, no userinfo/port,
+ * host from a fixed maps allowlist; generic Google hosts only under the /maps path.
+ */
+export const TENANT_MAPS_URL_PATTERN =
+  /^https:\/\/(maps\.app\.goo\.gl|maps\.google\.com|maps\.apple\.com|goo\.gl\/maps|(www\.)?google\.com\/maps|www\.google\.com\.tr\/maps)([/?#][^\s]*)?$/;
+
+const MAPS_URL_PATTERN_CASE_INSENSITIVE = new RegExp(TENANT_MAPS_URL_PATTERN.source, "i");
+
+/** Hosts accepted for any path. */
+const MAPS_HOSTS_ANY_PATH: ReadonlySet<string> = new Set(["maps.app.goo.gl", "maps.google.com", "maps.apple.com"]);
+/** Hosts accepted only when the path is /maps or below. */
+const MAPS_HOSTS_MAPS_PATH: ReadonlySet<string> = new Set(["goo.gl", "google.com", "www.google.com", "www.google.com.tr"]);
+
+/** Public salon address. Line breaks (textarea input) become ", ". Empty input clears it (null). */
+export function createTenantPublicAddress(raw: unknown): TenantValidationResult<string | null> {
+  const flattened = typeof raw === "string" ? raw.trim().replace(/[ \t]*\r?\n\s*/g, ", ") : raw;
+  return legalText(flattened, "INVALID_PUBLIC_ADDRESS", TENANT_PUBLIC_ADDRESS_MAX_LENGTH, "Public address");
+}
+
+/** True only for a normalized maps link on the allowlist (also checked before rendering a stored value). */
+export function isAllowedMapsUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > TENANT_MAPS_URL_MAX_LENGTH) return false;
+  if (!TENANT_MAPS_URL_PATTERN.test(value)) return false;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || url.port !== "") return false;
+  if (url.href !== value) return false;
+  if (MAPS_HOSTS_ANY_PATH.has(url.hostname)) return true;
+  if (MAPS_HOSTS_MAPS_PATH.has(url.hostname)) return url.pathname === "/maps" || url.pathname.startsWith("/maps/");
+  return false;
+}
+
+/**
+ * Maps "share" link pasted by the salon admin. Returns the URL-normalized form; rejects any host
+ * outside the maps allowlist (no open redirect / phishing links on the public page). Empty clears it.
+ */
+export function createTenantMapsUrl(raw: unknown): TenantValidationResult<string | null> {
+  if (raw === null || raw === undefined) return { ok: true, value: null };
+  if (typeof raw !== "string") return failure("INVALID_MAPS_URL", "Maps link must be a string.");
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return { ok: true, value: null };
+  // The URL parser silently drops tabs/newlines; reject them (and any whitespace/control char) up front.
+  if (/[\s\u0000-\u001f\u007f-\u009f]/.test(trimmed)) {
+    return failure("INVALID_MAPS_URL", "Maps link must not contain spaces or control characters.");
+  }
+  // Check the raw input too: the URL parser would silently drop a default port (":443") or fix up
+  // a malformed authority, so the allowlist shape must hold before normalization as well.
+  if (!MAPS_URL_PATTERN_CASE_INSENSITIVE.test(trimmed)) {
+    return failure("INVALID_MAPS_URL", "Maps link must be an https Google Maps or Apple Maps link.");
+  }
+  let normalized: string;
+  try {
+    normalized = new URL(trimmed).href;
+  } catch {
+    return failure("INVALID_MAPS_URL", "Maps link must be a valid URL.");
+  }
+  if (!isAllowedMapsUrl(normalized)) {
+    return failure("INVALID_MAPS_URL", "Maps link must be an https Google Maps or Apple Maps link.");
+  }
+  return { ok: true, value: normalized };
+}
+
+/**
+ * Link customers follow to reach the salon: the stored maps link when it is still on the allowlist,
+ * else a Google Maps search for the public address; null when neither is set.
+ */
+export function salonDirectionsUrl(
+  location: Readonly<{ publicAddress: string | null; mapsUrl: string | null }>,
+): string | null {
+  if (isAllowedMapsUrl(location.mapsUrl)) return location.mapsUrl;
+  const address = typeof location.publicAddress === "string" ? location.publicAddress.trim() : "";
+  if (address.length === 0) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }

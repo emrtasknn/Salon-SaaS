@@ -210,6 +210,7 @@ describeDatabase("Tenant status / contact phone tenant isolation integration (WP
         name: "Salon A Yeni", contactPhone: "+905550000001", status: "ACTIVE", timezone: "Europe/Istanbul",
         // WP-10: legal keys absent from the update stay unchanged (NULL from seeding).
         legal: { legalName: null, legalAddress: null, kvkkContactEmail: null },
+        location: { publicAddress: null, mapsUrl: null },
       });
       await expect(repository.read({ tenantId: tenantB.tenantId as never })).resolves.toMatchObject({ name: "Settings Tenant B" });
     });
@@ -253,6 +254,51 @@ describeDatabase("Tenant status / contact phone tenant isolation integration (WP
         })).resolves.toBe("updated");
       }
       await expect(legalOf(tenantA.tenantId)).resolves.toEqual({ legalName: null, legalAddress: null, kvkkContactEmail: null });
+    });
+
+    it("sets the public location of the context tenant only; DB CHECKs reject blank address and unlisted maps hosts", async () => {
+      const repository = createPrismaTenantSettingsRepository(client());
+      const locationOf = async (tenantId: string) => (await db().query(
+        'SELECT "publicAddress", "mapsUrl" FROM "Tenant" WHERE "id" = $1', [tenantId])).rows[0];
+      const beforeB = await locationOf(tenantB.tenantId);
+      const current = await tenantRow(tenantA.tenantId);
+      if (!current) throw new Error("Tenant A missing");
+      const location = { publicAddress: "Moda Cad. No:12, Kadıköy / İstanbul", mapsUrl: "https://maps.app.goo.gl/AbCdEf123" };
+      const update = (extra: Readonly<{ publicAddress?: string | null; mapsUrl?: string | null }>) =>
+        repository.update({ tenantId: tenantA.tenantId as never }, { name: current.name, contactPhone: current.contactPhone, ...extra });
+      try {
+        await expect(update(location)).resolves.toBe("updated");
+        await expect(locationOf(tenantA.tenantId)).resolves.toEqual(location);
+        await expect(locationOf(tenantB.tenantId)).resolves.toEqual(beforeB);
+        await expect(repository.read({ tenantId: tenantA.tenantId as never })).resolves.toMatchObject({ location });
+
+        // Absent keys stay unchanged.
+        await expect(update({})).resolves.toBe("updated");
+        await expect(locationOf(tenantA.tenantId)).resolves.toEqual(location);
+
+        // Values the DB CHECKs reject fail and leave the row unchanged (defence in depth behind the domain).
+        for (const bad of [
+          { publicAddress: "\t" },
+          { publicAddress: " Moda" },
+          { mapsUrl: "http://maps.app.goo.gl/AbC" },
+          { mapsUrl: "https://maps.google.com.evil.com/" },
+          { mapsUrl: "https://x@maps.google.com/" },
+          { mapsUrl: "https://maps.google.com:8443/" },
+          { mapsUrl: "https://www.google.com/url?q=https://evil.com" },
+          { mapsUrl: "javascript:alert(1)" },
+        ]) {
+          await expect(update(bad)).resolves.toBe("persistence_failure");
+        }
+        await expect(locationOf(tenantA.tenantId)).resolves.toEqual(location);
+
+        // Other allowlisted shapes pass the CHECK.
+        for (const mapsUrl of ["https://www.google.com/maps/place/Salon", "https://maps.apple.com/?q=Moda", "https://goo.gl/maps/AbC"]) {
+          await expect(update({ mapsUrl })).resolves.toBe("updated");
+        }
+      } finally {
+        await expect(update({ publicAddress: null, mapsUrl: null })).resolves.toBe("updated");
+      }
+      await expect(locationOf(tenantA.tenantId)).resolves.toEqual({ publicAddress: null, mapsUrl: null });
     });
 
     it("returns not_found for an unknown tenant context and changes no tenant", async () => {

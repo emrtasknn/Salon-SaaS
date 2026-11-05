@@ -72,8 +72,9 @@ export async function loadTenantSettings(): Promise<TenantSettingsLoadResult & {
 }
 
 /**
- * Accepts only `name`, `contactPhone` and (WP-10) `legalName`, `legalAddress`, `kvkkContactEmail`;
- * status and timezone are not writable here. A legal field missing from the form stays unchanged.
+ * Accepts only `name`, `contactPhone`, (WP-10) `legalName`, `legalAddress`, `kvkkContactEmail` and the
+ * location fields `publicAddress`, `mapsUrl`; status and timezone are not writable here. A legal or
+ * location field missing from the form stays unchanged.
  */
 export async function updateTenantSettingsAction(formData: FormData): Promise<TenantSettingsUpdateResult> {
   try {
@@ -85,6 +86,8 @@ export async function updateTenantSettingsAction(formData: FormData): Promise<Te
         legalName: formData.get("legalName") ?? undefined,
         legalAddress: formData.get("legalAddress") ?? undefined,
         kvkkContactEmail: formData.get("kvkkContactEmail") ?? undefined,
+        publicAddress: formData.get("publicAddress") ?? undefined,
+        mapsUrl: formData.get("mapsUrl") ?? undefined,
       }
       : { name: undefined, contactPhone: undefined };
     return await settingsService(context).update(context.identity, context.tenantContext, input);

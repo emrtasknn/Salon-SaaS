@@ -2,7 +2,7 @@ import type { TenantContext } from "../domain/tenant-context";
 import type { ServiceRecord } from "../domain/service";
 import type { StaffRecord } from "../domain/staff";
 import type { WorkingHoursRecord } from "../domain/working-hours";
-import { whatsAppLink, type TenantStatus } from "../domain/tenant";
+import { salonDirectionsUrl, whatsAppLink, type TenantStatus } from "../domain/tenant";
 import { isLegalReady } from "../domain/legal-notice";
 
 export type PublicSalonRepository = Readonly<{
@@ -13,6 +13,8 @@ export type PublicSalonRepository = Readonly<{
   resolveBySlug(slug: string): Promise<Readonly<{
     tenantContext: TenantContext; name: string; timezone: string; status: TenantStatus; contactPhone: string | null;
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
+    /** Customer-facing location; reaches the public only as the address text + an allowlisted link. */
+    publicAddress?: string | null; mapsUrl?: string | null;
   }> | null>;
   catalog(tenantContext: TenantContext): Promise<Readonly<{
     services: ReadonlyArray<ServiceRecord>;
@@ -20,6 +22,15 @@ export type PublicSalonRepository = Readonly<{
     workingHours: ReadonlyArray<WorkingHoursRecord>;
   }>>;
 }>;
+
+/** Public salon location: address text (may be null) + the safe directions link; null when nothing is set. */
+export type PublicSalonLocation = Readonly<{ address: string | null; directionsUrl: string }>;
+
+function publicLocation(publicAddress: string | null, mapsUrl: string | null): PublicSalonLocation | null {
+  const directionsUrl = salonDirectionsUrl({ publicAddress, mapsUrl });
+  if (!directionsUrl) return null;
+  return { address: publicAddress, directionsUrl };
+}
 
 export function createPublicVitrin(repository: PublicSalonRepository) {
   return {
@@ -36,6 +47,7 @@ export function createPublicVitrin(repository: PublicSalonRepository) {
         whatsAppUrl: whatsAppLink(resolved.contactPhone),
         // WP-10: booking form opens only when the salon's KVKK controller identity is set (boolean only).
         legalReady: isLegalReady(resolved),
+        location: publicLocation(resolved.publicAddress ?? null, resolved.mapsUrl ?? null),
       };
       // An inactive salon shows no catalog (no services / booking links).
       if (!salon.active) {
