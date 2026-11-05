@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { badgeBase, buttonDestructiveOutline, buttonSecondary, statusNote } from "../../_ui/styles";
+import { badgeBase, buttonDestructiveOutline, buttonSecondary, field, statusNote } from "../../_ui/styles";
 import { setTenantStatusAction } from "./actions";
 
 type TenantRow = Readonly<{
@@ -19,21 +19,59 @@ const errorMessages: Record<string, string> = {
   PERSISTENCE_FAILURE: "Durum kaydedilemedi. Lütfen tekrar deneyin.",
 };
 
+function normalize(value: string): string {
+  return value.trim().toLocaleLowerCase("tr-TR");
+}
+
+/** Client-side filter by salon name or slug (presentation only). */
+export function filterTenants<T extends TenantRow>(tenants: ReadonlyArray<T>, query: string): ReadonlyArray<T> {
+  const needle = normalize(query).replace(/^\//, "");
+  if (needle === "") return tenants;
+  return tenants.filter(
+    (tenant) => normalize(tenant.name).includes(needle) || normalize(tenant.slug).includes(needle),
+  );
+}
+
 export function TenantStatusList({ tenants }: { tenants: ReadonlyArray<TenantRow> }) {
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState("");
   const [message, setMessage] = useState("");
+  const [query, setQuery] = useState("");
 
   if (tenants.length === 0) {
-    return <p className={statusNote}>Henüz salon yok. Aşağıdaki formdan ilk salonu oluşturun.</p>;
+    return <p className={statusNote}>Henüz salon yok. “Yeni salon” ile ilk salonu oluşturun.</p>;
   }
+
+  const visible = filterTenants(tenants, query);
+  const filtering = normalize(query) !== "";
 
   return (
     <>
+      <div className="space-y-2">
+        <label htmlFor="tenant-search" className="sr-only">Salon ara</label>
+        <input
+          id="tenant-search"
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Ad veya bağlantı adı ile ara"
+          autoCapitalize="none"
+          autoComplete="off"
+          spellCheck={false}
+          aria-describedby="tenant-count"
+          className={field}
+        />
+        <p id="tenant-count" aria-live="polite" className="px-4 text-footnote text-ink-muted tabular-nums">
+          {filtering ? `${visible.length} / ${tenants.length} salon` : `${tenants.length} salon`}
+        </p>
+      </div>
       <p role="status" aria-live="polite" className={message !== "" ? statusNote : "sr-only"}>{message}</p>
-      <ul className="inset-group">
-        {tenants.map((tenant) => {
+      {visible.length === 0 ? (
+        <p className={statusNote}>“{query.trim()}” ile eşleşen salon yok.</p>
+      ) : null}
+      <ul className={visible.length === 0 ? "hidden" : "inset-group"}>
+        {visible.map((tenant) => {
           const active = tenant.status === "ACTIVE";
           const next = active ? "INACTIVE" : "ACTIVE";
           const label = active ? "Pasife al" : "Aktifleştir";
