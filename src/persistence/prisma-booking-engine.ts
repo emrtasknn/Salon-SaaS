@@ -45,9 +45,13 @@ type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & Closure
     create(args: { data: { tenantId: string; displayName: string; email: string | null; phone: string | null } }): Promise<ProfileRow>;
   };
   appointment: {
-    findMany(args: { where: { tenantId: string; staffId: string; startAt: { lt: Date }; endAt: { gt: Date } } }): Promise<AppointmentRecord[]>;
+    findMany(args: { where: { tenantId: string; staffId: string; id?: { not: string }; startAt: { lt: Date }; endAt: { gt: Date } } }): Promise<AppointmentRecord[]>;
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<AppointmentRecord | null>;
     create(args: { data: { tenantId: string; staffId: string; serviceId: string; customerProfileId: string; startAt: Date; endAt: Date; status: AppointmentStatus } }): Promise<{ id: string }>;
-    updateMany(args: { where: { tenantId: string; id: string; status: AppointmentStatus }; data: { status: AppointmentStatus } }): Promise<{ count: number }>;
+    updateMany(args:
+      | { where: { tenantId: string; id: string; status: AppointmentStatus }; data: { status: AppointmentStatus } }
+      | { where: { tenantId: string; id: string; staffId: string; startAt: Date; status: { in: AppointmentStatus[] } }; data: { startAt: Date; endAt: Date } }
+    ): Promise<{ count: number }>;
   };
   appointmentAccessToken: {
     create(args: { data: { tenantId: string; appointmentId: string; tokenHash: string; expiresAt: Date }; select: { id: true } }): Promise<{ id: string }>;
@@ -232,6 +236,56 @@ export function createPrismaBookingRepository(prisma: PrismaTenantClient): Booki
             select: { id: true },
           });
           return { status: "created" as const, appointmentId: appointment.id, customerWhatsAppOptIn: optIn };
+        });
+      } catch { return "persistence_failure"; }
+    },
+
+    async rescheduleAppointment(tenantContext, input) {
+      try {
+        return await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
+          const tenantId = tenantContext.tenantId;
+          // Same per tenant + staff lock as create: a move and a new booking for this staff serialize.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenantId + ":" + input.staffId}, 0))`;
+          const tenantStatus = await readTenantStatusForShare(tx, tenantId);
+          if (tenantStatus === null) return "invalid_resource";
+          if (tenantStatus !== "ACTIVE") return "tenant_inactive";
+          const tenant = await tx.tenant.findUnique({ where: { id: tenantId } });
+          if (!tenant) return "invalid_resource";
+          const current = await tx.appointment.findUnique({ where: { tenantId_id: { tenantId, id: input.appointmentId } } });
+          if (
+            !current || current.staffId !== input.staffId || current.serviceId !== input.serviceId ||
+            current.startAt.getTime() !== input.expectedStartAt.getTime() ||
+            (current.status !== "PENDING" && current.status !== "CONFIRMED")
+          ) return "stale";
+          const startDateIso = utcToLocalDateAndMinute(input.startAt, tenant.timezone).dateIso;
+          const closedDates = await readClosedDates(tx, tenantId, input.staffId, [startDateIso, addDaysToDateIso(startDateIso, 1)]);
+          const [service, staff, workingHours] = await Promise.all([
+            tx.service.findUnique({ where: { tenantId_id: { tenantId, id: input.serviceId } } }),
+            tx.staff.findUnique({ where: { tenantId_id: { tenantId, id: input.staffId } } }),
+            tx.workingHours.findMany({ where: { tenantId }, orderBy: { dayOfWeek: "asc" } }),
+          ]);
+          // The service may have been deactivated since booking; the existing appointment can still move.
+          if (!service || !staff || staff.status !== "ACTIVE") return "invalid_resource";
+          const endAt = new Date(input.startAt.getTime() + (service.durationMinutes + service.bufferMinutes) * 60_000);
+          if (isSlotOnClosedDate({ startAt: input.startAt, endAt }, tenant.timezone, closedDates)) return "closed_date";
+          const slot = calculateAvailability({
+            dateIso: startDateIso, timeZone: tenant.timezone, workingHours, staffId: input.staffId, appointments: [],
+            durationMinutes: service.durationMinutes, bufferMinutes: service.bufferMinutes, now: new Date(), closedDates,
+          }).find((candidate) => candidate.startAt.getTime() === input.startAt.getTime());
+          if (!slot) return "slot_unavailable";
+          const conflicts = await tx.appointment.findMany({ where: {
+            tenantId, staffId: input.staffId, id: { not: input.appointmentId }, startAt: { lt: endAt }, endAt: { gt: input.startAt },
+          }});
+          if (conflicts.some((a) => activeConflict(a.status))) return "conflict";
+          const updated = await tx.appointment.updateMany({
+            where: {
+              tenantId, id: input.appointmentId, staffId: input.staffId, startAt: input.expectedStartAt,
+              status: { in: ["PENDING", "CONFIRMED"] as AppointmentStatus[] },
+            },
+            data: { startAt: input.startAt, endAt },
+          });
+          if (updated.count !== 1) return "stale";
+          return { status: "rescheduled" as const, startAt: input.startAt, endAt };
         });
       } catch { return "persistence_failure"; }
     },

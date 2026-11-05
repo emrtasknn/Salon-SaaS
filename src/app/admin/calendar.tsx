@@ -6,9 +6,11 @@ import {
   getAdminCreateOptions,
   listAdminAppointments,
   listAdminSlots,
+  rescheduleAdminAppointment,
   searchAdminCustomers,
   transitionAdminAppointment,
 } from "./calendar-actions";
+import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { BookingContactSummary } from "../booking-contact-summary";
 import {
@@ -95,6 +97,13 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   const [feedback, setFeedback] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const [closuresOpen, setClosuresOpen] = useState(false);
+  const move = useAppointmentMove({
+    reschedule: rescheduleAdminAppointment,
+    onDone: (message) => {
+      setFeedback(message);
+      refresh();
+    },
+  });
   const [closureData, setClosureData] = useState(closures.initialData);
   const sheetTrigger = useRef<HTMLElement | null>(null);
   const closuresTrigger = useRef<HTMLButtonElement | null>(null);
@@ -176,6 +185,13 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   const loadError = data.status !== "ok" ? "Takvim yüklenemedi." : "";
   // Day and list show only the anchor date (data may still hold a wider range while reloading).
   const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
+  const movableOf = (a: (typeof appointments)[number]) => ({
+    id: a.id,
+    startAt: a.startAt,
+    endAt: a.endAt,
+    title: a.bookingContact?.displayName ?? a.customerDisplayName,
+    detail: `${a.serviceName} · ${a.staffDisplayName}`,
+  });
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const select = (id: string, trigger: HTMLElement) => {
     sheetTrigger.current = trigger;
@@ -272,7 +288,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
           <DayTimeline
             date={date}
             rows={staffRows(dayAppointments)}
-            items={dayAppointments.map((a) => ({
+            items={dayAppointments.map((a) => move.preview({
               id: a.id,
               rowId: a.staffId,
               startAt: a.startAt,
@@ -282,6 +298,11 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
               service: a.serviceName,
             }))}
             onSelect={select}
+            pendingId={move.pendingId}
+            onMove={(id, deltaMinutes) => {
+              const a = dayAppointments.find((candidate) => candidate.id === id);
+              if (a) move.propose(movableOf(a), deltaMinutes);
+            }}
           />
         ) : (
           <div className="space-y-3">
@@ -373,6 +394,16 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
                 {feedback}
               </p>
             )}
+            {(selected.status === "PENDING" || selected.status === "CONFIRMED") && (
+              <MoveStepButtons
+                disabled={busy || move.saving}
+                onStep={(deltaMinutes) => {
+                  const target = selected;
+                  setSelectedId(null);
+                  move.propose(movableOf(target), deltaMinutes);
+                }}
+              />
+            )}
             {availableActions(selected.status).length > 0 ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 {availableActions(selected.status).map((action) => (
@@ -394,6 +425,8 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
           </div>
         )}
       </AppointmentSheet>
+
+      {move.sheet}
 
       <AppointmentSheet
         wide

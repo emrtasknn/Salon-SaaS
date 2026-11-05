@@ -26,6 +26,16 @@
 | Integration | CI | pending |
 | Build | `npm run build` | PASS |
 
+## Round 2 (same PR)
+- Fixed top layer `PageHeader` on all signed-in screens; bell deep links (`?date=&appointment=`) + status colors.
+- Working hours: quarter-hour `TimeSelect`. Haptics (`src/lib/haptics.ts`) + "Titreşim" switch.
+- **Scope change (owner decision 2026-11-05): drag-to-move in the day calendar.** Admin: any open
+  appointment; active staff: own only (create scope). PENDING/CONFIRMED only, same staff/service, slot +
+  closure + conflict re-check under the create advisory lock, stale guard. No migration, **no customer
+  notification** (needs a new event type + Meta template → follow-up). Previously listed as deferred in
+  docs/tasks/WP-08.md:16 and ADR-044 — those docs not yet updated.
+- New integration test `src/persistence/prisma-booking-reschedule.integration.test.ts` (CI only).
+
 ## Decisions
 - No `boardui init` / BoardUI tokens: components restyled onto existing tokens (dark mode keeps working via `data-theme`).
 - Default button height kept at 44px (BoardUI uses 36px) for touch targets.

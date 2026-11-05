@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
-import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots } from "./actions";
+import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
+import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { PageHeader } from "../_ui/page-header";
 import { AccountLinks } from "../_ui/account-links";
@@ -45,6 +46,10 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const [feedback, setFeedback] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const sheetTrigger = useRef<HTMLElement | null>(null);
+  const move = useAppointmentMove({
+    reschedule: rescheduleStaffAppointment,
+    onDone: (message) => { setFeedback(message); refresh(); },
+  });
 
   function changeDate(nextDate: string) {
     setSelectedId(null);
@@ -93,6 +98,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setSelectedId(id); };
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const customerOf = (a: (typeof appointments)[number]) => a.bookingContact?.displayName ?? a.customerName;
+  const movableOf = (a: (typeof appointments)[number]) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, title: customerOf(a), detail: a.serviceName });
 
   return <main className="min-h-screen bg-canvas">
     <PageHeader eyebrow={eyebrow ?? "RandevuN"} title={title} accessory={bell} widthClassName="max-w-5xl">
@@ -122,8 +128,13 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
         view === "day" ? <DayTimeline
           date={date}
           rows={SELF_COLUMN}
-          items={dayAppointments.map((a) => ({ id: a.id, rowId: "self", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
+          items={dayAppointments.map((a) => move.preview({ id: a.id, rowId: "self", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
           onSelect={select}
+          pendingId={move.pendingId}
+          onMove={(id, deltaMinutes) => {
+            const a = dayAppointments.find((candidate) => candidate.id === id);
+            if (a) move.propose(movableOf(a), deltaMinutes);
+          }}
         /> :
         <ul className="inset-group">{dayAppointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
           <div className="flex items-start justify-between gap-3">
@@ -160,11 +171,16 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
         ]} />
         <BookingContactSummary contact={selected.bookingContact} profile={{ displayName: customerOf(selected) }} />
         {feedback && <p role="status" className="text-subhead text-ink">{feedback}</p>}
+        {(selected.status === "PENDING" || selected.status === "CONFIRMED") && <MoveStepButtons
+          disabled={busy || move.saving}
+          onStep={(deltaMinutes) => { const target = selected; setSelectedId(null); move.propose(movableOf(target), deltaMinutes); }}
+        />}
         {selected.status === "PENDING" ? <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="button" disabled={busy} onClick={() => decide(selected.id, "CONFIRMED")} variant="primary" className="sm:flex-1">Onayla</Button>
           <Button type="button" disabled={busy} onClick={() => decide(selected.id, "REJECTED")} variant="danger-outline" className="sm:flex-1">Reddet</Button>
         </div> : <p className="text-subhead text-ink-muted">Bu randevu için başka işlem yok.</p>}
       </div>}
     </AppointmentSheet>
+    {move.sheet}
   </main>;
 }
