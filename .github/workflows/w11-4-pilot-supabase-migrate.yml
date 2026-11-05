@@ -1,21 +1,123 @@
 name: W11.4 Pilot Supabase Migration
 
+# Applies prisma/migrations to the PILOT project (real data). Same guard,
+# status and drift checks as staging-migrate.yml, plus:
+#   - GitHub Environment `pilot` (required reviewer = owner, main only)
+#   - deploy mode requires typing the pilot project ref and confirming that a
+#     fresh backup exists (owner takes it locally; never as a workflow artifact,
+#     the repository is public).
+# Reads the existing repo secret DATABASE_URL (pilot, migration role postgres).
+#
+# Environment `pilot` variables:
+#   PILOT_SUPABASE_PROJECT_REF    pilot project ref (the URL must contain it)
+#   STAGING_SUPABASE_PROJECT_REF  staging project ref (deny-guard)
+
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "check = status/drift only (no writes); deploy = migrate deploy + drift check"
+        type: choice
+        options: [check, deploy]
+        default: check
+      confirm_ref:
+        description: "deploy only: type the pilot project ref to confirm the target"
+        type: string
+        default: ""
+      backup_taken:
+        description: "deploy only: a fresh pilot backup (pg_dump) was taken and verified today"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+concurrency:
+  group: pilot-migrate
+  cancel-in-progress: false
+
 jobs:
   migrate-pilot:
     runs-on: ubuntu-latest
+    environment: pilot
+    timeout-minutes: 20
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Placeholder for `npm ci` (postinstall runs `prisma generate`, which does not connect).
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+      STAGING_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      PILOT_REF: ${{ vars.PILOT_SUPABASE_PROJECT_REF }}
+      MODE: ${{ inputs.mode }}
+      CONFIRM_REF: ${{ inputs.confirm_ref }}
+      BACKUP_TAKEN: ${{ inputs.backup_taken }}
     steps:
+      - name: Guard - pilot target only, deploy confirmations
+        id: guard
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then echo "::error::DATABASE_URL (pilot) secret is not set."; exit 1; fi
+          if [ -z "${STAGING_REF:-}" ] || [ -z "${PILOT_REF:-}" ]; then
+            echo "::error::Set PILOT_SUPABASE_PROJECT_REF and STAGING_SUPABASE_PROJECT_REF on the 'pilot' environment."; exit 1
+          fi
+          if [ "$STAGING_REF" = "$PILOT_REF" ]; then echo "::error::Pilot ref equals staging ref."; exit 1; fi
+          case "$DATABASE_URL" in *"$STAGING_REF"*) echo "::error::DATABASE_URL points at staging."; exit 1 ;; esac
+          case "$DATABASE_URL" in
+            *"$PILOT_REF"*) echo "Target is the pilot project." ;;
+            *) echo "::error::DATABASE_URL does not contain the pilot project ref."; exit 1 ;;
+          esac
+          case "$DATABASE_URL" in
+            *"salon_app"*) echo "::error::DATABASE_URL uses the runtime role salon_app; migrations need postgres."; exit 1 ;;
+          esac
+          if [ "$MODE" = "deploy" ]; then
+            if [ "$CONFIRM_REF" != "$PILOT_REF" ]; then echo "::error::confirm_ref must equal the pilot project ref for deploy."; exit 1; fi
+            if [ "$BACKUP_TAKEN" != "true" ]; then echo "::error::Take and verify a pilot backup first (backup_taken)."; exit 1; fi
+          fi
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24.11.1
           cache: npm
       - run: npm ci
-      - run: npx prisma migrate deploy
+
+      - name: Migration status (before)
+        continue-on-error: ${{ inputs.mode == 'deploy' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate status
+
+      - name: Apply migrations
+        if: ${{ inputs.mode == 'deploy' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Migration status (after)
+        if: ${{ inputs.mode == 'deploy' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate status
+
+      - name: Drift check (database vs prisma/schema.prisma)
+        if: ${{ !cancelled() && steps.guard.outcome == 'success' }}
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          set +e
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code > drift.txt
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "No schema drift." | tee -a "$GITHUB_STEP_SUMMARY"
+          elif [ "$code" -eq 2 ]; then
+            echo "::error::Schema drift detected between pilot and prisma/schema.prisma."
+            cat drift.txt
+            { echo "### Schema drift (pilot DB → schema.prisma)"; echo '```'; cat drift.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          else
+            echo "::error::prisma migrate diff failed (exit $code)."; exit "$code"
+          fi
