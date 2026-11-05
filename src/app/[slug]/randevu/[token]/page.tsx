@@ -8,6 +8,7 @@ import { loadCustomerAppointment } from "./data";
 import { CancelForm } from "./cancel-form";
 import { WhatsAppOptOutForm } from "./whatsapp-optout-form";
 import type { CustomerWhatsAppState } from "../../../legal-consent-contract";
+import { appointmentStatusBadge, badgeBase } from "../../../_ui/styles";
 
 export const metadata: Metadata = {
   title: "Randevu durumu",
@@ -30,14 +31,6 @@ const statusHints: Record<AppointmentStatus, string> = {
   COMPLETED: "Bu randevu tamamlandı.",
 };
 
-const statusBadgeClass: Record<AppointmentStatus, string> = {
-  PENDING: "border-amber-300 bg-amber-50 text-amber-900",
-  CONFIRMED: "border-emerald-300 bg-emerald-50 text-emerald-900",
-  REJECTED: "border-red-300 bg-red-50 text-red-900",
-  CANCELLED: "border-zinc-300 bg-zinc-100 text-zinc-800",
-  COMPLETED: "border-sky-300 bg-sky-50 text-sky-900",
-};
-
 function formatDate(iso: string, timeZone: string) {
   return new Intl.DateTimeFormat("tr-TR", {
     timeZone,
@@ -58,8 +51,8 @@ function formatTime(iso: string, timeZone: string) {
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <main className="min-h-screen bg-zinc-50">
-      <div className="mx-auto max-w-xl p-4 sm:p-8">{children}</div>
+    <main className="min-h-screen bg-canvas">
+      <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">{children}</div>
     </main>
   );
 }
@@ -67,11 +60,20 @@ function Shell({ children }: { children: ReactNode }) {
 function Unavailable({ message }: { message: string }) {
   return (
     <Shell>
-      <section className="rounded-2xl border bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold">Randevu durumu</h1>
-        <p role="status" className="mt-3 text-sm text-zinc-600">{message}</p>
+      <section className="space-y-3">
+        <h1 className="text-large-title">Randevu durumu</h1>
+        <p role="status" className="inset-group p-4 text-body text-ink-muted">{message}</p>
       </section>
     </Shell>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="inset-row flex min-h-12 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-4 py-3">
+      <dt className="text-subhead text-ink-muted">{label}</dt>
+      <dd className="text-right text-body font-medium text-ink">{children}</dd>
+    </div>
   );
 }
 
@@ -91,37 +93,33 @@ function AppointmentDetails({
 
   return (
     <Shell>
-      <section className="space-y-5 rounded-2xl border bg-white p-6 shadow-sm">
+      <div className="space-y-7">
         <header>
-          <p className="text-sm text-zinc-500">{appointment.salonName}</p>
-          <h1 className="mt-1 text-2xl font-semibold">Randevu durumu</h1>
+          <p className="text-subhead font-medium text-ink-muted">{appointment.salonName}</p>
+          <h1 className="mt-1 text-large-title">Randevu durumu</h1>
         </header>
 
-        <div className="space-y-1">
-          <span
-            className={`inline-block rounded-full border px-3 py-1 text-sm font-medium ${statusBadgeClass[status]}`}
-          >
+        <div className="inset-group space-y-2 p-4">
+          <span className={`${badgeBase} ${appointmentStatusBadge[status]}`}>
             Durum: {statusLabels[status]}
           </span>
-          <p className="text-sm text-zinc-600">{statusHints[status]}</p>
+          <p className="text-body text-ink-muted">{statusHints[status]}</p>
         </div>
 
-        <dl className="grid grid-cols-1 gap-3 border-t pt-5 text-sm sm:grid-cols-[8rem_1fr]">
-          <dt className="text-zinc-500">Hizmet</dt>
-          <dd className="font-medium">{appointment.serviceName}</dd>
-          <dt className="text-zinc-500">Personel</dt>
-          <dd className="font-medium">{appointment.staffName}</dd>
-          <dt className="text-zinc-500">Tarih</dt>
-          <dd className="font-medium">{formatDate(appointment.startAtIso, timeZone)}</dd>
-          <dt className="text-zinc-500">Saat</dt>
-          <dd className="font-medium">
-            {formatTime(appointment.startAtIso, timeZone)} – {formatTime(appointment.endAtIso, timeZone)}
-          </dd>
+        <dl className="inset-group">
+          <DetailRow label="Hizmet">{appointment.serviceName}</DetailRow>
+          <DetailRow label="Personel">{appointment.staffName}</DetailRow>
+          <DetailRow label="Tarih">{formatDate(appointment.startAtIso, timeZone)}</DetailRow>
+          <DetailRow label="Saat">
+            <span className="tabular-nums">
+              {formatTime(appointment.startAtIso, timeZone)} – {formatTime(appointment.endAtIso, timeZone)}
+            </span>
+          </DetailRow>
         </dl>
 
         {isOpen && appointment.canCancel && (
-          <div className="space-y-2 border-t pt-5">
-            <p className="text-xs text-zinc-500">
+          <div className="space-y-2">
+            <p className="px-4 text-footnote tabular-nums text-ink-muted">
               Online iptal {formatDate(appointment.cancelDeadlineIso, timeZone)}{" "}
               {formatTime(appointment.cancelDeadlineIso, timeZone)} saatine kadar açıktır.
             </p>
@@ -130,25 +128,25 @@ function AppointmentDetails({
         )}
 
         {isOpen && !appointment.canCancel && (
-          <p className="border-t pt-5 text-sm text-zinc-600">
+          <p className="px-4 text-subhead text-ink-muted">
             Online iptal, randevudan 2 saat önce kapanır. Değişiklik için lütfen salonla iletişime geçin.
           </p>
         )}
 
         {whatsapp === "OPTED_IN" && (
-          <section aria-labelledby="whatsapp-title" className="space-y-2 border-t pt-5">
-            <h2 id="whatsapp-title" className="text-sm font-medium">WhatsApp bildirimleri</h2>
-            <p className="text-xs text-zinc-600">Bu randevuyla ilgili bilgilendirmeler WhatsApp üzerinden gönderiliyor.</p>
+          <section aria-labelledby="whatsapp-title" className="inset-group space-y-2 p-4">
+            <h2 id="whatsapp-title" className="text-headline">WhatsApp bildirimleri</h2>
+            <p className="text-subhead text-ink-muted">Bu randevuyla ilgili bilgilendirmeler WhatsApp üzerinden gönderiliyor.</p>
             <WhatsAppOptOutForm slug={slug} token={token} />
           </section>
         )}
 
         {whatsapp === "OPTED_OUT" && (
-          <p role="status" className="border-t pt-5 text-sm text-zinc-600">
+          <p role="status" className="px-4 text-subhead text-ink-muted">
             WhatsApp bildirimleri kapalı.
           </p>
         )}
-      </section>
+      </div>
     </Shell>
   );
 }

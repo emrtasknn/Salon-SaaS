@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerCancelResult } from "../../../../application/customer-appointment-status";
 import { cancelAppointmentByToken } from "./actions";
+import { buttonDestructive, buttonDestructiveOutline, buttonSecondary, statusNote } from "../../../_ui/styles";
 
 const resultMessages: Record<CustomerCancelResult["status"], string> = {
   CANCELLED: "Randevunuz iptal edildi.",
@@ -45,13 +46,13 @@ export function CancelForm({ slug, token }: { slug: string; token: string }) {
             setMessage("");
             setConfirming(true);
           }}
-          className="min-h-11 w-full rounded-lg border border-red-300 px-4 py-3 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+          className={`${buttonDestructiveOutline} w-full`}
         >
           Randevuyu iptal et
         </button>
       ) : (
-        <div role="group" aria-labelledby="cancel-confirm-title" className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4">
-          <p id="cancel-confirm-title" className="text-sm font-medium text-red-900">
+        <div role="group" aria-labelledby="cancel-confirm-title" className="space-y-3 rounded-card bg-status-rejected-bg p-4">
+          <p id="cancel-confirm-title" className="text-subhead font-medium text-status-rejected">
             Randevuyu iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -59,7 +60,7 @@ export function CancelForm({ slug, token }: { slug: string; token: string }) {
               type="button"
               disabled={busy}
               onClick={cancel}
-              className="min-h-11 flex-1 rounded-lg bg-red-700 px-4 py-3 text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+              className={`${buttonDestructive} flex-1`}
             >
               {busy ? "İptal ediliyor…" : "Evet, iptal et"}
             </button>
@@ -67,7 +68,7 @@ export function CancelForm({ slug, token }: { slug: string; token: string }) {
               type="button"
               disabled={busy}
               onClick={() => setConfirming(false)}
-              className="min-h-11 flex-1 rounded-lg border bg-white px-4 py-3 text-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+              className={`${buttonSecondary} flex-1`}
             >
               Vazgeç
             </button>
@@ -75,7 +76,7 @@ export function CancelForm({ slug, token }: { slug: string; token: string }) {
         </div>
       )}
 
-      <p role="status" aria-live="polite" className={message ? "rounded-lg border p-3 text-sm" : "sr-only"}>
+      <p role="status" aria-live="polite" className={message ? statusNote : "sr-only"}>
         {message}
       </p>
     </div>

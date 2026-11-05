@@ -6,6 +6,7 @@ import { createPrismaPublicSalonRepository } from "../../../persistence/prisma-p
 import { getPrisma } from "../../../infrastructure/prisma-runtime";
 import { loadPublicLegalView } from "../legal-data";
 import { PublicBookingForm } from "./form";
+import { buttonSecondary } from "../../_ui/styles";
 
 function todayInTimeZone(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -39,7 +40,7 @@ export default async function BookingPage({
         <div className="mx-auto max-w-xl p-4 sm:p-8">
           <section className="space-y-4 rounded-2xl border bg-white p-6 shadow-sm">
             <h1 className="text-2xl font-semibold">{vitrin.name}</h1>
-            <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
               Şu anda online randevu alınmıyor.
             </p>
             {vitrin.whatsAppUrl && (
@@ -47,7 +48,7 @@ export default async function BookingPage({
                 href={vitrin.whatsAppUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                className={buttonSecondary}
               >
                 WhatsApp&apos;tan yaz
                 <span className="sr-only"> (yeni sekmede açılır)</span>
@@ -67,7 +68,7 @@ export default async function BookingPage({
         <div className="mx-auto max-w-xl p-4 sm:p-8">
           <section className="space-y-4 rounded-2xl border bg-white p-6 shadow-sm">
             <h1 className="text-2xl font-semibold">{vitrin.name}</h1>
-            <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
               Bu salon online randevu için henüz hazır değil. Randevu için lütfen salonla doğrudan iletişime geçin.
             </p>
             {vitrin.whatsAppUrl && (
@@ -75,7 +76,7 @@ export default async function BookingPage({
                 href={vitrin.whatsAppUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                className={buttonSecondary}
               >
                 WhatsApp&apos;tan yaz
                 <span className="sr-only"> (yeni sekmede açılır)</span>

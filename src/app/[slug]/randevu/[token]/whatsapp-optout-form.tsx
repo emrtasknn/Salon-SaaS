@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { StopWhatsAppResult } from "../../../legal-consent-contract";
 import { stopWhatsAppByToken } from "./actions";
+import { buttonPrimary, buttonSecondary, statusNote } from "../../../_ui/styles";
 
 const resultMessages: Record<StopWhatsAppResult["status"], string> = {
   stopped: "WhatsApp bildirimleri durduruldu. Bu randevu için WhatsApp mesajı gönderilmeyecek.",
@@ -36,9 +37,6 @@ export function WhatsAppOptOutForm({ slug, token }: { slug: string; token: strin
     });
   }
 
-  const focusRing =
-    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black";
-
   return (
     <div className="space-y-3">
       {!confirming ? (
@@ -48,13 +46,13 @@ export function WhatsAppOptOutForm({ slug, token }: { slug: string; token: strin
             setMessage("");
             setConfirming(true);
           }}
-          className={`min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-medium text-zinc-900 hover:bg-zinc-50 ${focusRing}`}
+          className={`${buttonSecondary} w-full`}
         >
           WhatsApp bildirimlerini durdur
         </button>
       ) : (
-        <div role="group" aria-labelledby="whatsapp-stop-confirm-title" className="space-y-3 rounded-lg border border-zinc-300 bg-zinc-50 p-4">
-          <p id="whatsapp-stop-confirm-title" className="text-sm font-medium text-zinc-900">
+        <div role="group" aria-labelledby="whatsapp-stop-confirm-title" className="space-y-3 rounded-control bg-surface-muted p-4">
+          <p id="whatsapp-stop-confirm-title" className="text-subhead font-medium text-ink">
             Bu randevuyla ilgili WhatsApp bildirimlerini durdurmak istiyor musunuz? Randevunuz iptal edilmez.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -62,7 +60,7 @@ export function WhatsAppOptOutForm({ slug, token }: { slug: string; token: strin
               type="button"
               disabled={busy}
               onClick={stop}
-              className={`min-h-11 flex-1 rounded-lg bg-black px-4 py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
+              className={`${buttonPrimary} flex-1`}
             >
               {busy ? "Durduruluyor…" : "Evet, durdur"}
             </button>
@@ -70,7 +68,7 @@ export function WhatsAppOptOutForm({ slug, token }: { slug: string; token: strin
               type="button"
               disabled={busy}
               onClick={() => setConfirming(false)}
-              className={`min-h-11 flex-1 rounded-lg border bg-white px-4 py-3 text-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
+              className={`${buttonSecondary} flex-1`}
             >
               Vazgeç
             </button>
@@ -78,7 +76,7 @@ export function WhatsAppOptOutForm({ slug, token }: { slug: string; token: strin
         </div>
       )}
 
-      <p role="status" aria-live="polite" className={message ? "rounded-lg border p-3 text-sm" : "sr-only"}>
+      <p role="status" aria-live="polite" className={message ? statusNote : "sr-only"}>
         {message}
       </p>
     </div>

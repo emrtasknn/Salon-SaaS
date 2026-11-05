@@ -43,9 +43,9 @@ export default async function StaffPage() {
   ]);
   return <>
     {data.status !== "UNAUTHORIZED" && pushBindingKey && (
-      <PushPermission bindingKey={pushBindingKey} className="bg-zinc-50 px-4 pt-4 sm:px-6" widthClassName="max-w-5xl" />
+      <PushPermission bindingKey={pushBindingKey} className="bg-canvas px-4 pt-4 sm:px-6" widthClassName="max-w-5xl" />
     )}
-    <InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff/appointments" className="bg-zinc-50 px-4 pt-4 sm:px-6" widthClassName="max-w-5xl" />
+    <InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff/appointments" className="bg-canvas px-4 pt-4 sm:px-6" widthClassName="max-w-5xl" />
     <StaffCalendar initialDate={date} initialData={data} />
   </>;
 }
