@@ -138,3 +138,17 @@ One canonical body per role; `.agents/skills/*` (Cline) stays, the Claude agent 
 
 Limits: each agent's `tools` list is an allowlist, so these agents cannot call unlisted MCP tools (e.g. the Supabase connector). "Read-only Bash" and the Prisma/test bans are instructions only; the main session still has every tool. Real enforcement = restrict the Supabase connector and keep `DATABASE_URL` unset.
 Isolation: writer agents run in separate git worktrees, one writer per file set; they hand back diffs and short summaries, not transcripts.
+
+## Cloud sessions (phone / PC off) — added 2026-11-05
+
+Owner wants to keep developing from the phone while the PC is off. That needs Claude Code **cloud sessions** (claude.ai/code or the Claude mobile app → Code), which clone `emrtasknn/Salon-SaaS` from GitHub.
+
+Cloud environment settings (owner creates it once at claude.ai/code → environments):
+- Repository: `emrtasknn/Salon-SaaS` (Claude GitHub app must have access).
+- Network: default/trusted (npm registry needed).
+- **Environment variables: none.** Never add `DATABASE_URL`, Supabase keys, Meta tokens or any `.env` value. Without `DATABASE_URL`, integration tests self-skip and nothing can reach pilot.
+- Setup script: `DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy npm ci` (the dummy value only lets `prisma generate` run; it never connects and is not exported).
+
+Rules in cloud sessions are the same as local (`CLAUDE.md`, `AGENTS.md`): lint, typecheck, targeted `npx vitest run`, build; integration tests run only in GitHub Actions CI; no migrations, deploys or merges without owner approval. Work lands as branches + PRs; the owner merges from the GitHub app. Task briefs for cloud sessions are kept as GitHub issues so they can be started from the phone ("work on issue #N").
+
+Not available in cloud: the desktop app's Supabase/Vercel connectors, the local Playwright MCP and the built-in browser. Staging/Vercel steps stay with the owner or a desktop session.
