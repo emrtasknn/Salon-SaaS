@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 import { createNotificationService, type NotificationRepository } from "./notification-service";
 import { NotificationProviderError } from "../domain/notification";
-import { createMockWhatsAppProvider } from "../infrastructure/notifications";
+import { createMetaWhatsAppProvider, createMockWhatsAppProvider } from "../infrastructure/notifications";
 
 describe("notification service", () => {
   it("sends created notifications to staff and customer", async () => {
@@ -546,5 +546,49 @@ describe("notification service", () => {
       expect(provider.send).toHaveBeenCalledOnce();
       expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ to: "+905550000012", templateKey: "appointment-created-staff" }));
     });
+  });
+});
+
+describe("APPOINTMENT_RESCHEDULED (follow-up to PR #183)", () => {
+  function rescheduleRepository() {
+    return {
+      recipients: vi.fn().mockResolvedValue([{
+        profileId: "customer-1", displayName: "Customer", phone: "+905551112233",
+        templateKey: "appointment-rescheduled-customer", body: "Randevunuzun saati değişti.", templateParameters: ["Kesim", "10.11.2026 14:00", "Staff"],
+      }]),
+      claim: vi.fn().mockResolvedValue("claimed"),
+      markSent: vi.fn().mockResolvedValue(undefined),
+      markFailed: vi.fn().mockResolvedValue(undefined),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
+    };
+  }
+
+  it("passes the per-reschedule eventKey to claim and mark", async () => {
+    const repository = rescheduleRepository();
+    await createNotificationService({ repository, provider: createMockWhatsAppProvider([]) })
+      .publish({ tenantId: "t" as never }, "a", "APPOINTMENT_RESCHEDULED", "k1");
+    expect(repository.claim).toHaveBeenCalledWith({ tenantId: "t" }, expect.objectContaining({ eventType: "APPOINTMENT_RESCHEDULED", eventKey: "k1", templateKey: "appointment-rescheduled-customer" }));
+    expect(repository.markSent).toHaveBeenCalledWith({ tenantId: "t" }, expect.objectContaining({ eventKey: "k1" }));
+  });
+
+  it("missing Meta template -> clean FAILED delivery with WHATSAPP_TEMPLATE_NOT_CONFIGURED, no exception", async () => {
+    const repository = rescheduleRepository();
+    const fetchImpl = vi.fn();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const provider = createMetaWhatsAppProvider({ accessToken: "x", phoneNumberId: "1", apiVersion: "v23.0", templates: {}, fetchImpl });
+    const result = await createNotificationService({ repository, provider })
+      .publish({ tenantId: "t" as never }, "a", "APPOINTMENT_RESCHEDULED", "k1");
+    expect(result).toEqual({ status: "processed", results: [{ profileId: "customer-1", status: "FAILED", channel: "WHATSAPP" }] });
+    expect(repository.markFailed).toHaveBeenCalledWith({ tenantId: "t" }, expect.objectContaining({ eventKey: "k1", errorCode: "WHATSAPP_TEMPLATE_NOT_CONFIGURED" }));
+    expect(repository.markUnknown).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("one-off events keep the original repository input (no eventKey field)", async () => {
+    const repository = rescheduleRepository();
+    await createNotificationService({ repository, provider: createMockWhatsAppProvider([]) })
+      .publish({ tenantId: "t" as never }, "a", "APPOINTMENT_CONFIRMED");
+    expect(repository.claim.mock.calls[0][1]).not.toHaveProperty("eventKey");
   });
 });

@@ -4,6 +4,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "../generated/prisma/client";
 import { createNotificationService } from "../application/notification-service";
+import { createMetaWhatsAppProvider } from "../infrastructure/notifications";
 import type { WebPushSender } from "../domain/web-push";
 import { createPrismaNotificationRepository } from "./prisma-notification";
 import { createPrismaPushNotificationRepository, createPrismaPushSubscriptionRepository } from "./prisma-push-subscription";
@@ -163,6 +164,59 @@ describeDatabase("Prisma notification delivery idempotency integration", () => {
         lastErrorCode: "WHATSAPP_PROVIDER_HTTP_400",
       },
     ]);
+  });
+
+  it("keeps one delivery per reschedule (eventKey) and records a missing template as FAILED", async () => {
+    if (!prisma || !pool) throw new Error("Database clients were not initialized");
+    const repository = createPrismaNotificationRepository(prisma as unknown as PrismaTenantClient);
+    const context = { tenantId: tenantId as never };
+    const base = {
+      appointmentId,
+      eventType: "APPOINTMENT_RESCHEDULED" as const,
+      channel: "WHATSAPP" as const,
+      recipientProfileId: customerProfileId,
+      templateKey: "appointment-rescheduled-customer",
+    };
+
+    // First move: delivered once; replaying the same key never re-sends.
+    expect(await repository.claim(context, { ...base, eventKey: "move-1" })).toBe("claimed");
+    await repository.markSent(context, { ...base, eventKey: "move-1", providerMessageId: `integration-reschedule-${suffix}` });
+    expect(await repository.claim(context, { ...base, eventKey: "move-1" })).toBe("already_sent");
+
+    // Second move of the same appointment: a new key is deliverable again. The real service with a
+    // Meta provider that has no template for this key records a clean FAILED row (no exception).
+    const service = createNotificationService({
+      repository: {
+        ...repository,
+        // The fixture has no opt-in contact; routing is unit-tested. Exercise the real claim/mark path.
+        async recipients() {
+          return [{ profileId: customerProfileId, displayName: "Integration Customer", phone: "+905550000002", templateKey: "appointment-rescheduled-customer", body: "x", templateParameters: ["s", "t", "u"] }];
+        },
+      },
+      provider: createMetaWhatsAppProvider({ accessToken: "unused", phoneNumberId: "unused", apiVersion: "v23.0", templates: {}, fetchImpl: async () => { throw new Error("must not call Meta"); } }),
+    });
+    await expect(service.publish(context, appointmentId, "APPOINTMENT_RESCHEDULED", "move-2"))
+      .resolves.toEqual({ status: "processed", results: [{ profileId: customerProfileId, status: "FAILED", channel: "WHATSAPP" }] });
+
+    const rows = await pool.query(
+      `SELECT "eventKey", "status", "attemptCount", "lastErrorCode"
+       FROM "NotificationDelivery"
+       WHERE "tenantId" = $1 AND "appointmentId" = $2 AND "eventType" = 'APPOINTMENT_RESCHEDULED'
+       ORDER BY "eventKey" ASC`,
+      [tenantId, appointmentId],
+    );
+    expect(rows.rows).toEqual([
+      { eventKey: "move-1", status: "SENT", attemptCount: 1, lastErrorCode: null },
+      { eventKey: "move-2", status: "FAILED", attemptCount: 1, lastErrorCode: "WHATSAPP_TEMPLATE_NOT_CONFIGURED" },
+    ]);
+
+    // One-off events written without a key keep the '' default (their idempotency is unchanged).
+    const oneOff = await pool.query(
+      `SELECT DISTINCT "eventKey" FROM "NotificationDelivery"
+       WHERE "tenantId" = $1 AND "appointmentId" = $2 AND "eventType" <> 'APPOINTMENT_RESCHEDULED'`,
+      [tenantId, appointmentId],
+    );
+    expect(oneOff.rows).toEqual([{ eventKey: "" }]);
   });
 });
 

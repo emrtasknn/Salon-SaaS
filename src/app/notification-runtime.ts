@@ -31,7 +31,8 @@ function webPushProvider() {
   return config ? createWebPushProvider(config) : null;
 }
 
-export async function publishAppointmentNotification(tenantContext:TenantContext,appointmentId:string,eventType:NotificationEventType) {
+/** `eventKey`: one key per occurrence for repeatable events (APPOINTMENT_RESCHEDULED); omit otherwise. */
+export async function publishAppointmentNotification(tenantContext:TenantContext,appointmentId:string,eventType:NotificationEventType,eventKey?:string) {
   // Channels are configured independently; NOT_CONFIGURED only when neither is available.
   const p=provider();
   const push=webPushProvider();
@@ -42,7 +43,7 @@ export async function publishAppointmentNotification(tenantContext:TenantContext
       repository:createPrismaNotificationRepository(prisma),
       provider:p,
       webPush:push?{repository:createPrismaPushNotificationRepository(prisma),provider:push}:null,
-    }).publish(tenantContext,appointmentId,eventType);
+    }).publish(tenantContext,appointmentId,eventType,eventKey);
   } catch {
     return {status:"FAILED" as const};
   }

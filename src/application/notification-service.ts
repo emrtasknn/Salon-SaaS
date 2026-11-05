@@ -1,5 +1,5 @@
 import type { TenantContext } from "../domain/tenant-context";
-import { NotificationProviderError, type NotificationChannel, type NotificationEventType } from "../domain/notification";
+import { DEFAULT_NOTIFICATION_EVENT_KEY, NotificationProviderError, type NotificationChannel, type NotificationEventType } from "../domain/notification";
 import type { NotificationProvider } from "../infrastructure/notifications";
 import { logError } from "../infrastructure/log-redaction";
 import {
@@ -32,6 +32,8 @@ export type NotificationRepository = Readonly<{
     input: Readonly<{
       appointmentId: string;
       eventType: NotificationEventType;
+      /** Omitted or "" for one-off events; see DEFAULT_NOTIFICATION_EVENT_KEY. */
+      eventKey?: string;
       channel: NotificationChannel;
       recipientProfileId: string;
       templateKey: string;
@@ -44,6 +46,8 @@ export type NotificationRepository = Readonly<{
     input: Readonly<{
       appointmentId: string;
       eventType: NotificationEventType;
+      /** Omitted or "" for one-off events; see DEFAULT_NOTIFICATION_EVENT_KEY. */
+      eventKey?: string;
       channel: NotificationChannel;
       recipientProfileId: string;
       providerMessageId: string;
@@ -54,6 +58,8 @@ export type NotificationRepository = Readonly<{
     input: Readonly<{
       appointmentId: string;
       eventType: NotificationEventType;
+      /** Omitted or "" for one-off events; see DEFAULT_NOTIFICATION_EVENT_KEY. */
+      eventKey?: string;
       channel: NotificationChannel;
       recipientProfileId: string;
       errorCode: string;
@@ -64,6 +70,8 @@ export type NotificationRepository = Readonly<{
     input: Readonly<{
       appointmentId: string;
       eventType: NotificationEventType;
+      /** Omitted or "" for one-off events; see DEFAULT_NOTIFICATION_EVENT_KEY. */
+      eventKey?: string;
       channel: NotificationChannel;
       recipientProfileId: string;
       errorCode: string;
@@ -116,8 +124,11 @@ export function createNotificationService(
     tenantContext: TenantContext,
     appointmentId: string,
     eventType: NotificationEventType,
+    eventKey: string,
   ): Promise<NotificationResult[]> {
     const whatsApp = dependencies.provider;
+    // Only repeatable events carry a key; one-off events keep the original repository input shape.
+    const keyed = eventKey === "" ? {} : { eventKey };
     if (!whatsApp) return [];
     const recipients = await dependencies.repository.recipients(
       tenantContext,
@@ -130,6 +141,7 @@ export function createNotificationService(
       const claim = await dependencies.repository.claim(tenantContext, {
         appointmentId,
         eventType,
+        ...keyed,
         channel: "WHATSAPP",
         recipientProfileId: recipient.profileId,
         templateKey: recipient.templateKey,
@@ -151,6 +163,7 @@ export function createNotificationService(
         await dependencies.repository.markFailed(tenantContext, {
           appointmentId,
           eventType,
+          ...keyed,
           channel: "WHATSAPP",
           recipientProfileId: recipient.profileId,
           errorCode: "RECIPIENT_PHONE_MISSING",
@@ -173,6 +186,7 @@ export function createNotificationService(
           await dependencies.repository.markFailed(tenantContext, {
             appointmentId,
             eventType,
+            ...keyed,
             channel: "WHATSAPP",
             recipientProfileId: recipient.profileId,
             errorCode: error.errorCode,
@@ -191,6 +205,7 @@ export function createNotificationService(
         await dependencies.repository.markUnknown(tenantContext, {
           appointmentId,
           eventType,
+          ...keyed,
           channel: "WHATSAPP",
           recipientProfileId: recipient.profileId,
           errorCode: "PROVIDER_OUTCOME_UNKNOWN",
@@ -203,6 +218,7 @@ export function createNotificationService(
       await dependencies.repository.markSent(tenantContext, {
         appointmentId,
         eventType,
+        ...keyed,
         channel: "WHATSAPP",
         recipientProfileId: recipient.profileId,
         providerMessageId: sent.providerMessageId,
@@ -300,17 +316,18 @@ export function createNotificationService(
       tenantContext: TenantContext,
       appointmentId: string,
       eventType: NotificationEventType,
+      eventKey: string = DEFAULT_NOTIFICATION_EVENT_KEY,
     ) {
       const webPush = dependencies.webPush;
       if (!webPush) {
         // Pre-WP-09 behaviour: WhatsApp errors propagate to the caller.
-        const results = await publishWhatsApp(tenantContext, appointmentId, eventType);
+        const results = await publishWhatsApp(tenantContext, appointmentId, eventType, eventKey);
         return { status: "processed" as const, results };
       }
 
       // Channels are independent: one channel's failure never blocks the other.
       const [whatsApp, push] = await Promise.allSettled([
-        publishWhatsApp(tenantContext, appointmentId, eventType),
+        publishWhatsApp(tenantContext, appointmentId, eventType, eventKey),
         publishWebPush(webPush, tenantContext, appointmentId, eventType),
       ]);
       if (whatsApp.status === "rejected" && push.status === "rejected") throw whatsApp.reason;

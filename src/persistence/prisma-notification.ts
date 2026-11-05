@@ -2,7 +2,7 @@ import type { NotificationRepository, PushNotificationRepository } from "../appl
 import type { NotificationChannel, NotificationEventType, NotificationRecipient } from "../domain/notification";
 import { selectPushRecipients } from "../domain/web-push";
 import type { TenantContext } from "../domain/tenant-context";
-import { dedupeRecipients } from "../domain/notification";
+import { DEFAULT_NOTIFICATION_EVENT_KEY, dedupeRecipients } from "../domain/notification";
 import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma-tenant-context";
 import { withPrismaTenantContext } from "./prisma-tenant-context";
 
@@ -22,11 +22,26 @@ type Tx = PrismaTenantTransactionClient & {
     }>>;
   };
   notificationDelivery: {
-    findUnique(args: { where: { tenantId_appointmentId_eventType_channel_recipientProfileId: { tenantId: string; appointmentId: string; eventType: NotificationEventType; channel: NotificationChannel; recipientProfileId: string } } }): Promise<{ status: "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN" } | null>;
+    findUnique(args: { where: { tenantId_appointmentId_eventType_channel_recipientProfileId_eventKey: { tenantId: string; appointmentId: string; eventType: NotificationEventType; channel: NotificationChannel; recipientProfileId: string; eventKey: string } } }): Promise<{ status: "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN" } | null>;
     create(args: { data: Record<string, unknown> }): Promise<unknown>;
     updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<{ count: number }>;
   };
 };
+
+/** Exact delivery row for the mark* updates; eventKey defaults to the one-off key. */
+function deliveryWhere(
+  tenantContext: TenantContext,
+  input: Readonly<{ appointmentId: string; eventType: NotificationEventType; eventKey?: string; channel: NotificationChannel; recipientProfileId: string }>,
+) {
+  return {
+    tenantId: tenantContext.tenantId,
+    appointmentId: input.appointmentId,
+    eventType: input.eventType,
+    eventKey: input.eventKey ?? DEFAULT_NOTIFICATION_EVENT_KEY,
+    channel: input.channel,
+    recipientProfileId: input.recipientProfileId,
+  };
+}
 
 export function createPrismaNotificationRepository(prisma: PrismaTenantClient): NotificationRepository {
   return {
@@ -68,27 +83,32 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
         }
 
         if (customer.phone === null) return [];
-        return [{
-          profileId: customer.profileId,
-          displayName: customer.displayName,
-          phone: customer.phone,
-          templateKey: eventType === "APPOINTMENT_CONFIRMED" ? "appointment-confirmed-customer" : "appointment-rejected-customer",
-          body: eventType === "APPOINTMENT_CONFIRMED" ? `Randevunuz onaylandı. ${serviceName} — ${time} — ${staff.displayName}.` : `Randevu talebiniz onaylanmadı. ${serviceName} — ${time}.`,
-          templateParameters: eventType === "APPOINTMENT_CONFIRMED" ? [serviceName, time, staff.displayName] : [serviceName, time],
-        }];
+        const base = { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone };
+        if (eventType === "APPOINTMENT_CONFIRMED") {
+          return [{ ...base, templateKey: "appointment-confirmed-customer", body: `Randevunuz onaylandı. ${serviceName} — ${time} — ${staff.displayName}.`, templateParameters: [serviceName, time, staff.displayName] }];
+        }
+        if (eventType === "APPOINTMENT_RESCHEDULED") {
+          // Owner decision 2026-11-05: same opt-in rule as CONFIRMED; `time` is the appointment's
+          // current (new) start. Meta template not created yet: without a WHATSAPP_TEMPLATES_JSON
+          // entry the provider rejects with WHATSAPP_TEMPLATE_NOT_CONFIGURED (a FAILED delivery).
+          return [{ ...base, templateKey: "appointment-rescheduled-customer", body: `Randevunuzun saati değişti. ${serviceName} — ${time} — ${staff.displayName}.`, templateParameters: [serviceName, time, staff.displayName] }];
+        }
+        return [{ ...base, templateKey: "appointment-rejected-customer", body: `Randevu talebiniz onaylanmadı. ${serviceName} — ${time}.`, templateParameters: [serviceName, time] }];
       });
     },
 
     async claim(tenantContext, input) {
       try {
         return await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
+          const eventKey = input.eventKey ?? DEFAULT_NOTIFICATION_EVENT_KEY;
           const where = {
-            tenantId_appointmentId_eventType_channel_recipientProfileId: {
+            tenantId_appointmentId_eventType_channel_recipientProfileId_eventKey: {
               tenantId: tenantContext.tenantId,
               appointmentId: input.appointmentId,
               eventType: input.eventType,
               channel: input.channel,
               recipientProfileId: input.recipientProfileId,
+              eventKey,
             },
           };
           const existing = await tx.notificationDelivery.findUnique({ where });
@@ -103,6 +123,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
                 tenantId: tenantContext.tenantId,
                 appointmentId: input.appointmentId,
                 eventType: input.eventType,
+                eventKey,
                 channel: input.channel,
                 recipientProfileId: input.recipientProfileId,
                 templateKey: input.templateKey,
@@ -116,6 +137,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
                 tenantId: tenantContext.tenantId,
                 appointmentId: input.appointmentId,
                 eventType: input.eventType,
+                eventKey,
                 channel: input.channel,
                 recipientProfileId: input.recipientProfileId,
               },
@@ -134,7 +156,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
     async markSent(tenantContext, input) {
       await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         await tx.notificationDelivery.updateMany({
-          where: { tenantId: tenantContext.tenantId, appointmentId: input.appointmentId, eventType: input.eventType, channel: input.channel, recipientProfileId: input.recipientProfileId },
+          where: deliveryWhere(tenantContext, input),
           data: { status: "SENT", providerMessageId: input.providerMessageId, attemptCount: { increment: 1 }, lastErrorCode: null },
         });
       });
@@ -143,7 +165,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
     async markFailed(tenantContext, input) {
       await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         await tx.notificationDelivery.updateMany({
-          where: { tenantId: tenantContext.tenantId, appointmentId: input.appointmentId, eventType: input.eventType, channel: input.channel, recipientProfileId: input.recipientProfileId },
+          where: deliveryWhere(tenantContext, input),
           data: { status: "FAILED", attemptCount: { increment: 1 }, lastErrorCode: input.errorCode },
         });
       });
@@ -152,7 +174,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
     async markUnknown(tenantContext, input) {
       await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         await tx.notificationDelivery.updateMany({
-          where: { tenantId: tenantContext.tenantId, appointmentId: input.appointmentId, eventType: input.eventType, channel: input.channel, recipientProfileId: input.recipientProfileId },
+          where: deliveryWhere(tenantContext, input),
           data: { status: "UNKNOWN", attemptCount: { increment: 1 }, lastErrorCode: input.errorCode },
         });
       });

@@ -266,7 +266,7 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
      * Owner decision 2026-11-05 (drag-to-move in the day calendar). TENANT_ADMIN may move any open
      * appointment of the tenant; ACTIVE STAFF only their own (staffId from the server-side scope).
      * Same staff and service; the new start must be an available slot (this appointment excluded).
-     * No customer notification is sent (no event type for it yet).
+     * Notification is the caller's job (APPOINTMENT_RESCHEDULED in appointment-create-runtime).
      */
     async reschedule(identity: ApplicationIdentity, tenantContext: TenantContext, appointment: AppointmentRecord, newStartAt: unknown) {
       const scope = await dependencies.authorizer.resolveCreateScope(identity, tenantContext);
