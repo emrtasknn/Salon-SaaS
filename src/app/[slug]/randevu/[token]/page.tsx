@@ -12,6 +12,7 @@ import { appointmentStatusBadge, badgeBase, buttonSecondary } from "../../../_ui
 import { buildGoogleCalendarUrl, type CalendarEvent } from "../../../../domain/calendar-event";
 import { customerCalendarEvent } from "./calendar";
 import { BackLink } from "../../../_ui/back-link";
+import { SalonLocationLink } from "../../../_ui/salon-location-link";
 
 export const metadata: Metadata = {
   title: "Randevu durumu",
@@ -172,6 +173,15 @@ function AppointmentDetails({
             </span>
           </DetailRow>
         </dl>
+
+        {appointment.location && (
+          <section aria-labelledby="location-title" className="space-y-2">
+            <h2 id="location-title" className="group-label">Konum</h2>
+            <div className="inset-group px-4 py-1">
+              <SalonLocationLink location={appointment.location} />
+            </div>
+          </section>
+        )}
 
         {calendarEvent && (
           <AddToCalendar slug={slug} token={token} event={calendarEvent} pending={status === "PENDING"} />

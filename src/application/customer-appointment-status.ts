@@ -8,6 +8,7 @@ import {
 import type { TenantContext } from "../domain/tenant-context";
 import type { WhatsAppConsentState } from "../domain/appointment-contact";
 import { isCalendarEligible } from "../domain/calendar-event";
+import { salonDirectionsUrl } from "../domain/tenant";
 import type { StatusLinkRateLimiter } from "./status-link-rate-limit";
 
 // WP-06: customer status link (view + self-cancel). The tenant is resolved from the
@@ -19,7 +20,12 @@ export type CustomerAppointmentView = Readonly<{
   status: AppointmentStatus; canCancel: boolean; cancelDeadlineIso: string;
   /** Add-to-calendar: stable event UID, salon public address (null when unset), open + not started. */
   calendarUid: string; salonAddress: string | null; calendarEligible: boolean;
+  /** Salon location: address text + server-computed allowlisted directions link; null when nothing is set. */
+  location: CustomerSalonLocation | null;
 }>;
+
+/** Same shape as the public salon page location; the raw mapsUrl never reaches the client. */
+export type CustomerSalonLocation = Readonly<{ address: string | null; directionsUrl: string }>;
 
 export type CustomerWhatsAppState = WhatsAppConsentState;
 
@@ -42,6 +48,8 @@ export type StatusLinkTenant = Readonly<{
   tenantContext: TenantContext; name: string; timezone: string;
   /** Customer-facing salon address (already public on the salon page). */
   publicAddress?: string | null;
+  /** Stored maps link; server-only, exposed only through salonDirectionsUrl (allowlisted). */
+  mapsUrl?: string | null;
 }>;
 
 export type CustomerAppointmentDetails = Readonly<{
@@ -82,6 +90,13 @@ export type CustomerAppointmentStatusDependencies = Readonly<{
   /** Structured WhatsApp opt-out log; never receives the token. */
   logWhatsAppStopped?: (event: Readonly<{ tenantId: string; actorKind: "customer_token" }>) => void;
 }>;
+
+function salonLocation(tenant: StatusLinkTenant): CustomerSalonLocation | null {
+  const address = tenant.publicAddress?.trim() || null;
+  const directionsUrl = salonDirectionsUrl({ publicAddress: address, mapsUrl: tenant.mapsUrl ?? null });
+  if (!directionsUrl) return null;
+  return { address, directionsUrl };
+}
 
 type Resolved = { tenant: StatusLinkTenant; tokenHash: string } | { status: "NOT_FOUND" } | { status: "RATE_LIMITED" };
 
@@ -148,6 +163,7 @@ export function createCustomerAppointmentStatus(dependencies: CustomerAppointmen
           calendarUid: `${details.appointmentId}@salon-saas`,
           salonAddress: resolved.tenant.publicAddress?.trim() || null,
           calendarEligible: isCalendarEligible(details.status, details.startAt, at),
+          location: salonLocation(resolved.tenant),
         },
         whatsapp: details.whatsapp,
       };
