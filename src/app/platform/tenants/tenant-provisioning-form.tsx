@@ -7,7 +7,8 @@ import { createTenantAction } from "./actions";
 
 const labelClass = "block text-subhead font-medium text-ink";
 
-export function TenantProvisioningForm() {
+/** `onCreated` (optional) lets a host sheet close and announce success itself. */
+export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: string) => void } = {}) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,7 +34,11 @@ export function TenantProvisioningForm() {
       if (result.status === "created") {
         router.refresh();
         formElement.reset();
-        setMessage("Salon ve ilk tenant admin hesabı oluşturuldu.");
+        if (onCreated) {
+          onCreated(String(form.get("name") ?? "").trim());
+        } else {
+          setMessage("Salon ve ilk tenant admin hesabı oluşturuldu.");
+        }
         return;
       }
 
@@ -136,7 +141,7 @@ export function TenantProvisioningForm() {
         </div>
       </fieldset>
 
-      <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className={`${buttonPrimary} w-full sm:w-auto`}>
+      <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className={`${buttonPrimary} w-full`}>
         {isSubmitting ? "Oluşturuluyor..." : "Salon oluştur"}
       </button>
 

@@ -1,22 +1,46 @@
-import Link from "next/link";
+export const dynamic = "force-dynamic";
+
+import {
+  readAuthenticatedPlatformRequest,
+  readAuthenticatedTenantRequest,
+} from "../application/auth-request-boundary";
+import { createSupabaseAuthAdapter } from "../infrastructure/auth/supabase-auth-adapter";
+import { createNextSupabaseServerClient } from "../infrastructure/auth/supabase-server-client";
+import { readSupabaseServerClientConfig } from "../infrastructure/auth/supabase-server-env";
+import { EntryRedirect } from "./entry-redirect";
+import { SignInScreen } from "./login/sign-in-screen";
 import { RecoveryRedirect } from "./recovery-redirect";
 
-export default function Home() {
+/**
+ * Navigation only (same rules as the login form): SUPER_ADMIN → /platform/tenants,
+ * any other signed-in tenant user → /admin (which forwards STAFF to /staff).
+ * Destination pages re-check authorization; this never grants access.
+ * Any failure falls back to the sign-in screen.
+ */
+async function readEntryTarget(): Promise<string | null> {
+  try {
+    const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
+    const source = createSupabaseAuthAdapter({ client: supabase as never });
+    // One auth lookup shared by both checks.
+    let snapshot: ReturnType<typeof source.readIdentity> | undefined;
+    const adapter = { readIdentity: () => (snapshot ??= source.readIdentity()) };
+    const platform = await readAuthenticatedPlatformRequest(adapter);
+    if (platform.state === "authenticated") return "/platform/tenants";
+    const tenant = await readAuthenticatedTenantRequest(adapter);
+    if (tenant.state === "authenticated") return "/admin";
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function Home() {
+  const target = await readEntryTarget();
   return (
     <>
+      {/* Must stay mounted: recovery/invite links land on `/` with a #type=… hash. */}
       <RecoveryRedirect />
-      <main className="min-h-screen bg-zinc-50">
-      <section className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">
-        <p className="text-sm font-medium text-zinc-500">Salon-SaaS MVP</p>
-        <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight">İşletmenizin günlük operasyonunu tek yerden yönetin.</h1>
-        <p className="mt-4 max-w-xl text-base leading-7 text-zinc-600">
-          Personel, hizmetler ve çalışma saatleriyle başlayın. Randevu akışı W10.3&apos;te bu yönetim alanına bağlanacak.
-        </p>
-        <div className="mt-8">
-          <Link href="/admin" className="inline-flex rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white">Yönetim alanı</Link>
-        </div>
-      </section>
-      </main>
+      {target === null ? <SignInScreen /> : <EntryRedirect target={target} />}
     </>
   );
 }
