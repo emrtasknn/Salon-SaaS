@@ -1,7 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "../../_ui/back-link";
+import { buttonSecondary } from "../../_ui/styles";
 import { loadFullNotice } from "../legal-data";
 
 export const metadata: Metadata = {
@@ -19,6 +22,7 @@ export default async function FullNoticePage({ params }: { params: Promise<{ slu
   return (
     <main className="min-h-screen bg-zinc-50">
       <div className="mx-auto max-w-2xl p-4 sm:p-8">
+        <BackLink href={`/${encodeURIComponent(slug)}/book`} label="Randevu sayfası" className="mb-3" />
         <article aria-labelledby="notice-title" className="space-y-5 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
           <header className="space-y-2">
             <p className="text-sm text-zinc-600">{notice.salonName}</p>
@@ -43,12 +47,9 @@ export default async function FullNoticePage({ params }: { params: Promise<{ slu
           </div>
 
           <footer className="border-t pt-5">
-            <a
-              href={`/${encodeURIComponent(slug)}/book`}
-              className="inline-flex min-h-11 items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-            >
+            <Link href={`/${encodeURIComponent(slug)}/book`} className={buttonSecondary}>
               Randevu sayfasına dön
-            </a>
+            </Link>
           </footer>
         </article>
       </div>

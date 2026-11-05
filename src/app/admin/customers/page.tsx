@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { BackLink } from "../../_ui/back-link";
 import { getCustomer, getCustomers } from "./actions";
 
 export default async function CustomerPage({
@@ -28,7 +29,7 @@ export default async function CustomerPage({
     return (
       <main className="min-h-screen bg-zinc-50 p-4 sm:p-8">
         <div className="mx-auto max-w-4xl">
-          <Link href="/admin/customers" className="text-sm underline">← Müşteriler</Link>
+          <BackLink href="/admin/customers" label="Müşteriler" />
           <h1 className="mt-4 text-3xl font-semibold">{result.customer.displayName}</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {result.customer.email ?? "E-posta yok"} · {result.customer.phone ?? "Telefon yok"}
