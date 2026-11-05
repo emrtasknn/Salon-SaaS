@@ -135,6 +135,18 @@ Per environment:
    Section 4 step 5 queries still apply: resolver owner must keep `rolbypassrls = true`; `<runtime_role>` is now `salon_app`.
 6. Smoke test (section 7), in particular: admin login + calendar, staff login + own appointments, public booking by slug, status link, platform tenant list/provision (SUPER_ADMIN), a WhatsApp status webhook, push subscribe. A permissions error (`42501`) or an empty staff page means a path still queries an RLS table outside `withPrismaTenantContext`: roll back and report.
 
+**Staging finding (2026-11-05):** new Supabase projects have an event trigger `public.rls_auto_enable()` that enables RLS (without policies) on every newly created `public` table. On `salon-saas-test` it had enabled RLS on `Tenant`, so under `salon_app` every tenant lookup returned 0 rows and the whole app failed closed ("Yetkisiz erişim", empty platform list, public 500). Fixed by `ALTER TABLE "Tenant" DISABLE ROW LEVEL SECURITY` (owner, SQL editor) and made permanent by migration `20261107120000_tenant_rls_state_explicit`. Before every cutover and after every migration, compare RLS flags across environments (read-only):
+
+```sql
+select c.relname, c.relrowsecurity, c.relforcerowsecurity,
+       (select count(*) from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname) as policies
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relkind = 'r' order by 1;
+-- expect: Tenant f/f/0; every tenant-owned table t/t/>=1. A table with t and 0 policies is a red flag.
+```
+
+Also check that the pooler user is really `salon_app.<ref>`: Supabase logs → Supavisor should show no `password authentication failed for user "postgres"`, and `pg_stat_activity` should list `salon_app`.
+
 Rollback: set Vercel `DATABASE_URL` back to the `postgres` URL and redeploy (no data change). Optionally `ALTER ROLE salon_app NOLOGIN;`. The role and grants can stay; removing them is listed in the migration header.
 
 ## 5. Vercel project and staging environment
@@ -234,6 +246,9 @@ No new dependency. Pick one:
 | 2026-11-05 | Vercel `salon-saas-staging` | e9af05c / 8c52168 | Vercel deploys | — | PASS (Node 24, `lhr1`, Vercel Auth all, previews off) | agent; env vars by owner |
 | 2026-11-05 | Auth redirect test | — | — | — | PASS login/logout; reset email not verified (free mailer only reaches org members) | owner |
 | 2026-11-05 | Smoke checklist | 8c52168 | staging | — | PASS: platform salon create, legal fields gate, KVKK short + full notice (TASLAK), wa.me CTA, opt-in checkbox disabled without phone, booking, status page + WhatsApp opt-out, staff temp-password login → /staff, staff approve, 2nd-tenant isolation. Fixed during test: #161 (staff password/invite/routing), #162 (opt-out button name). Not run: WhatsApp send (off on staging), push on device, log masking review (§9) | owner |
+| 2026-11-05 | Migrations 20261107100000 (location) + 20261107110000 (salon_app) | e58b159, b6d6a21 | Actions runs 42023188307, 42023899124 | — | PASS, no drift; salon_app super=f bypass=f, EXECUTE on 3 private fns, no `_prisma_migrations` | agent, owner-approved |
+| 2026-11-05 | Runtime cutover to salon_app (§4.7) | b6d6a21 | pg_stat_activity: 9 × salon_app via Supavisor | — | PASS after 2 fixes: (1) `Tenant` had auto-enabled RLS on staging → disabled (owner) + migration 20261107120000; (2) Vercel URL user was still `postgres` → corrected to `salon_app.<ref>` | owner + agent |
+| 2026-11-05 | Smoke as salon_app | b6d6a21 | staging | — | PASS: admin + calendar, staff list/approve, public booking + status link, platform tenant list | owner |
 | | Backup/restore rehearsal | | | | | |
 | | Final rehearsal after WP-09 | | | | | |
 
