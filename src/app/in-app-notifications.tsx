@@ -27,12 +27,12 @@ function formatDateTime(iso: string) {
 
 function Item({ item, href }: { item: InAppNotificationViewItem; href: string }) {
   return <li>
-    <Link href={href} className="block rounded-lg px-3 py-2 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black">
+    <Link href={href} className="block rounded-lg px-3 py-2 hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
       <span className="flex items-start justify-between gap-2">
         <span className="text-sm font-medium">{formatDateTime(item.startAt)} · {item.serviceName}</span>
         <span className="shrink-0 rounded-full border px-2 py-0.5 text-xs">{labels[item.status] ?? item.status}</span>
       </span>
-      <span className="mt-1 block text-xs text-zinc-500">
+      <span className="mt-1 block text-xs text-ink-muted">
         Personel: {item.staffDisplayName}
         {item.customerDisplayName !== undefined && <> · Müşteri: {item.customerDisplayName}</>}
         {item.kind === "STATUS_CHANGED" && <> · Güncellendi: {formatDateTime(item.updatedAt)}</>}
@@ -111,23 +111,23 @@ export function InAppNotifications({ initialData, reload, href, className, width
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex min-h-11 min-w-11 items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+        className="inline-flex min-h-11 min-w-11 items-center gap-2 rounded-lg border bg-surface px-3 py-2 text-sm hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
         <span aria-hidden="true">Bildirimler</span>
-        {count > 0 && <span aria-hidden="true" className="rounded-full bg-black px-2 py-0.5 text-xs font-semibold text-white">{count}</span>}
+        {count > 0 && <span aria-hidden="true" className="rounded-full bg-action px-2 py-0.5 text-xs font-semibold text-on-action">{count}</span>}
       </button>
-      {open && <div id={panelId} role="region" aria-label="Bildirimler" className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border bg-white p-2 text-zinc-900 shadow-lg">
+      {open && <div id={panelId} role="region" aria-label="Bildirimler" className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border bg-surface p-2 text-ink shadow-lg">
         <section aria-labelledby={`${panelId}-pending`}>
-          <h2 id={`${panelId}-pending`} className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Onay bekleyen ({count})</h2>
+          <h2 id={`${panelId}-pending`} className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Onay bekleyen ({count})</h2>
           {data.pending.length === 0
-            ? <p className="px-3 py-2 text-sm text-zinc-500">Onay bekleyen randevu yok.</p>
+            ? <p className="px-3 py-2 text-sm text-ink-muted">Onay bekleyen randevu yok.</p>
             : <ul>{data.pending.map((item) => <Item key={item.appointmentId} item={item} href={href} />)}</ul>}
-          {count > data.pending.length && <p className="px-3 py-1 text-xs text-zinc-500">İlk {data.pending.length} randevu gösteriliyor.</p>}
+          {count > data.pending.length && <p className="px-3 py-1 text-xs text-ink-muted">İlk {data.pending.length} randevu gösteriliyor.</p>}
         </section>
         <section aria-labelledby={`${panelId}-recent`} className="mt-2 border-t pt-1">
-          <h2 id={`${panelId}-recent`} className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Son değişiklikler (7 gün)</h2>
+          <h2 id={`${panelId}-recent`} className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Son değişiklikler (7 gün)</h2>
           {data.recent.length === 0
-            ? <p className="px-3 py-2 text-sm text-zinc-500">Son 7 günde değişiklik yok.</p>
+            ? <p className="px-3 py-2 text-sm text-ink-muted">Son 7 günde değişiklik yok.</p>
             : <ul>{data.recent.map((item) => <Item key={item.appointmentId} item={item} href={href} />)}</ul>}
         </section>
       </div>}

@@ -48,19 +48,19 @@ export function BookingContactSummary({
   return (
     <div className="mt-2 space-y-1 text-sm">
       {fields.length > 0 && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-          <p className="text-xs font-medium text-zinc-700">Randevuda girilen iletişim</p>
-          <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs text-zinc-800">
+        <div className="rounded-lg border border-separator bg-surface-muted px-3 py-2">
+          <p className="text-xs font-medium text-ink-muted">Randevuda girilen iletişim</p>
+          <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs text-ink">
             {fields.map((field) => (
               <div key={field.key} className="contents">
-                <dt className="text-zinc-600">{field.label}:</dt>
+                <dt className="text-ink-muted">{field.label}:</dt>
                 <dd className="break-all">{field.value}</dd>
               </div>
             ))}
           </dl>
         </div>
       )}
-      <p className="text-xs text-zinc-600">{whatsappStateLabels[contact.whatsapp]}</p>
+      <p className="text-xs text-ink-muted">{whatsappStateLabels[contact.whatsapp]}</p>
     </div>
   );
 }

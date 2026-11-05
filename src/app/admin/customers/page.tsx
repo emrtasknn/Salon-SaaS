@@ -27,15 +27,15 @@ export default async function CustomerPage({
     }
 
     return (
-      <main className="min-h-screen bg-zinc-50 p-4 sm:p-8">
+      <main className="min-h-screen bg-canvas p-4 sm:p-8">
         <div className="mx-auto max-w-4xl">
           <BackLink href="/admin/customers" label="Müşteriler" />
           <h1 className="mt-4 text-3xl font-semibold">{result.customer.displayName}</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-ink-muted">
             {result.customer.email ?? "E-posta yok"} · {result.customer.phone ?? "Telefon yok"}
           </p>
 
-          <section className="mt-6 rounded-xl border bg-white p-5">
+          <section className="mt-6 rounded-xl border bg-surface p-5">
             <h2 className="font-semibold">Randevu geçmişi</h2>
             {result.customer.appointments.length ? (
               <div className="mt-4 space-y-2">
@@ -43,23 +43,23 @@ export default async function CustomerPage({
                   <div key={appointment.id} className="rounded-lg border p-3 text-sm">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <span className="font-medium">{appointment.serviceName}</span>
-                      <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs">{appointment.status}</span>
+                      <span className="rounded-md bg-surface-muted px-2 py-1 text-xs">{appointment.status}</span>
                     </div>
-                    <div className="mt-2 text-zinc-600">
+                    <div className="mt-2 text-ink-muted">
                       {new Date(appointment.startAt).toLocaleString("tr-TR")}
                     </div>
-                    <div className="mt-1 text-zinc-500">
+                    <div className="mt-1 text-ink-muted">
                       Personel: {appointment.staffDisplayName}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-sm text-zinc-500">Henüz randevu geçmişi yok.</p>
+              <p className="mt-3 text-sm text-ink-muted">Henüz randevu geçmişi yok.</p>
             )}
           </section>
 
-          <section className="mt-6 rounded-xl border bg-white p-5">
+          <section className="mt-6 rounded-xl border bg-surface p-5">
             <h2 className="font-semibold">Notlar</h2>
             {result.customer.notes.length ? (
               <div className="mt-4 space-y-2">
@@ -68,7 +68,7 @@ export default async function CustomerPage({
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-sm text-zinc-500">Henüz not yok.</p>
+              <p className="mt-3 text-sm text-ink-muted">Henüz not yok.</p>
             )}
           </section>
         </div>
@@ -82,12 +82,12 @@ export default async function CustomerPage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 p-4 sm:p-8">
+    <main className="min-h-screen bg-canvas p-4 sm:p-8">
       <div className="mx-auto max-w-5xl">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold">Müşteriler</h1>
-            <p className="mt-1 text-sm text-zinc-500">Müşteri kayıtları, geçmiş ve notlar.</p>
+            <p className="mt-1 text-sm text-ink-muted">Müşteri kayıtları, geçmiş ve notlar.</p>
           </div>
         </div>
 
@@ -98,28 +98,28 @@ export default async function CustomerPage({
             name="q"
             defaultValue={query.q ?? ""}
             placeholder="Ad, e-posta veya telefon ara"
-            className="min-w-0 flex-1 rounded-lg border bg-white px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-lg border bg-surface px-3 py-2 text-sm"
           />
-          <button type="submit" className="rounded-lg bg-black px-4 py-2 text-sm text-white">Ara</button>
+          <button type="submit" className="rounded-lg bg-action px-4 py-2 text-sm text-on-action">Ara</button>
         </form>
 
-        <section className="mt-6 overflow-hidden rounded-xl border bg-white">
+        <section className="mt-6 overflow-hidden rounded-xl border bg-surface">
           {result.customers.length ? (
             <div className="divide-y">
               {result.customers.map((customer) => (
                 <Link
                   key={customer.id}
                   href={`/admin/customers?id=${encodeURIComponent(customer.id)}`}
-                  className="block p-4 hover:bg-zinc-50"
+                  className="block p-4 hover:bg-surface-muted"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="font-medium">{customer.displayName}</div>
-                      <div className="mt-1 text-sm text-zinc-500">
+                      <div className="mt-1 text-sm text-ink-muted">
                         {customer.email ?? "E-posta yok"} · {customer.phone ?? "Telefon yok"}
                       </div>
                     </div>
-                    <div className="text-right text-xs text-zinc-500">
+                    <div className="text-right text-xs text-ink-muted">
                       <div>{customer.appointmentCount} randevu</div>
                       <div>{customer.lastAppointmentAt ? new Date(customer.lastAppointmentAt).toLocaleDateString("tr-TR") : "Henüz randevu yok"}</div>
                     </div>
@@ -128,7 +128,7 @@ export default async function CustomerPage({
               ))}
             </div>
           ) : (
-            <div className="p-8 text-center text-sm text-zinc-500">
+            <div className="p-8 text-center text-sm text-ink-muted">
               {query.q ? "Aramanızla eşleşen müşteri bulunamadı." : "Henüz müşteri kaydı bulunmuyor."}
             </div>
           )}

@@ -9,8 +9,9 @@ import { createNextSupabaseBrowserClient } from "../../infrastructure/auth/supab
 import { releaseWebPushSubscription } from "../pwa/push-permission";
 
 import { buttonSecondary } from "./styles";
+import { ThemeToggle } from "./theme-toggle";
 
-/** "Change password" (uses the current session on /reset-password) and "Log out" for signed-in users. */
+/** Appearance (theme) switch, "Change password" (uses the current session on /reset-password) and "Log out" for signed-in users. */
 export function AccountLinks() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -28,11 +29,12 @@ export function AccountLinks() {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <Link href="/reset-password" className={buttonSecondary}>Şifremi değiştir</Link>
       <button type="button" onClick={logout} disabled={busy} className={buttonSecondary}>
         {busy ? "Çıkış yapılıyor…" : "Çıkış yap"}
       </button>
+      <ThemeToggle />
     </div>
   );
 }

@@ -36,7 +36,7 @@ const errorMessages: Record<string, string> = {
 };
 
 const inputClassName =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200 aria-[invalid=true]:border-red-500";
+  "w-full rounded-lg border border-field-border bg-surface px-3 py-2 text-sm text-ink shadow-sm focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30 aria-[invalid=true]:border-destructive";
 
 export function TenantSettingsForm({ settings, canEdit = false }: { settings: TenantSettingsView; canEdit?: boolean }) {
   const router = useRouter();
@@ -57,7 +57,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
   return (
     <section
       aria-labelledby="tenant-settings-title"
-      className="mt-6 rounded-xl border border-zinc-300 bg-white p-5 shadow-sm"
+      className="mt-6 rounded-xl border border-separator bg-surface p-5 shadow-sm"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="tenant-settings-title" className="text-lg font-semibold">
@@ -66,8 +66,8 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
         <span
           className={`rounded-full border px-2 py-1 text-xs font-medium ${
             settings.status === "ACTIVE"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-              : "border-amber-300 bg-amber-50 text-amber-900"
+              ? "border-status-confirmed/40 bg-status-confirmed-bg text-status-confirmed"
+              : "border-status-pending/40 bg-status-pending-bg text-status-pending"
           }`}
         >
           Durum: {settings.status === "ACTIVE" ? "Aktif" : "Pasif"}
@@ -133,14 +133,14 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
             }
             className={inputClassName}
           />
-          <p id="tenant-contact-phone-help" className="text-xs text-zinc-500">
+          <p id="tenant-contact-phone-help" className="text-xs text-ink-muted">
             Örn. +905551234567. Müşteriler salon sayfasında bu numaraya WhatsApp&apos;tan yazabilir. Boş bırakırsanız WhatsApp bağlantısı gösterilmez.
           </p>
         </div>
 
-        <fieldset className="grid gap-4 border-t border-zinc-200 pt-4 sm:col-span-2 sm:grid-cols-2" aria-describedby="tenant-location-help">
+        <fieldset className="grid gap-4 border-t border-separator pt-4 sm:col-span-2 sm:grid-cols-2" aria-describedby="tenant-location-help">
           <legend className="text-base font-semibold">Konum</legend>
-          <p id="tenant-location-help" className="text-xs text-zinc-600 sm:col-span-2">
+          <p id="tenant-location-help" className="text-xs text-ink-muted sm:col-span-2">
             Müşteriler salon ve randevu sayfasında &quot;Yol tarifi al&quot; bağlantısıyla salonunuza kolayca ulaşır.
             Harita bağlantısı boşsa adres Google Haritalar&apos;da aranır.
           </p>
@@ -163,7 +163,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               }
               className={inputClassName}
             />
-            <p id="tenant-public-address-help" className="text-xs text-zinc-500">
+            <p id="tenant-public-address-help" className="text-xs text-ink-muted">
               Müşterilere gösterilen adres. Örn. Moda Cad. No:12, Kadıköy / İstanbul
             </p>
           </div>
@@ -185,15 +185,15 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               aria-describedby={mapsUrlInvalid ? "tenant-maps-url-help tenant-settings-feedback" : "tenant-maps-url-help"}
               className={inputClassName}
             />
-            <p id="tenant-maps-url-help" className="text-xs text-zinc-500">
+            <p id="tenant-maps-url-help" className="text-xs text-ink-muted">
               Google Haritalar&apos;da salonunuzu açın → Paylaş → Bağlantıyı kopyala. Apple Haritalar bağlantısı da olur.
             </p>
           </div>
         </fieldset>
 
-        <fieldset className="grid gap-4 border-t border-zinc-200 pt-4 sm:col-span-2 sm:grid-cols-2" aria-describedby="tenant-legal-help">
+        <fieldset className="grid gap-4 border-t border-separator pt-4 sm:col-span-2 sm:grid-cols-2" aria-describedby="tenant-legal-help">
           <legend className="text-base font-semibold">Yasal bilgiler (KVKK)</legend>
-          <div id="tenant-legal-help" className="space-y-2 text-xs text-zinc-600 sm:col-span-2">
+          <div id="tenant-legal-help" className="space-y-2 text-xs text-ink-muted sm:col-span-2">
             <p>
               Bu bilgiler müşterilere gösterilen aydınlatma metninde veri sorumlusu olarak yer alır. Üç alan da
               doldurulana kadar online randevu kapalı kalır.
@@ -201,8 +201,8 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
             <p
               className={`inline-block rounded-md border px-2 py-1 font-medium ${
                 legalComplete
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                  : "border-amber-300 bg-amber-50 text-amber-900"
+                  ? "border-status-confirmed/40 bg-status-confirmed-bg text-status-confirmed"
+                  : "border-status-pending/40 bg-status-pending-bg text-status-pending"
               }`}
             >
               {legalComplete ? "Yasal bilgiler tamam." : "Eksik yasal bilgi var: online randevu kapalı."}
@@ -225,7 +225,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               }
               className={inputClassName}
             />
-            <p id="tenant-legal-name-help" className="text-xs text-zinc-500">
+            <p id="tenant-legal-name-help" className="text-xs text-ink-muted">
               Vergi levhasındaki ad veya şahıs işletmesinde ad soyad.
             </p>
           </div>
@@ -248,7 +248,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               }
               className={inputClassName}
             />
-            <p id="tenant-kvkk-email-help" className="text-xs text-zinc-500">
+            <p id="tenant-kvkk-email-help" className="text-xs text-ink-muted">
               Müşteriler kişisel verileriyle ilgili başvurularını bu adrese gönderir.
             </p>
           </div>
@@ -274,11 +274,11 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
         <dl className="grid gap-4 text-sm sm:col-span-2 sm:grid-cols-2">
           <div>
             <dt className="font-medium">Saat dilimi</dt>
-            <dd className="mt-1 text-zinc-700">{settings.timezone}</dd>
+            <dd className="mt-1 text-ink-muted">{settings.timezone}</dd>
           </div>
           <div>
             <dt className="font-medium">Online randevu durumu</dt>
-            <dd className="mt-1 text-zinc-700">
+            <dd className="mt-1 text-ink-muted">
               {settings.status === "ACTIVE"
                 ? "Aktif — müşteriler online randevu alabilir."
                 : "Pasif — online ve yeni randevu alınmıyor."}{" "}
@@ -292,19 +292,19 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
           <button
             type="submit"
             disabled={busy}
-            className="min-h-11 w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            className="min-h-11 w-full rounded-lg bg-action px-4 py-2 text-sm font-medium text-on-action disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {busy ? "Kaydediliyor…" : "Ayarları kaydet"}
           </button>
         </div>
         ) : (
-          <p className="text-xs text-zinc-500 sm:col-span-2">Salon ayarlarını yalnızca salon yöneticisi değiştirebilir.</p>
+          <p className="text-xs text-ink-muted sm:col-span-2">Salon ayarlarını yalnızca salon yöneticisi değiştirebilir.</p>
         )}
 
         <p
           id="tenant-settings-feedback"
           role="status"
-          className={`text-sm sm:col-span-2 ${feedback?.kind === "error" ? "text-red-700" : "text-zinc-700"}`}
+          className={`text-sm sm:col-span-2 ${feedback?.kind === "error" ? "text-destructive" : "text-ink-muted"}`}
         >
           {feedback?.text}
         </p>
