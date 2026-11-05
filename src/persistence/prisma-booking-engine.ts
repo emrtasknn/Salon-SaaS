@@ -192,6 +192,8 @@ export function createPrismaBookingRepository(prisma: PrismaTenantClient): Booki
             if (input.contact?.whatsappVerbalOptIn === true && contactSnapshot(existing).phone === null) return "opt_in_requires_phone";
             customer = existing;
           } else {
+            // WP-10: same pre-write check for guests (guest phone is E.164-validated upstream).
+            if (input.contact?.whatsappVerbalOptIn === true && !input.customer.phone) return "opt_in_requires_phone";
             if (input.customer.email) {
               // Never silently attach to an existing profile: the caller must choose it explicitly.
               const match = await tx.profile.findFirst({ where: { tenantId, email: { equals: input.customer.email, mode: "insensitive" } } });

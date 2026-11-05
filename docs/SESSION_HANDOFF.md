@@ -29,5 +29,8 @@
 - Owner decision: no "okudum" checkbox; notice shown above submit, shown version + hash recorded per booking.
 - Code gaps found while drafting (README "Uygulamaya yansıyacak"): profile reuse by email ignores new phone (wrong-recipient risk), WhatsApp templates lack salon name, no opt-in gate yet, no token revoke/cleanup, opportunistic rate-limit cleanup.
 
+## WP-10 code (2026-11-05)
+- Branch `feat/wp-10-kvkk-consent`: AppointmentContact snapshot + notice hash + WhatsApp opt-in/opt-out, tenant legal fields, migration `20261106100000` (not applied). Text is DRAFT; public launch needs counsel approval and salon legal fields filled.
+
 ## Next task
 - Owner: WP-12 staging (create Supabase branch + Vercel env, run staging-migrate, §4.5 gate, smoke), WP-02 live tests, legal review of `docs/legal/`. Then WP-10 implementation (needs a migration slot after `20261105140000`), WP-13, WP-14.
