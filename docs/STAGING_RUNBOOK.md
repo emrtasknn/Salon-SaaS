@@ -100,6 +100,43 @@ where n.nspname = 'private' and p.proname like 'resolve_whatsapp%';
 
 6. Every later migration: run **deploy** on staging first, smoke test (section 7), then run the pilot workflow (`w11-4-pilot-supabase-migrate.yml`) under the P8 approval sequence. Note: the pilot workflow has no GitHub Environment approval gate today; the owner's own approval is the only gate (follow-up: move it behind a `pilot` Environment with required reviewers). For each migration, write down a forward plan and a rollback plan (a new down migration; Prisma has no automatic rollback).
 
+### 4.7 Runtime role cutover (salon_app)
+
+Proposal (owner approval required; RLS architecture change). Finding 2026-11-05: on pilot and staging the app connects as `postgres` (`rolbypassrls = true`), so FORCE RLS never applies at runtime. Migration `20261107110000_salon_app_runtime_role` creates `salon_app` (NOLOGIN, NOSUPERUSER, NOBYPASSRLS) with DML on `public` (not `_prisma_migrations`) and EXECUTE on the three `private` SECURITY DEFINER functions (still owned by `postgres`). Nothing changes until `DATABASE_URL` is switched. Migrations (`staging-migrate.yml`, pilot workflow) keep using `postgres`.
+
+Prerequisite: the app build that contains the pre-context fixes from the same PR (staff lookups and tenant provisioning run inside a tenant context) is deployed. Order: **staging first**, smoke test, then pilot under the P8 approval sequence.
+
+Per environment:
+
+1. Deploy the migration (section 4 steps 1–2 / step 6).
+2. Supabase SQL editor (owner, manual; never commit or paste the secret anywhere else):
+
+   ```sql
+   ALTER ROLE salon_app WITH LOGIN PASSWORD '<generated 32+ char secret>';
+   ```
+
+3. Build the new URL from the existing pooled `DATABASE_URL`: only the user and password change. Supavisor needs the tenant-qualified user name **`salon_app.<project-ref>`** (same host, port and parameters as the current `postgres.<project-ref>` URL). URL-encode the password.
+4. Vercel → project → Settings → Environment Variables → `DATABASE_URL` (that environment only) → new URL → Redeploy. Keep the old value in the password manager for rollback. Do not change the URL that migration workflows use: the GitHub secrets `STAGING_DATABASE_URL` (Environment `staging`) and the **repo secret `DATABASE_URL`** (pilot, read by `w11-4-pilot-supabase-migrate.yml`) must stay on `postgres`. `salon_app` has no DDL rights, so migrations run as it would fail.
+5. Verify, read-only, in the SQL editor:
+
+   ```sql
+   select rolname, rolsuper, rolbypassrls, rolcanlogin from pg_roles where rolname = 'salon_app';
+   -- expect: f, f, t
+
+   select p.proname, has_function_privilege('salon_app', p.oid, 'EXECUTE') as can_execute
+   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'private' order by 1;
+   -- expect: true for rate_limit_hit, resolve_whatsapp_delivery_tenant_id, resolve_whatsapp_tenant_id
+
+   select usename, count(*) from pg_stat_activity where datname = current_database() group by 1;
+   -- after redeploy + traffic: app connections appear as salon_app
+   ```
+
+   Section 4 step 5 queries still apply: resolver owner must keep `rolbypassrls = true`; `<runtime_role>` is now `salon_app`.
+6. Smoke test (section 7), in particular: admin login + calendar, staff login + own appointments, public booking by slug, status link, platform tenant list/provision (SUPER_ADMIN), a WhatsApp status webhook, push subscribe. A permissions error (`42501`) or an empty staff page means a path still queries an RLS table outside `withPrismaTenantContext`: roll back and report.
+
+Rollback: set Vercel `DATABASE_URL` back to the `postgres` URL and redeploy (no data change). Optionally `ALTER ROLE salon_app NOLOGIN;`. The role and grants can stay; removing them is listed in the migration header.
+
 ## 5. Vercel project and staging environment
 
 **Done 2026-11-05 (agent, owner-approved):** dedicated Vercel project **`salon-saas-staging`** (`prj_Y64itnAWE3hNG9xkaBz9i34tc9sU`) linked to `emrtasknn/Salon-SaaS`, Framework Next.js, Node 24.x, function region `lhr1` (London, next to the `salon-saas-test` DB), Vercel Authentication on **all** deployments (only signed-in team members can open it). No env vars were set by the agent. Because this project is staging-only, put the section 1 "Vercel (staging env)" values in its **Production** scope (its production branch is `main`); the pilot later gets its own Vercel project. Until the env vars exist, builds fail at `postinstall` (`prisma generate` needs `DATABASE_URL` defined) — expected. After adding them, Deployments → Redeploy. Options A/B below are the alternative for a single shared project.

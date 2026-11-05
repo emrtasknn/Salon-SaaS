@@ -5,6 +5,7 @@ import type {
 } from "../application/tenant-provisioning";
 
 export interface PrismaProvisioningTransaction {
+  $executeRaw(query: TemplateStringsArray, ...values: unknown[]): PromiseLike<unknown>;
   tenant: {
     create(args: {
       data: {
@@ -60,6 +61,10 @@ export function createPrismaTenantProvisioningRepository(
               timezone: input.tenant.timezone,
             },
           });
+
+          // Profile and TenantMembership are FORCE RLS: bind the new tenant to this
+          // transaction so the inserts pass WITH CHECK under a NOBYPASSRLS runtime role.
+          await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenant.id}, true)`;
 
           const profile = await tx.profile.create({
             data: {

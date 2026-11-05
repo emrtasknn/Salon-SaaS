@@ -2,19 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // WP-08 QA: staff create-appointment actions. Tenant comes from the session only; staffId is the
 // signed-in staff member's own row (decision e) and any client-supplied staffId/tenantId is ignored.
-const { readAuthenticatedTenantRequest, readMembership, staffFindUnique, runtime, prisma } = vi.hoisted(() => {
+const { readAuthenticatedTenantRequest, readMembership, staffFindUnique, setTenantConfig, runtime, prisma } = vi.hoisted(() => {
   const staffFindUnique = vi.fn();
+  const setTenantConfig = vi.fn();
   return {
     readAuthenticatedTenantRequest: vi.fn(),
     readMembership: vi.fn(),
     staffFindUnique,
+    setTenantConfig,
     runtime: {
       createOnBehalfBookingEngine: vi.fn(() => ({ marker: "engine" })),
       createOnBehalf: vi.fn(),
       listSlotsOnBehalf: vi.fn(),
       readCreateOptions: vi.fn(),
     },
-    prisma: { staff: { findUnique: staffFindUnique } },
+    // The staff lookup runs inside withPrismaTenantContext (RLS-safe under a NOBYPASSRLS role).
+    prisma: {
+      $transaction: vi.fn(async (operation: (tx: unknown) => Promise<unknown>) =>
+        operation({ $executeRaw: setTenantConfig, staff: { findUnique: staffFindUnique } })),
+    },
   };
 });
 
@@ -58,6 +64,7 @@ describe("createStaffAppointment (WP-08)", () => {
     const result = await createStaffAppointment({ ...input, staffId: "other-staff", tenantId: "tenant-from-client" } as never);
     expect(result).toEqual({ status: "CREATED", appointmentId: "a1", notified: true });
     expect(staffFindUnique).toHaveBeenCalledWith({ where: { tenantId_profileId: { tenantId: "tenant-from-session", profileId: "profile-1" } } });
+    expect(setTenantConfig).toHaveBeenCalledWith(expect.anything(), "tenant-from-session");
     expect(runtime.createOnBehalf).toHaveBeenCalledOnce();
     const [, identity, tenantContext, passed] = runtime.createOnBehalf.mock.calls[0] as unknown as [unknown, unknown, unknown, unknown];
     expect(identity).toMatchObject({ state: "authenticated", subjectId: "user-1", profileId: "profile-1" });
