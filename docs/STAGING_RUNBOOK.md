@@ -145,6 +145,8 @@ where n.nspname = 'public' and c.relkind = 'r' order by 1;
 -- expect: Tenant f/f/0; every tenant-owned table t/t/>=1. A table with t and 0 policies is a red flag.
 ```
 
+**Most common cutover mistake (happened on staging and pilot, 2026-11-05):** Supabase "Connect" always gives a `postgres.<ref>` URL; when only the password is replaced, the app logs in as `postgres` with the salon_app password → every request fails, the UI shows "Yetkisiz erişim" / "Salon listesi yüklenemedi" / public 500. Second mistake: URL password ≠ `ALTER ROLE` password (`password authentication failed for user "salon_app"`). Use a hex password (no URL-encoding), set it in both places in one go, redeploy. Repeated failures trip the Supavisor circuit breaker for a few minutes.
+
 Also check that the pooler user is really `salon_app.<ref>`: Supabase logs → Supavisor should show no `password authentication failed for user "postgres"`, and `pg_stat_activity` should list `salon_app`.
 
 Rollback: set Vercel `DATABASE_URL` back to the `postgres` URL and redeploy (no data change). Optionally `ALTER ROLE salon_app NOLOGIN;`. The role and grants can stay; removing them is listed in the migration header.
@@ -249,6 +251,8 @@ No new dependency. Pick one:
 | 2026-11-05 | Migrations 20261107100000 (location) + 20261107110000 (salon_app) | e58b159, b6d6a21 | Actions runs 42023188307, 42023899124 | — | PASS, no drift; salon_app super=f bypass=f, EXECUTE on 3 private fns, no `_prisma_migrations` | agent, owner-approved |
 | 2026-11-05 | Runtime cutover to salon_app (§4.7) | b6d6a21 | pg_stat_activity: 9 × salon_app via Supavisor | — | PASS after 2 fixes: (1) `Tenant` had auto-enabled RLS on staging → disabled (owner) + migration 20261107120000; (2) Vercel URL user was still `postgres` → corrected to `salon_app.<ref>` | owner + agent |
 | 2026-11-05 | Smoke as salon_app | b6d6a21 | staging | — | PASS: admin + calendar, staff list/approve, public booking + status link, platform tenant list | owner |
+| 2026-11-05 | **Pilot** migrations (10, additive) | 06a3db5 | pilot check run 42031301021, deploy run 42032277457 | — | PASS, no drift; data intact (5 tenants, 13 appointments, test data per owner); deployed **without backup by owner decision** (test-only data). RLS+FORCE on 14 tenant tables, Tenant off, salon_app ready | agent, owner-approved |
+| 2026-11-05 | **Pilot** Vercel `salon-saas-pilot` + salon_app runtime | 06a3db5 | https://salon-saas-pilot-emre-361a.vercel.app | — | PASS: Node 24, `dub1`, public (no Vercel Auth), previews off; pg_stat_activity shows salon_app; public salon pages 200; owner: platform login OK. Two URL mistakes fixed (see cutover note) | agent + owner |
 | | Backup/restore rehearsal | | | | | |
 | | Final rehearsal after WP-09 | | | | | |
 
