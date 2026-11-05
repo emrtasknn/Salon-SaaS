@@ -4,34 +4,43 @@ import { createPublicVitrin } from "../../application/public-vitrin";
 import { createPrismaPublicSalonRepository } from "../../persistence/prisma-public-vitrin";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import Link from "next/link";
+import { AppBar } from "../_ui/app-bar";
+import { buttonSecondary } from "../_ui/styles";
 
 function WhatsAppLink({ href }: { href: string }) {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
-    >
+    <a href={href} target="_blank" rel="noopener noreferrer" className={buttonSecondary}>
       WhatsApp&apos;tan yaz
       <span className="sr-only"> (yeni sekmede açılır)</span>
     </a>
   );
 }
 
+function Brand() {
+  return <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>;
+}
+
 export default async function PublicSalonPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const result = await createPublicVitrin(createPrismaPublicSalonRepository(getPrisma())).load(slug);
-  if (result.status !== "ok") return <main className="mx-auto max-w-4xl p-6"><h1 className="text-2xl font-semibold">{result.status === "NOT_FOUND" ? "İşletme bulunamadı" : "İşletme yüklenemedi"}</h1></main>;
+  if (result.status !== "ok") {
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 py-10">
+        <h1 className="text-title">{result.status === "NOT_FOUND" ? "İşletme bulunamadı" : "İşletme yüklenemedi"}</h1>
+      </main>
+    );
+  }
 
   if (!result.active) {
     return (
-      <main className="min-h-screen bg-zinc-50">
-        <div className="mx-auto max-w-5xl p-4 sm:p-8">
-          <header className="rounded-2xl border bg-white p-6">
-            <p className="text-sm text-zinc-500">Salon-SaaS</p>
-            <h1 className="mt-1 text-3xl font-semibold">{result.name}</h1>
-            <p role="status" className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+      <main className="min-h-screen bg-canvas">
+        <AppBar>
+          <Brand />
+        </AppBar>
+        <div className="mx-auto max-w-xl px-4 pb-10 pt-6 sm:px-6">
+          <header className="space-y-4">
+            <h1 className="text-large-title">{result.name}</h1>
+            <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
               Şu anda online randevu alınmıyor.
             </p>
             {result.whatsAppUrl && <WhatsAppLink href={result.whatsAppUrl} />}
@@ -41,5 +50,39 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ sl
     );
   }
 
-  return <main className="min-h-screen bg-zinc-50"><div className="mx-auto max-w-5xl p-4 sm:p-8"><header className="rounded-2xl border bg-white p-6"><p className="text-sm text-zinc-500">Salon-SaaS</p><h1 className="mt-1 text-3xl font-semibold">{result.name}</h1><p className="mt-2 text-sm text-zinc-600">Randevu almak için bir hizmet seçin.</p>{result.whatsAppUrl && <WhatsAppLink href={result.whatsAppUrl} />}</header><section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="text-lg font-semibold">Hizmetler</h2><div className="mt-4 space-y-3">{result.services.map(s => <div key={s.id} className="rounded-xl border p-4"><p className="font-medium">{s.name}</p><p className="mt-1 text-sm text-zinc-500">{s.durationMinutes} dk</p><Link href={`/${slug}/book?service=${encodeURIComponent(s.id)}`} className="mt-3 inline-block rounded-lg bg-black px-3 py-2 text-xs font-medium text-white">Randevu al</Link></div>)}</div></section></div></main>;
+  return (
+    <main className="min-h-screen bg-canvas">
+      <AppBar>
+        <Brand />
+        {result.whatsAppUrl && <WhatsAppLink href={result.whatsAppUrl} />}
+      </AppBar>
+      <div className="mx-auto max-w-xl px-4 pb-10 pt-6 sm:px-6">
+        <header>
+          <h1 className="text-large-title">{result.name}</h1>
+          <p className="measure mt-2 text-body text-ink-muted">Randevu almak için bir hizmet seçin.</p>
+        </header>
+        <section aria-labelledby="services-title" className="mt-8">
+          <h2 id="services-title" className="group-label">Hizmetler</h2>
+          <ul className="inset-group">
+            {result.services.map((s) => (
+              <li key={s.id} className="inset-row">
+                <Link
+                  href={`/${slug}/book?service=${encodeURIComponent(s.id)}`}
+                  className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors duration-150 ease-out hover:bg-surface-muted focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-separator"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-body font-medium text-ink">{s.name}</span>
+                    <span className="mt-0.5 block text-footnote tabular-nums text-ink-muted">{s.durationMinutes} dk</span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-action px-3.5 py-1.5 text-footnote font-semibold text-on-action">
+                    Randevu al
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </main>
+  );
 }

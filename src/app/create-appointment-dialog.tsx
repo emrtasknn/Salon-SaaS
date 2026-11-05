@@ -16,6 +16,7 @@ import type {
   SlotView,
   StaffCreateAppointmentInput,
 } from "./appointment-create-contract";
+import { buttonPrimary, buttonSecondary } from "./_ui/styles";
 
 type AdminVariant = Readonly<{
   kind: "admin";
@@ -304,10 +305,6 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
     submit(customer);
   }
 
-  const buttonPrimary =
-    "min-h-11 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50";
-  const buttonSecondary =
-    "min-h-11 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50";
 
   return (
     <>
@@ -324,9 +321,9 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
           if (searchTimer.current) clearTimeout(searchTimer.current);
           triggerRef.current?.focus();
         }}
-        className="m-auto max-h-[92dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-xl border border-zinc-300 bg-white p-0 text-zinc-900 shadow-lg backdrop:bg-black/40"
+        className="m-auto max-h-[92dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 backdrop:backdrop-blur-sm"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-separator bg-surface px-4 py-3">
           <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
             Randevu oluştur
           </h2>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import type { PublicLegalView } from "../../legal-consent-contract";
 import { getPublicAvailability } from "./actions";
 import { submitBooking } from "./submit";
+import { buttonPrimary, buttonSecondary, card, field, statusNote } from "../../_ui/styles";
 
 type ServiceOption = Readonly<{
   id: string;
@@ -21,9 +22,6 @@ type Slot = Readonly<{
   startAtIso: string;
   endAtIso: string;
 }>;
-
-const fieldClassName =
-  "w-full min-h-11 rounded-lg border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 aria-[invalid=true]:border-red-600";
 
 // WP-10 failure codes. The server is authoritative; these are display strings only.
 const legalErrors: Record<string, string> = {
@@ -177,94 +175,96 @@ export function PublicBookingForm({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50">
-      <div className="mx-auto max-w-xl p-4 sm:p-8">
+    <main className="min-h-screen bg-canvas">
+      <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">
         <form
-          className="space-y-5 rounded-2xl border bg-white p-6 shadow-sm"
+          className="space-y-7"
           onSubmit={(event) => {
             event.preventDefault();
             submit(new FormData(event.currentTarget));
           }}
         >
-          <div>
-            <h1 className="text-2xl font-semibold">Randevu talebi</h1>
-            <p className="mt-1 text-sm text-zinc-600">Hizmetinizi, personelinizi ve uygun saati seçin.</p>
+          <header>
+            <h1 className="text-large-title">Randevu talebi</h1>
+            <p className="measure mt-2 text-body text-ink-muted">Hizmetinizi, personelinizi ve uygun saati seçin.</p>
+          </header>
+
+          <div className={`${card} space-y-4`}>
+            <label className="block space-y-1.5">
+              <span className="text-subhead font-medium">Hizmet</span>
+              <select
+                value={serviceId}
+                onChange={(event) => {
+                  setServiceId(event.target.value);
+                  setSelectedSlot("");
+                  setAvailabilityStatus(event.target.value && staffId && dateIso ? "loading" : "idle");
+                }}
+                required
+                className={field}
+              >
+                <option value="">Hizmet seçin</option>
+                {services.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} · {service.durationMinutes + service.bufferMinutes} dk
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-subhead font-medium">Personel</span>
+              <select
+                value={staffId}
+                onChange={(event) => {
+                  setStaffId(event.target.value);
+                  setSelectedSlot("");
+                  setAvailabilityStatus(event.target.value && serviceId && dateIso ? "loading" : "idle");
+                }}
+                required
+                disabled={!staff.length}
+                className={field}
+              >
+                <option value="">Personel seçin</option>
+                {staff.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-subhead font-medium">Tarih</span>
+              <input
+                name="date"
+                type="date"
+                min={minDate}
+                value={dateIso}
+                onChange={(event) => {
+                  setDateIso(event.target.value);
+                  setSelectedSlot("");
+                  setAvailabilityStatus(event.target.value && serviceId && staffId ? "loading" : "idle");
+                }}
+                required
+                className={`${field} tabular-nums`}
+              />
+            </label>
+
+            {selectedService && (
+              <p className="text-footnote tabular-nums text-ink-muted">
+                Randevu süresi: {selectedService.durationMinutes} dk
+                {selectedService.bufferMinutes ? ` + ${selectedService.bufferMinutes} dk hazırlık` : ""}
+              </p>
+            )}
           </div>
 
-          <label className="block space-y-2">
-            <span className="text-sm font-medium">Hizmet</span>
-            <select
-              value={serviceId}
-              onChange={(event) => {
-                setServiceId(event.target.value);
-                setSelectedSlot("");
-                setAvailabilityStatus(event.target.value && staffId && dateIso ? "loading" : "idle");
-              }}
-              required
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-            >
-              <option value="">Hizmet seçin</option>
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name} · {service.durationMinutes + service.bufferMinutes} dk
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-sm font-medium">Personel</span>
-            <select
-              value={staffId}
-              onChange={(event) => {
-                setStaffId(event.target.value);
-                setSelectedSlot("");
-                setAvailabilityStatus(event.target.value && serviceId && dateIso ? "loading" : "idle");
-              }}
-              required
-              disabled={!staff.length}
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-            >
-              <option value="">Personel seçin</option>
-              {staff.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-sm font-medium">Tarih</span>
-            <input
-              name="date"
-              type="date"
-              min={minDate}
-              value={dateIso}
-              onChange={(event) => {
-                setDateIso(event.target.value);
-                setSelectedSlot("");
-                setAvailabilityStatus(event.target.value && serviceId && staffId ? "loading" : "idle");
-              }}
-              required
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-            />
-          </label>
-
-          {selectedService && (
-            <p className="text-xs text-zinc-500">
-              Randevu süresi: {selectedService.durationMinutes} dk
-              {selectedService.bufferMinutes ? ` + ${selectedService.bufferMinutes} dk hazırlık` : ""}
-            </p>
-          )}
-
-          <section aria-live="polite" className="space-y-2">
-            <div className="text-sm font-medium">Uygun saatler</div>
-            {availabilityStatus === "loading" && <p className="text-sm text-zinc-500">Uygun saatler kontrol ediliyor…</p>}
-            {availabilityStatus === "empty" && <p className="text-sm text-zinc-500">Bu tarih için uygun saat bulunmuyor.</p>}
-            {availabilityStatus === "error" && <p className="text-sm text-zinc-500">Uygun saatler yüklenemedi. Lütfen tekrar deneyin.</p>}
-            {availabilityStatus === "inactive" && <p className="text-sm text-zinc-500">Şu anda online randevu alınmıyor.</p>}
-            {availabilityStatus === "limited" && <p className="text-sm text-zinc-500">Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.</p>}
+          <section aria-live="polite" className={`${card} space-y-3`}>
+            <div className="text-headline">Uygun saatler</div>
+            {availabilityStatus === "loading" && <p className="text-subhead text-ink-muted">Uygun saatler kontrol ediliyor…</p>}
+            {availabilityStatus === "empty" && <p className="text-subhead text-ink-muted">Bu tarih için uygun saat bulunmuyor.</p>}
+            {availabilityStatus === "error" && <p className="text-subhead text-ink-muted">Uygun saatler yüklenemedi. Lütfen tekrar deneyin.</p>}
+            {availabilityStatus === "inactive" && <p className="text-subhead text-ink-muted">Şu anda online randevu alınmıyor.</p>}
+            {availabilityStatus === "limited" && <p className="text-subhead text-ink-muted">Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.</p>}
             {availabilityStatus === "ready" && (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {slots.map((slot) => (
@@ -273,7 +273,7 @@ export function PublicBookingForm({
                     type="button"
                     aria-pressed={selectedSlot === slot.startAtIso}
                     onClick={() => setSelectedSlot(slot.startAtIso)}
-                    className={`rounded-lg border px-3 py-2 text-sm ${selectedSlot === slot.startAtIso ? "border-black bg-black text-white" : "bg-white hover:bg-zinc-50"}`}
+                    className={`pressable focus-ring tap-target rounded-control border px-2 py-2.5 text-body font-medium tabular-nums ${selectedSlot === slot.startAtIso ? "border-action bg-action text-on-action" : "border-separator bg-surface-muted text-ink hover:border-field-border"}`}
                   >
                     {formatSlot(slot.startAtIso, timeZone)}
                   </button>
@@ -282,18 +282,18 @@ export function PublicBookingForm({
             )}
           </section>
 
-          <div className="space-y-3 border-t pt-5">
-            <h2 className="text-sm font-medium">İletişim bilgileri</h2>
-            <div className="space-y-1">
-              <label htmlFor="booking-name" className="text-sm">Ad soyad</label>
-              <input id="booking-name" name="displayName" required autoComplete="name" className={fieldClassName} />
+          <div className={`${card} space-y-4`}>
+            <h2 className="text-headline">İletişim bilgileri</h2>
+            <div className="space-y-1.5">
+              <label htmlFor="booking-name" className="text-subhead font-medium">Ad soyad</label>
+              <input id="booking-name" name="displayName" required autoComplete="name" className={field} />
             </div>
-            <div className="space-y-1">
-              <label htmlFor="booking-email" className="text-sm">E-posta</label>
-              <input id="booking-email" name="email" required type="email" autoComplete="email" className={fieldClassName} />
+            <div className="space-y-1.5">
+              <label htmlFor="booking-email" className="text-subhead font-medium">E-posta</label>
+              <input id="booking-email" name="email" required type="email" autoComplete="email" className={field} />
             </div>
-            <div className="space-y-1">
-              <label htmlFor="booking-phone" className="text-sm">Telefon (isteğe bağlı)</label>
+            <div className="space-y-1.5">
+              <label htmlFor="booking-phone" className="text-subhead font-medium">Telefon (isteğe bağlı)</label>
               <input
                 id="booking-phone"
                 name="phone"
@@ -309,12 +309,12 @@ export function PublicBookingForm({
                 }}
                 aria-invalid={phoneError}
                 aria-describedby="booking-phone-help"
-                className={fieldClassName}
+                className={`${field} tabular-nums`}
               />
-              <p id="booking-phone-help" className="text-xs text-zinc-600">Ülke koduyla girin, örn. +905551234567.</p>
+              <p id="booking-phone-help" className="text-footnote text-ink-muted">Ülke koduyla girin, örn. +905551234567.</p>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 border-t border-separator pt-4">
               <div className="flex items-start gap-3">
                 <input
                   id="booking-whatsapp-optin"
@@ -323,62 +323,64 @@ export function PublicBookingForm({
                   disabled={!hasPhone}
                   onChange={(event) => setWhatsappOptIn(event.target.checked)}
                   aria-describedby={hasPhone ? "booking-whatsapp-help" : "booking-whatsapp-help booking-whatsapp-disabled"}
-                  className="mt-0.5 h-5 w-5 shrink-0 accent-black focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+                  className="focus-ring mt-0.5 h-6 w-6 shrink-0 accent-action disabled:cursor-not-allowed"
                 />
-                <label htmlFor="booking-whatsapp-optin" className={`text-sm ${hasPhone ? "text-zinc-900" : "text-zinc-500"}`}>
+                <label htmlFor="booking-whatsapp-optin" className={`text-subhead ${hasPhone ? "text-ink" : "text-ink-muted"}`}>
                   {legal.optInLabel}
                 </label>
               </div>
-              <p id="booking-whatsapp-help" className="pl-8 text-xs text-zinc-600">{legal.optInHelp}</p>
+              <p id="booking-whatsapp-help" className="pl-9 text-footnote text-ink-muted">{legal.optInHelp}</p>
               {!hasPhone && (
-                <p id="booking-whatsapp-disabled" className="pl-8 text-xs text-zinc-600">
+                <p id="booking-whatsapp-disabled" className="pl-9 text-footnote text-ink-muted">
                   Bu seçenek için önce telefon numaranızı girin.
                 </p>
               )}
             </div>
           </div>
 
-          <div id="booking-notice" className="space-y-1 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
+          <div id="booking-notice" className="space-y-1 px-1 text-footnote text-ink-muted">
             <p className="whitespace-pre-line">{legal.shortNotice}</p>
             <a
               href={legal.fullNoticePath}
               target="_blank"
               rel="noopener"
-              className="inline-flex min-h-11 items-center font-medium text-zinc-900 underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+              className="focus-ring inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-2"
             >
               Aydınlatma Metni
               <span className="sr-only"> (yeni sekmede açılır)</span>
             </a>
           </div>
 
-          <button
-            type="submit"
-            disabled={busy || stale || !selectedSlot || availabilityStatus !== "ready"}
-            aria-describedby="booking-notice"
-            className="min-h-11 w-full rounded-lg bg-black px-4 py-3 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy ? "Gönderiliyor…" : "Randevu talebi gönder"}
-          </button>
-
-          {status && <p role="status" className="rounded-lg border p-3 text-sm">{status}</p>}
-
-          {stale && (
+          <div className="space-y-3">
             <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="min-h-11 w-full rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+              type="submit"
+              disabled={busy || stale || !selectedSlot || availabilityStatus !== "ready"}
+              aria-describedby="booking-notice"
+              className={`${buttonPrimary} w-full`}
             >
-              Sayfayı yenile
+              {busy ? "Gönderiliyor…" : "Randevu talebi gönder"}
             </button>
-          )}
+
+            {status && <p role="status" className={statusNote}>{status}</p>}
+
+            {stale && (
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className={`${buttonSecondary} w-full`}
+              >
+                Sayfayı yenile
+              </button>
+            )}
+          </div>
 
           {statusUrl && (
-            <section aria-labelledby="status-link-title" className="space-y-3 rounded-lg border bg-zinc-50 p-4">
-              <h2 id="status-link-title" className="text-sm font-medium">Randevu bağlantınız</h2>
-              <p className="text-sm text-zinc-600">
+            <section aria-labelledby="status-link-title" className={`${card} space-y-3`}>
+              <h2 id="status-link-title" className="text-headline">Randevu bağlantınız</h2>
+              <p className="text-subhead text-ink-muted">
                 Bu bağlantıyı kaydedin; randevunuzu görmek veya iptal etmek için kullanabilirsiniz.
               </p>
-              <a href={statusUrl} className="block break-all rounded-lg border bg-white p-3 text-sm underline">
+              <a href={statusUrl} className="focus-ring block break-all rounded-control bg-surface-muted p-3 text-subhead text-ink underline">
                 {statusUrl}
               </a>
               <button
@@ -391,11 +393,11 @@ export function PublicBookingForm({
                     setCopyState("failed");
                   }
                 }}
-                className="min-h-11 w-full rounded-lg border bg-white px-4 py-2 text-sm hover:bg-zinc-100 sm:w-auto"
+                className={`${buttonSecondary} w-full sm:w-auto`}
               >
                 Bağlantıyı kopyala
               </button>
-              <p aria-live="polite" className="text-xs text-zinc-500">
+              <p aria-live="polite" className="text-footnote text-ink-muted">
                 {copyState === "copied" && "Bağlantı kopyalandı."}
                 {copyState === "failed" && "Kopyalanamadı. Bağlantıyı seçip elle kopyalayın."}
               </p>

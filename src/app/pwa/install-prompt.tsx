@@ -151,7 +151,7 @@ export function InstallPrompt() {
       <div aria-hidden="true" className="h-[calc(4.5rem+env(safe-area-inset-bottom))] shrink-0" />
       <section
         aria-label="Uygulamayı yükle"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-neutral-900 shadow-[0_-1px_4px_rgba(0,0,0,0.06)] backdrop-blur supports-[backdrop-filter]:bg-white/85"
+        className="glass fixed inset-x-0 bottom-0 z-40 border-t px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-ink"
       >
         <div className="mx-auto flex max-w-3xl items-center gap-2 sm:gap-3">
           <p className="min-w-0 flex-1 text-sm leading-snug">
@@ -174,7 +174,7 @@ export function InstallPrompt() {
               type="button"
               onClick={install}
               disabled={installing}
-              className="min-h-11 shrink-0 rounded-md bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 active:bg-neutral-800 disabled:cursor-wait disabled:opacity-60"
+              className="pressable focus-ring min-h-11 shrink-0 rounded-control bg-action px-3.5 text-subhead font-semibold text-on-action hover:bg-action-hover disabled:cursor-wait disabled:opacity-60"
             >
               Uygulamayı yükle
             </button>
@@ -183,7 +183,7 @@ export function InstallPrompt() {
             type="button"
             onClick={dismiss}
             aria-label="Yükleme önerisini kapat"
-            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 active:bg-neutral-200"
+            className="pressable focus-ring flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control text-ink-muted hover:bg-black/5 hover:text-ink"
           >
             <span aria-hidden="true" className="text-xl leading-none">
               ×

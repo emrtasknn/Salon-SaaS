@@ -12,7 +12,7 @@ export default async function StaffAppointmentsPage() {
   const date = todayIso();
   const [data, notifications] = await Promise.all([listStaffAppointments(date), listStaffNotifications()]);
   return <>
-    <InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff/appointments" className="bg-zinc-50 px-4 pt-4 sm:px-6" widthClassName="max-w-4xl" />
+    <InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff/appointments" className="bg-canvas px-4 pt-4 sm:px-6" widthClassName="max-w-4xl" />
     <StaffAppointments initialDate={date} initialData={data} />
   </>;
 }

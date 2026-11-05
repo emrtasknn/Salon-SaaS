@@ -18,6 +18,12 @@ Required context:
 - relevant issue/spec
 - relevant domain/application/persistence code and tests
 
+## Visual language
+
+The PWA uses Apple's design language as its visual reference. Before any visual/styling work, apply
+`references/apple-design-rules.md` (type scale, contrast, touch targets, inset-grouped lists, glass
+material limits, motion, safe areas) and use the tokens in `src/app/globals.css` and `src/app/_ui/`.
+
 ## Execution
 
 ### 1. Discover
