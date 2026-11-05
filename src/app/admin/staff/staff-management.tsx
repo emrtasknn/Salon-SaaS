@@ -1,8 +1,10 @@
 "use client";
 
-import { buttonPrimary, buttonSecondary, field } from "../../_ui/styles";
+import { field } from "../../_ui/styles";
 import { createStaffAction, setStaffStatusAction, updateStaffProfileAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
+import { Button } from "@/components/ui/button";
+import { StatusToggle } from "../../_ui/status-toggle";
 
 const label = "mb-1.5 block text-subhead font-medium text-ink";
 
@@ -66,9 +68,9 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
               En az 8 karakter; e-posta gerekir. Boş bırakırsanız personele davet e-postası gönderilir.
             </p>
           </div>
-          <button disabled={busy} className={`${buttonPrimary} w-full`}>
+          <Button type="submit" disabled={busy} variant="primary" className="w-full">
             Personel ekle
-          </button>
+          </Button>
         </form>
       </section>
 
@@ -84,13 +86,12 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                   <div className="min-w-0">
                     <p className="text-headline [overflow-wrap:anywhere]">{item.displayName}</p>
                     <p className="text-footnote text-ink-muted tabular-nums">{item.phone || "Telefon belirtilmemiş"}</p>
-                    <p className="text-footnote text-ink-muted">{item.status === "ACTIVE" ? "Aktif" : "Pasif"}</p>
                   </div>
-                  <button
-                    type="button"
+                  <StatusToggle
+                    active={item.status === "ACTIVE"}
+                    name={item.displayName}
                     disabled={busy}
-                    className={`${buttonSecondary} shrink-0`}
-                    onClick={() =>
+                    onToggle={() =>
                       startTransition(async () => {
                         const result = await setStaffStatusAction(
                           item.id,
@@ -100,9 +101,7 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                         if (result.status === "updated") refresh();
                       })
                     }
-                  >
-                    {item.status === "ACTIVE" ? "Pasifleştir" : "Aktifleştir"}
-                  </button>
+                  />
                 </div>
                 <form
                   className="space-y-2 border-t border-separator pt-3"
@@ -136,9 +135,9 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                     placeholder="Telefon"
                     className={`${field} tabular-nums`}
                   />
-                  <button disabled={busy} className={`${buttonSecondary} w-full`}>
+                  <Button type="submit" disabled={busy} variant="secondary" className="w-full">
                     Bilgileri kaydet
-                  </button>
+                  </Button>
                 </form>
               </li>
             ))}

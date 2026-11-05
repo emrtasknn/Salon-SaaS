@@ -5,7 +5,8 @@ import { listStaffAppointments } from "./actions";
 import { decideAndNotify } from "./decide";
 import { BookingContactSummary } from "../booking-contact-summary";
 import { AppBar } from "../_ui/app-bar";
-import { appointmentStatusBadge, badgeBase, buttonDestructiveOutline, buttonPrimary, buttonSecondary, fieldInline, statusNote } from "../_ui/styles";
+import { appointmentStatusBadge, badgeBase, fieldInline, statusNote } from "../_ui/styles";
+import { Button } from "@/components/ui/button";
 
 type Props = { initialDate: string; initialData: Awaited<ReturnType<typeof listStaffAppointments>> };
 const labels: Record<string, string> = { PENDING: "Bekliyor", CONFIRMED: "Onaylandı", REJECTED: "Reddedildi", CANCELLED: "İptal", COMPLETED: "Tamamlandı" };
@@ -31,7 +32,7 @@ export function StaffAppointments({ initialDate, initialData }: Props) {
     <AppBar widthClassName="max-w-4xl">
       <div className="flex flex-wrap items-center gap-2">
         <input type="date" aria-label="Tarih" value={date} onChange={(e) => { setDate(e.target.value); refresh(e.target.value); }} className={`${fieldInline} tabular-nums`} />
-        <button onClick={() => refresh()} disabled={busy} className={buttonSecondary}>{busy ? "Yükleniyor…" : "Yenile"}</button>
+        <Button type="submit" onClick={() => refresh()} disabled={busy} variant="secondary">{busy ? "Yükleniyor…" : "Yenile"}</Button>
       </div>
     </AppBar>
     <div className="mx-auto max-w-4xl px-4 pb-10 pt-4 sm:px-6">
@@ -47,7 +48,7 @@ export function StaffAppointments({ initialDate, initialData }: Props) {
             </div>
             <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{labels[a.status] ?? a.status}</span>
           </div>
-          {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2"><button disabled={busy} onClick={() => startTransition(async () => { const r = await decideAndNotify(a.id, "CONFIRMED"); setFeedback(r.status === "updated" ? "Randevu onaylandı." : "Randevu onaylanamadı."); if (r.status === "updated") refresh(); })} className={`${buttonPrimary} flex-1 sm:flex-none`}>Onayla</button><button disabled={busy} onClick={() => startTransition(async () => { const r = await decideAndNotify(a.id, "REJECTED"); setFeedback(r.status === "updated" ? "Randevu reddedildi." : "Randevu reddedilemedi."); if (r.status === "updated") refresh(); })} className={`${buttonDestructiveOutline} flex-1 sm:flex-none`}>Reddet</button></div>}
+          {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2"><Button type="submit" disabled={busy} onClick={() => startTransition(async () => { const r = await decideAndNotify(a.id, "CONFIRMED"); setFeedback(r.status === "updated" ? "Randevu onaylandı." : "Randevu onaylanamadı."); if (r.status === "updated") refresh(); })} variant="primary" className="flex-1 sm:flex-none">Onayla</Button><Button type="submit" disabled={busy} onClick={() => startTransition(async () => { const r = await decideAndNotify(a.id, "REJECTED"); setFeedback(r.status === "updated" ? "Randevu reddedildi." : "Randevu reddedilemedi."); if (r.status === "updated") refresh(); })} variant="danger-outline" className="flex-1 sm:flex-none">Reddet</Button></div>}
         </article></li>)}</ul>}
     </div>
   </main>;

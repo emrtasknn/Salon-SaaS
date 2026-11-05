@@ -13,7 +13,7 @@ export function SignInScreen() {
           <LoginForm />
         </div>
         <div className="mt-10 flex justify-center">
-          <ThemeToggle />
+          <ThemeToggle showLabel />
         </div>
       </div>
     </main>

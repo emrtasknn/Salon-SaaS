@@ -2,10 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-
 import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
 
-import { buttonPrimary, buttonSecondary, card, field, statusNote } from "../_ui/styles";
+import { card, statusNote } from "../_ui/styles";
+import { Button } from "@/components/ui/button";
+import { LockKeyhole, Mail } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 export function LoginForm() {
   const router = useRouter();
@@ -74,37 +76,31 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className={`${card} space-y-4`}>
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-subhead font-medium text-ink">E-posta</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            aria-describedby={hasError ? "login-error" : undefined}
-            className={field}
-            required
-          />
-        </div>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          label="E-posta"
+          leadingIcon={Mail}
+          autoComplete="email"
+          value={email}
+          onChange={setEmail}
+          aria-describedby={hasError ? "login-error" : undefined}
+          isRequired
+        />
 
-        <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-subhead font-medium text-ink">Şifre</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            aria-describedby={hasError ? "login-error" : undefined}
-            className={field}
-            required
-          />
-        </div>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          label="Şifre"
+          leadingIcon={LockKeyhole}
+          autoComplete="current-password"
+          value={password}
+          onChange={setPassword}
+          aria-describedby={hasError ? "login-error" : undefined}
+          isRequired
+        />
       </div>
 
       {hasError ? (
@@ -119,12 +115,12 @@ export function LoginForm() {
 
       {resetNotice ? <p role="status" className={statusNote}>{resetNotice}</p> : null}
 
-      <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className={`${buttonPrimary} w-full`}>
+      <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} variant="primary" className="w-full">
         {isSubmitting ? "Giriş yapılıyor..." : "Giriş yap"}
-      </button>
-      <button type="button" onClick={handleForgotPassword} disabled={isSubmitting} className={`${buttonSecondary} w-full`}>
+      </Button>
+      <Button type="button" onClick={handleForgotPassword} disabled={isSubmitting} variant="secondary" className="w-full">
         Şifremi unuttum
-      </button>
+      </Button>
     </form>
   );
 }

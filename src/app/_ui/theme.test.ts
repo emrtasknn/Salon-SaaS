@@ -4,6 +4,7 @@ import { createElement } from "react";
 
 import {
   applyThemePreference,
+  nextThemePreference,
   parseThemePreference,
   readThemePreference,
   THEME_STORAGE_KEY,
@@ -90,19 +91,18 @@ describe("theme preference helpers", () => {
 });
 
 describe("ThemeToggle", () => {
-  const html = renderToStaticMarkup(createElement(ThemeToggle));
+  const html = renderToStaticMarkup(createElement(ThemeToggle, { showLabel: true }));
 
-  it("renders a labelled 3-state group with System pressed by default on the server", () => {
-    expect(html).toContain('role="group"');
-    expect(html).toContain('aria-label="Görünüm"');
-    expect(html.match(/<button type="button"/g)?.length).toBe(3);
-    expect(html).toMatch(/aria-pressed="true"[^>]*>.*?Sistem/);
-    expect(html).toContain("Açık");
-    expect(html).toContain("Koyu");
-    expect(html.match(/aria-pressed="false"/g)?.length).toBe(2);
+  it("is one 44px button that names the current mode and the next one (System by default)", () => {
+    expect(html.match(/<button type="button"/g)?.length).toBe(1);
+    expect(html).toContain('aria-label="Görünüm: Sistem. Değiştirmek için dokunun (sonraki: Açık).');
+    expect(html).toContain("min-h-11 min-w-11");
+    expect(html).toContain(">Sistem<");
   });
 
-  it("uses 44px targets", () => {
-    expect(html.match(/min-h-11 min-w-11/g)?.length).toBe(3);
+  it("cycles Sistem → Açık → Koyu → Sistem", () => {
+    expect(nextThemePreference("system")).toBe("light");
+    expect(nextThemePreference("light")).toBe("dark");
+    expect(nextThemePreference("dark")).toBe("system");
   });
 });

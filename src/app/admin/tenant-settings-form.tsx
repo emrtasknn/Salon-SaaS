@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { field } from "../_ui/styles";
 import type { TenantLegalErrorCode, TenantLegalFields } from "../legal-consent-contract";
 import { updateTenantSettingsAction } from "./settings-actions";
 
@@ -34,9 +36,6 @@ const errorMessages: Record<string, string> = {
     "Harita bağlantısı geçersiz. Google Haritalar veya Apple Haritalar'daki Paylaş bağlantısını yapıştırın.",
   ...legalErrorMessages,
 };
-
-const inputClassName =
-  "w-full rounded-lg border border-field-border bg-surface px-3 py-2 text-sm text-ink shadow-sm focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30 aria-[invalid=true]:border-destructive";
 
 export function TenantSettingsForm({ settings, canEdit = false }: { settings: TenantSettingsView; canEdit?: boolean }) {
   const router = useRouter();
@@ -109,7 +108,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
             readOnly={!canEdit}
             aria-invalid={nameInvalid}
             aria-describedby={nameInvalid ? "tenant-settings-feedback" : undefined}
-            className={inputClassName}
+            className={field}
           />
         </div>
 
@@ -131,7 +130,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
                 ? "tenant-contact-phone-help tenant-settings-feedback"
                 : "tenant-contact-phone-help"
             }
-            className={inputClassName}
+            className={field}
           />
           <p id="tenant-contact-phone-help" className="text-xs text-ink-muted">
             Örn. +905551234567. Müşteriler salon sayfasında bu numaraya WhatsApp&apos;tan yazabilir. Boş bırakırsanız WhatsApp bağlantısı gösterilmez.
@@ -161,7 +160,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               aria-describedby={
                 publicAddressInvalid ? "tenant-public-address-help tenant-settings-feedback" : "tenant-public-address-help"
               }
-              className={inputClassName}
+              className={field}
             />
             <p id="tenant-public-address-help" className="text-xs text-ink-muted">
               Müşterilere gösterilen adres. Örn. Moda Cad. No:12, Kadıköy / İstanbul
@@ -183,7 +182,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               readOnly={!canEdit}
               aria-invalid={mapsUrlInvalid}
               aria-describedby={mapsUrlInvalid ? "tenant-maps-url-help tenant-settings-feedback" : "tenant-maps-url-help"}
-              className={inputClassName}
+              className={field}
             />
             <p id="tenant-maps-url-help" className="text-xs text-ink-muted">
               Google Haritalar&apos;da salonunuzu açın → Paylaş → Bağlantıyı kopyala. Apple Haritalar bağlantısı da olur.
@@ -223,7 +222,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               aria-describedby={
                 legalNameInvalid ? "tenant-legal-name-help tenant-settings-feedback" : "tenant-legal-name-help"
               }
-              className={inputClassName}
+              className={field}
             />
             <p id="tenant-legal-name-help" className="text-xs text-ink-muted">
               Vergi levhasındaki ad veya şahıs işletmesinde ad soyad.
@@ -246,7 +245,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               aria-describedby={
                 kvkkEmailInvalid ? "tenant-kvkk-email-help tenant-settings-feedback" : "tenant-kvkk-email-help"
               }
-              className={inputClassName}
+              className={field}
             />
             <p id="tenant-kvkk-email-help" className="text-xs text-ink-muted">
               Müşteriler kişisel verileriyle ilgili başvurularını bu adrese gönderir.
@@ -266,7 +265,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               readOnly={!canEdit}
               aria-invalid={legalAddressInvalid}
               aria-describedby={legalAddressInvalid ? "tenant-settings-feedback" : undefined}
-              className={inputClassName}
+              className={field}
             />
           </div>
         </fieldset>
@@ -289,25 +288,22 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
 
         {canEdit ? (
         <div className="sm:col-span-2">
-          <button
-            type="submit"
-            disabled={busy}
-            className="min-h-11 w-full rounded-lg bg-action px-4 py-2 text-sm font-medium text-on-action disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-          >
+          <Button type="submit" pending={busy} className="w-full sm:w-auto">
             {busy ? "Kaydediliyor…" : "Ayarları kaydet"}
-          </button>
+          </Button>
         </div>
         ) : (
           <p className="text-xs text-ink-muted sm:col-span-2">Salon ayarlarını yalnızca salon yöneticisi değiştirebilir.</p>
         )}
 
-        <p
-          id="tenant-settings-feedback"
-          role="status"
-          className={`text-sm sm:col-span-2 ${feedback?.kind === "error" ? "text-destructive" : "text-ink-muted"}`}
-        >
-          {feedback?.text}
-        </p>
+        {/* Live region stays mounted; the card inside animates in. */}
+        <div id="tenant-settings-feedback" role="status" className="sm:col-span-2">
+          {feedback ? (
+            <Notice role="none" tone={feedback.kind === "error" ? "error" : "success"}>
+              {feedback.text}
+            </Notice>
+          ) : null}
+        </div>
       </form>
     </section>
   );

@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CustomerCancelResult } from "../../../../application/customer-appointment-status";
 import { cancelAppointmentByToken } from "./actions";
-import { buttonDestructive, buttonDestructiveOutline, buttonSecondary, statusNote } from "../../../_ui/styles";
+import { statusNote } from "../../../_ui/styles";
+import { Button } from "@/components/ui/button";
 
 const resultMessages: Record<CustomerCancelResult["status"], string> = {
   CANCELLED: "Randevunuz iptal edildi.",
@@ -40,38 +41,38 @@ export function CancelForm({ slug, token }: { slug: string; token: string }) {
   return (
     <div className="space-y-3">
       {!confirming ? (
-        <button
+        <Button
           type="button"
           onClick={() => {
             setMessage("");
             setConfirming(true);
           }}
-          className={`${buttonDestructiveOutline} w-full`}
+          variant="danger-outline" className="w-full"
         >
           Randevuyu iptal et
-        </button>
+        </Button>
       ) : (
         <div role="group" aria-labelledby="cancel-confirm-title" className="space-y-3 rounded-card bg-status-rejected-bg p-4">
           <p id="cancel-confirm-title" className="text-subhead font-medium text-status-rejected">
             Randevuyu iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <button
+            <Button
               type="button"
               disabled={busy}
               onClick={cancel}
-              className={`${buttonDestructive} flex-1`}
+              variant="danger" className="flex-1"
             >
               {busy ? "İptal ediliyor…" : "Evet, iptal et"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               disabled={busy}
               onClick={() => setConfirming(false)}
-              className={`${buttonSecondary} flex-1`}
+              variant="secondary" className="flex-1"
             >
               Vazgeç
-            </button>
+            </Button>
           </div>
         </div>
       )}

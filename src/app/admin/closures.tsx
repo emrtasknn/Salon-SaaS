@@ -5,7 +5,6 @@
 // confirm explicitly; existing appointments are handled manually.
 
 import { useId, useState, useTransition } from "react";
-
 import type {
   ClosureImpactAppointmentView,
   ClosureListResult,
@@ -14,6 +13,8 @@ import type {
 } from "../appointment-create-contract";
 import { formatLocalDate } from "../create-appointment-dialog";
 import { createClosure, deleteClosure, listClosures, previewClosureImpact } from "./closure-actions";
+import { Button } from "@/components/ui/button";
+import { field } from "../_ui/styles";
 
 type Props = Readonly<{
   initialData: ClosureListResult;
@@ -35,15 +36,6 @@ const createErrors: Record<string, string> = {
   INVALID_INPUT: "Bilgileri kontrol edin. Açıklama en fazla 200 karakter olabilir.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
 };
-
-const inputClassName =
-  "w-full min-h-11 rounded-lg border border-field-border bg-surface px-3 py-2 text-sm text-ink shadow-sm focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30";
-const buttonPrimary =
-  "min-h-11 rounded-lg bg-action px-4 py-2 text-sm font-medium text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:opacity-50";
-const buttonSecondary =
-  "min-h-11 rounded-lg border border-separator bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:opacity-50";
-const buttonDanger =
-  "min-h-11 rounded-lg border border-destructive/40 bg-surface px-3 py-2 text-sm font-medium text-destructive hover:bg-status-rejected-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40 focus-visible:ring-offset-2 disabled:opacity-50";
 
 function todayIn(timeZone: string): LocalDateIso {
   try {
@@ -208,7 +200,7 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
                 resetImpact();
                 setFormError("");
               }}
-              className={inputClassName}
+              className={field}
             />
           </div>
           <div className="space-y-1">
@@ -221,7 +213,7 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               aria-describedby={`${ids}-reason-hint`}
-              className={inputClassName}
+              className={field}
             />
             <p id={`${ids}-reason-hint`} className="text-xs text-ink-muted">
               Örn. resmî tatil, bakım. En fazla 200 karakter ({reason.length}/200).
@@ -263,13 +255,13 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
             )}
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={busy || !date || (impact !== null && impact.length > 0 && !confirmed)}
-            className={buttonPrimary}
+            variant="primary"
           >
             {busy ? "Kontrol ediliyor…" : impact && impact.length > 0 ? "Günü yine de kapat" : "Kapalı gün olarak kaydet"}
-          </button>
+          </Button>
         </form>
 
         <div>
@@ -289,23 +281,23 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
                   {pendingDelete === c.id ? (
                     <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`${formatLocalDate(c.date)} kapalı gününü kaldır`}>
                       <span className="text-xs text-ink-muted">Kaldırılsın mı?</span>
-                      <button type="button" disabled={busy} onClick={() => remove(c)} className={buttonDanger}>
+                      <Button type="button" disabled={busy} onClick={() => remove(c)} variant="danger-outline" size="small">
                         Evet, kaldır
-                      </button>
-                      <button type="button" disabled={busy} onClick={() => setPendingDelete(null)} className={buttonSecondary}>
+                      </Button>
+                      <Button type="button" disabled={busy} onClick={() => setPendingDelete(null)} variant="secondary" size="small">
                         Vazgeç
-                      </button>
+                      </Button>
                     </div>
                   ) : (
-                    <button
+                    <Button
                       type="button"
                       disabled={busy}
                       onClick={() => setPendingDelete(c.id)}
                       aria-label={`${formatLocalDate(c.date)} kapalı gününü kaldır`}
-                      className={buttonSecondary}
+                      variant="secondary"
                     >
                       Kaldır
-                    </button>
+                    </Button>
                   )}
                 </li>
               ))}

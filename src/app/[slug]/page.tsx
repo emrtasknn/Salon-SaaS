@@ -5,15 +5,15 @@ import { createPrismaPublicSalonRepository } from "../../persistence/prisma-publ
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import Link from "next/link";
 import { AppBar } from "../_ui/app-bar";
-import { buttonSecondary } from "../_ui/styles";
 import { SalonLocationLink } from "../_ui/salon-location-link";
+import { ButtonAnchor } from "@/components/ui/button";
 
 function WhatsAppLink({ href }: { href: string }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={buttonSecondary}>
+    <ButtonAnchor href={href} target="_blank" rel="noopener noreferrer" variant="secondary">
       WhatsApp&apos;tan yaz
       <span className="sr-only"> (yeni sekmede açılır)</span>
-    </a>
+    </ButtonAnchor>
   );
 }
 

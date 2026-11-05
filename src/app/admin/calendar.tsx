@@ -25,9 +25,10 @@ import {
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
 import { dateInZone } from "../_ui/timeline-layout";
-import { appointmentStatusBadge, badgeBase, buttonDestructiveOutline, buttonPrimary, buttonSecondary } from "../_ui/styles";
+import { appointmentStatusBadge, badgeBase } from "../_ui/styles";
 import { AdminClosures } from "./closures";
 import type { ClosureListResult, LocalDateIso } from "../appointment-create-contract";
+import { Button, type ButtonVariant } from "@/components/ui/button";
 
 type AdminTransitionTarget = "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 type ActionKind = "primary" | "destructive" | "secondary";
@@ -50,16 +51,10 @@ function availableActions(status: string): Array<{ to: AdminTransitionTarget; la
   return [];
 }
 
-const listActionClass: Record<ActionKind, string> = {
-  primary: "rounded-lg bg-action px-3 py-2 text-xs text-on-action disabled:opacity-50",
-  destructive: "rounded-lg border border-destructive/40 px-3 py-2 text-xs text-destructive disabled:opacity-50",
-  secondary: "rounded-lg border px-3 py-2 text-xs disabled:opacity-50",
-};
-
-const sheetActionClass: Record<ActionKind, string> = {
-  primary: buttonPrimary,
-  destructive: buttonDestructiveOutline,
-  secondary: buttonSecondary,
+const actionVariant: Record<ActionKind, ButtonVariant> = {
+  primary: "primary",
+  destructive: "danger-outline",
+  secondary: "secondary",
 };
 
 const createVariant = {
@@ -203,14 +198,14 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
               initialDate={date}
               onCreated={onCreated}
             />
-            <button
+            <Button
               ref={closuresTrigger}
               type="button"
               onClick={() => setClosuresOpen(true)}
-              className={buttonSecondary}
+              variant="secondary"
             >
               Kapalı günler
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -234,14 +229,14 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
                 className="focus-ring tap-target rounded-control border border-field-border bg-surface px-3 text-body tabular-nums text-ink"
               />
             </DateStepper>
-            <button
+            <Button
               type="button"
               onClick={() => refresh()}
               disabled={busy}
-              className={buttonSecondary}
+              variant="secondary"
             >
               {loading ? "Yükleniyor…" : "Yenile"}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -335,14 +330,16 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {availableActions(appointment.status).map((action) => (
-                    <button
+                    <Button
                       key={action.to}
+                      type="submit"
+                      size="small"
+                      variant={actionVariant[action.kind]}
                       disabled={busy}
                       onClick={() => transition(appointment.id, action.to)}
-                      className={listActionClass[action.kind]}
                     >
                       {action.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </article>
@@ -384,15 +381,16 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
             {availableActions(selected.status).length > 0 ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 {availableActions(selected.status).map((action) => (
-                  <button
+                  <Button
                     key={action.to}
                     type="button"
+                    variant={actionVariant[action.kind]}
                     disabled={busy}
                     onClick={() => transition(selected.id, action.to)}
-                    className={`${sheetActionClass[action.kind]} sm:flex-1`}
+                    className="sm:flex-1"
                   >
                     {action.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ) : (

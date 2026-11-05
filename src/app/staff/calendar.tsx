@@ -5,11 +5,12 @@ import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, l
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { AppBar } from "../_ui/app-bar";
 import { AccountLinks } from "../_ui/account-links";
-import { appointmentStatusBadge, badgeBase, buttonDestructiveOutline, buttonPrimary, buttonSecondary, fieldInline, statusNote } from "../_ui/styles";
+import { appointmentStatusBadge, badgeBase, fieldInline, statusNote } from "../_ui/styles";
 import { AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
 import { dateInZone } from "../_ui/timeline-layout";
+import { Button } from "@/components/ui/button";
 
 // Staff create for themselves only (staffId derived server-side), guest customer only.
 const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listSlots: listStaffSlots, create: createStaffAppointment } as const;
@@ -102,7 +103,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
         <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
           <input aria-label="Tarih" type="date" value={date} onChange={(e) => { if (e.target.value) changeDate(e.target.value); }} className={`${fieldInline} tabular-nums`} />
         </DateStepper>
-        <button type="button" onClick={() => refresh()} disabled={busy} className={buttonSecondary}>{loading ? "Yükleniyor…" : "Yenile"}</button>
+        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary">{loading ? "Yükleniyor…" : "Yenile"}</Button>
       </div>
       <ViewSwitch view={view} onChange={(next) => { setSelectedId(null); setView(next); }} />
     </AppBar>
@@ -135,8 +136,8 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
             <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{labels[a.status] ?? a.status}</span>
           </div>
           {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={busy} onClick={() => decide(a.id, "CONFIRMED")} className={`${buttonPrimary} flex-1 sm:flex-none`}>Onayla</button>
-            <button disabled={busy} onClick={() => decide(a.id, "REJECTED")} className={`${buttonDestructiveOutline} flex-1 sm:flex-none`}>Reddet</button>
+            <Button type="submit" disabled={busy} onClick={() => decide(a.id, "CONFIRMED")} variant="primary" className="flex-1 sm:flex-none">Onayla</Button>
+            <Button type="submit" disabled={busy} onClick={() => decide(a.id, "REJECTED")} variant="danger-outline" className="flex-1 sm:flex-none">Reddet</Button>
           </div>}
         </article></li>)}</ul>}
       </div>
@@ -156,8 +157,8 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
         <BookingContactSummary contact={selected.bookingContact} profile={{ displayName: customerOf(selected) }} />
         {feedback && <p role="status" className="text-subhead text-ink">{feedback}</p>}
         {selected.status === "PENDING" ? <div className="flex flex-col gap-2 sm:flex-row">
-          <button type="button" disabled={busy} onClick={() => decide(selected.id, "CONFIRMED")} className={`${buttonPrimary} sm:flex-1`}>Onayla</button>
-          <button type="button" disabled={busy} onClick={() => decide(selected.id, "REJECTED")} className={`${buttonDestructiveOutline} sm:flex-1`}>Reddet</button>
+          <Button type="button" disabled={busy} onClick={() => decide(selected.id, "CONFIRMED")} variant="primary" className="sm:flex-1">Onayla</Button>
+          <Button type="button" disabled={busy} onClick={() => decide(selected.id, "REJECTED")} variant="danger-outline" className="sm:flex-1">Reddet</Button>
         </div> : <p className="text-subhead text-ink-muted">Bu randevu için başka işlem yok.</p>}
       </div>}
     </AppointmentSheet>

@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-
+import { Button } from "@/components/ui/button";
 import { createNextSupabaseBrowserClient } from "../../infrastructure/auth/supabase-browser-client";
 
 export function ResetPasswordForm() {
@@ -96,13 +96,9 @@ export function ResetPasswordForm() {
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full rounded-lg bg-action px-3 py-2 text-sm font-medium text-on-action shadow-sm hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-60"
-      >
+      <Button type="submit" pending={isSubmitting} className="w-full">
         {isSubmitting ? "Şifre güncelleniyor..." : "Şifreyi güncelle"}
-      </button>
+      </Button>
     </form>
   );
 }

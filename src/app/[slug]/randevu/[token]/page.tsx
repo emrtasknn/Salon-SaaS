@@ -8,11 +8,12 @@ import { loadCustomerAppointment } from "./data";
 import { CancelForm } from "./cancel-form";
 import { WhatsAppOptOutForm } from "./whatsapp-optout-form";
 import type { CustomerWhatsAppState } from "../../../legal-consent-contract";
-import { appointmentStatusBadge, badgeBase, buttonSecondary } from "../../../_ui/styles";
+import { appointmentStatusBadge, badgeBase } from "../../../_ui/styles";
 import { buildGoogleCalendarUrl, type CalendarEvent } from "../../../../domain/calendar-event";
 import { customerCalendarEvent } from "./calendar";
-import { BackLink } from "../../../_ui/back-link";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SalonLocationLink } from "../../../_ui/salon-location-link";
+import { ButtonAnchor } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Randevu durumu",
@@ -57,7 +58,7 @@ function Shell({ slug, children }: { slug: string; children: ReactNode }) {
   return (
     <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
-        <BackLink href={`/${encodeURIComponent(slug)}`} label="Salon sayfası" className="mb-3" />
+        <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevum" }]} />
         {children}
       </div>
     </main>
@@ -109,19 +110,19 @@ function AddToCalendar({
     <section aria-labelledby="calendar-title" className="space-y-2">
       <h2 id="calendar-title" className="group-label">Takvime ekle</h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <a href={icsHref} download="randevu.ics" rel="nofollow" className={`${buttonSecondary} w-full`}>
+        <ButtonAnchor href={icsHref} download="randevu.ics" rel="nofollow" variant="secondary" className="w-full">
           <CalendarIcon />
           Apple Takvim
-        </a>
-        <a
+        </ButtonAnchor>
+        <ButtonAnchor
           href={buildGoogleCalendarUrl(event)}
           target="_blank"
           rel="noopener noreferrer"
-          className={`${buttonSecondary} w-full`}
+          variant="secondary" className="w-full"
         >
           <CalendarIcon />
           Google Takvim
-        </a>
+        </ButtonAnchor>
       </div>
       {pending && (
         <p className="px-4 text-footnote text-ink-muted">

@@ -16,7 +16,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { appointmentStatusBadge, buttonSecondary } from "./styles";
+import { appointmentStatusBadge } from "./styles";
 import {
   computeRange,
   formatMinute,
@@ -33,6 +33,7 @@ import {
   type CalendarViewKind,
   type MinuteRange,
 } from "./timeline-layout";
+import { Button } from "@/components/ui/button";
 
 export const appointmentStatusLabels: Record<string, string> = {
   PENDING: "Bekliyor",
@@ -627,9 +628,9 @@ export function AppointmentSheet({
         <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-headline tabular-nums focus:outline-none">
           {title}
         </h2>
-        <button type="button" onClick={() => dialogRef.current?.close()} className={buttonSecondary}>
+        <Button type="button" onClick={() => dialogRef.current?.close()} variant="secondary">
           Kapat
-        </button>
+        </Button>
       </div>
       <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">{children}</div>
     </dialog>

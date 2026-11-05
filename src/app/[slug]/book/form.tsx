@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import type { PublicLegalView } from "../../legal-consent-contract";
 import { getPublicAvailability } from "./actions";
 import { submitBooking } from "./submit";
-import { buttonPrimary, buttonSecondary, card, field, statusNote } from "../../_ui/styles";
-import { BackLink } from "../../_ui/back-link";
+import { card, field, statusNote } from "../../_ui/styles";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SalonLocationLink, type SalonLocationView } from "../../_ui/salon-location-link";
+import { Button } from "@/components/ui/button";
 
 type ServiceOption = Readonly<{
   id: string;
@@ -182,7 +183,7 @@ export function PublicBookingForm({
   return (
     <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
-        <BackLink href={`/${encodeURIComponent(slug)}`} label="Salon sayfası" className="mb-3" />
+        <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
         <form
           className="space-y-7"
           onSubmit={(event) => {
@@ -359,25 +360,25 @@ export function PublicBookingForm({
           </div>
 
           <div className="space-y-3">
-            <button
+            <Button
               type="submit"
               disabled={busy || stale || !selectedSlot || availabilityStatus !== "ready"}
               aria-describedby="booking-notice"
-              className={`${buttonPrimary} w-full`}
+              variant="primary" className="w-full"
             >
               {busy ? "Gönderiliyor…" : "Randevu talebi gönder"}
-            </button>
+            </Button>
 
             {status && <p role="status" className={statusNote}>{status}</p>}
 
             {stale && (
-              <button
+              <Button
                 type="button"
                 onClick={() => window.location.reload()}
-                className={`${buttonSecondary} w-full`}
+                variant="secondary" className="w-full"
               >
                 Sayfayı yenile
-              </button>
+              </Button>
             )}
           </div>
 
@@ -390,7 +391,7 @@ export function PublicBookingForm({
               <a href={statusUrl} className="focus-ring block break-all rounded-control bg-surface-muted p-3 text-subhead text-ink underline">
                 {statusUrl}
               </a>
-              <button
+              <Button
                 type="button"
                 onClick={async () => {
                   try {
@@ -400,10 +401,10 @@ export function PublicBookingForm({
                     setCopyState("failed");
                   }
                 }}
-                className={`${buttonSecondary} w-full sm:w-auto`}
+                variant="secondary" className="w-full sm:w-auto"
               >
                 Bağlantıyı kopyala
-              </button>
+              </Button>
               <p aria-live="polite" className="text-footnote text-ink-muted">
                 {copyState === "copied" && "Bağlantı kopyalandı."}
                 {copyState === "failed" && "Kopyalanamadı. Bağlantıyı seçip elle kopyalayın."}

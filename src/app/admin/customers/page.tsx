@@ -1,7 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { BackLink } from "../../_ui/back-link";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { field } from "../../_ui/styles";
+import { House } from "lucide-react";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getCustomer, getCustomers } from "./actions";
 
 export default async function CustomerPage({
@@ -29,7 +33,7 @@ export default async function CustomerPage({
     return (
       <main className="min-h-screen bg-canvas p-4 sm:p-8">
         <div className="mx-auto max-w-4xl">
-          <BackLink href="/admin/customers" label="Müşteriler" />
+          <Breadcrumb items={[{ label: "Yönetim", href: "/admin", icon: House }, { label: "Müşteriler", href: "/admin/customers" }, { label: result.customer.displayName }]} />
           <h1 className="mt-4 text-3xl font-semibold">{result.customer.displayName}</h1>
           <p className="mt-1 text-sm text-ink-muted">
             {result.customer.email ?? "E-posta yok"} · {result.customer.phone ?? "Telefon yok"}
@@ -98,9 +102,9 @@ export default async function CustomerPage({
             name="q"
             defaultValue={query.q ?? ""}
             placeholder="Ad, e-posta veya telefon ara"
-            className="min-w-0 flex-1 rounded-lg border bg-surface px-3 py-2 text-sm"
+            className={`${field} min-w-0 flex-1`}
           />
-          <button type="submit" className="rounded-lg bg-action px-4 py-2 text-sm text-on-action">Ara</button>
+          <Button type="submit" leadingIcon={Search}>Ara</Button>
         </form>
 
         <section className="mt-6 overflow-hidden rounded-xl border bg-surface">

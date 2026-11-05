@@ -67,3 +67,9 @@ function defaultRoot(): HTMLElement | null {
 export const themeInitScript = `(function(){try{var t=localStorage.getItem(${JSON.stringify(
   THEME_STORAGE_KEY,
 )});if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
+
+/** Theme button cycle: Sistem → Açık → Koyu → Sistem. */
+export function nextThemePreference(current: ThemePreference): ThemePreference {
+  const index = THEME_PREFERENCES.indexOf(current);
+  return THEME_PREFERENCES[(index + 1) % THEME_PREFERENCES.length];
+}

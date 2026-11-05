@@ -3,6 +3,10 @@
     "playwright": {
       "command": "npx",
       "args": ["-y", "@playwright/mcp@0.0.83", "--isolated"]
+    },
+    "boardui": {
+      "command": "npx",
+      "args": ["-y", "boardui@0.5.9", "mcp"]
     }
   }
 }

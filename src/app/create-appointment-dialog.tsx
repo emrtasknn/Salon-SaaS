@@ -5,7 +5,6 @@
 // Slots shown here are a hint only — the server re-validates on create.
 
 import { useId, useRef, useState, useTransition } from "react";
-
 import type {
   AdminCreateAppointmentInput,
   CreateAppointmentResult,
@@ -16,7 +15,9 @@ import type {
   SlotView,
   StaffCreateAppointmentInput,
 } from "./appointment-create-contract";
-import { buttonPrimary, buttonSecondary } from "./_ui/styles";
+
+import { Button } from "@/components/ui/button";
+import { field } from "./_ui/styles";
 
 type AdminVariant = Readonly<{
   kind: "admin";
@@ -62,9 +63,6 @@ const createErrors: Record<string, string> = {
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
   OPT_IN_REQUIRES_PHONE: "WhatsApp izni için müşterinin telefon numarası gerekli. Telefonu girin veya izin kutusunun işaretini kaldırın.",
 };
-
-const inputClassName =
-  "w-full min-h-11 rounded-lg border border-field-border bg-surface px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30 disabled:bg-surface-muted";
 
 /** Today's local calendar date in the tenant timezone. */
 function todayIn(timeZone: string): LocalDateIso {
@@ -305,12 +303,11 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
     submit(customer);
   }
 
-
   return (
     <>
-      <button ref={triggerRef} type="button" onClick={openDialog} className={buttonPrimary}>
+      <Button ref={triggerRef} type="button" onClick={openDialog} variant="primary">
         Randevu oluştur
-      </button>
+      </Button>
 
       <dialog
         ref={dialogRef}
@@ -327,9 +324,9 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
           <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
             Randevu oluştur
           </h2>
-          <button type="button" onClick={closeDialog} className={buttonSecondary}>
+          <Button type="button" onClick={closeDialog} variant="secondary">
             Kapat
-          </button>
+          </Button>
         </div>
 
         <form
@@ -380,7 +377,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                       setServiceId(e.target.value);
                       loadSlots({ serviceId: e.target.value, staffId, date });
                     }}
-                    className={inputClassName}
+                    className={field}
                   >
                     <option value="">Hizmet seçin</option>
                     {options.services.map((s) => (
@@ -406,7 +403,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                           setStaffId(e.target.value);
                           loadSlots({ serviceId, staffId: e.target.value, date });
                         }}
-                        className={inputClassName}
+                        className={field}
                       >
                         <option value="">Personel seçin</option>
                         {options.staff.map((s) => (
@@ -432,7 +429,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                       setDate(e.target.value);
                       loadSlots({ serviceId, staffId, date: e.target.value });
                     }}
-                    className={inputClassName}
+                    className={field}
                   />
                 </div>
 
@@ -516,7 +513,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                         value={query}
                         onChange={(e) => onQueryChange(e.target.value)}
                         aria-describedby={`${fieldId}-search-hint`}
-                        className={inputClassName}
+                        className={field}
                       />
                       <p id={`${fieldId}-search-hint`} className="text-xs text-ink-muted">
                         Ad, telefon veya e-posta ile en az 2 karakter girin.
@@ -575,7 +572,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                         autoComplete="off"
                         value={guestName}
                         onChange={(e) => setGuestName(e.target.value)}
-                        className={inputClassName}
+                        className={field}
                       />
                     </div>
                     <div className="space-y-1">
@@ -593,7 +590,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                           if (e.target.value.trim() === "") setVerbalOptIn(false);
                         }}
                         aria-describedby={`${fieldId}-phone-hint`}
-                        className={inputClassName}
+                        className={field}
                       />
                       <p id={`${fieldId}-phone-hint`} className="text-xs text-ink-muted">
                         Ülke koduyla girin, örn. +905551234567.
@@ -613,7 +610,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                             setGuestEmail(e.target.value);
                             setEmailExists(null);
                           }}
-                          className={inputClassName}
+                          className={field}
                         />
                       </div>
                     )}
@@ -677,14 +674,14 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                           {emailExists.displayName}
                           {emailExists.email ? ` (${emailExists.email})` : ""}
                         </p>
-                        <button
+                        <Button
                           type="button"
                           disabled={submitting}
                           onClick={() => continueWithExisting(emailExists)}
-                          className={buttonSecondary}
+                          variant="secondary"
                         >
                           Bu kayıtlı müşteriyle devam et
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -692,12 +689,12 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
               </div>
 
               <div className="flex flex-col-reverse gap-2 border-t border-separator pt-4 sm:flex-row sm:justify-end">
-                <button type="button" onClick={closeDialog} className={buttonSecondary}>
+                <Button type="button" onClick={closeDialog} variant="secondary">
                   Vazgeç
-                </button>
-                <button type="submit" disabled={submitting || !slot} className={buttonPrimary}>
+                </Button>
+                <Button type="submit" disabled={submitting || !slot} variant="primary">
                   {submitting ? "Oluşturuluyor…" : "Randevuyu oluştur"}
-                </button>
+                </Button>
               </div>
               {!slot && <p className="text-right text-xs text-ink-muted">Randevuyu oluşturmak için bir saat seçin.</p>}
             </>

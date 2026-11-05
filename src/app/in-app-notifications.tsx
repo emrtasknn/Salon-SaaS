@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Bell } from "lucide-react";
+import { RingingIcon } from "@/components/ui/motion-icons";
 import type { InAppNotificationView, InAppNotificationViewItem } from "../application/in-app-notifications";
+
+/** Badge text: exact up to 9, then "9+" (the accessible name always carries the exact count). */
+export function formatBadgeCount(count: number): string {
+  return count > 9 ? "9+" : String(count);
+}
 
 // WP-04 / ADR-044 §3 Option A. Read-only badge + list derived from Appointment.
 // Display only: the server actions resolve tenant/staff scope and authorization (WP4-R5).
@@ -96,6 +103,15 @@ export function InAppNotifications({ initialData, reload, href, className, width
     };
   }, [open]);
 
+  // Bell swings once on load when something is pending and again whenever the count grows.
+  const pendingCount = data.status === "ok" ? data.pendingCount : 0;
+  const [ringKey, setRingKey] = useState(0);
+  const [seenCount, setSeenCount] = useState(0);
+  if (pendingCount !== seenCount) {
+    if (pendingCount > seenCount) setRingKey((k) => k + 1);
+    setSeenCount(pendingCount);
+  }
+
   // WP4-R8: UNAUTHORIZED / INVALID_INPUT / PERSISTENCE_FAILURE → render nothing.
   if (data.status !== "ok") return null;
 
@@ -111,12 +127,17 @@ export function InAppNotifications({ initialData, reload, href, className, width
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex min-h-11 min-w-11 items-center gap-2 rounded-lg border bg-surface px-3 py-2 text-sm hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        onPointerEnter={(e) => { if (e.pointerType === "mouse") setRingKey((k) => k + 1); }}
+        className="pressable focus-ring relative inline-flex size-11 items-center justify-center rounded-full border border-separator bg-surface text-ink shadow-card hover:bg-surface-muted"
       >
-        <span aria-hidden="true">Bildirimler</span>
-        {count > 0 && <span aria-hidden="true" className="rounded-full bg-action px-2 py-0.5 text-xs font-semibold text-on-action">{count}</span>}
+        <RingingIcon icon={Bell} ringKey={ringKey} className="size-[22px]" />
+        {count > 0 && <span
+          aria-hidden="true"
+          data-testid="notification-count"
+          className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-caption font-semibold text-on-action ring-2 ring-canvas"
+        >{formatBadgeCount(count)}</span>}
       </button>
-      {open && <div id={panelId} role="region" aria-label="Bildirimler" className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border bg-surface p-2 text-ink shadow-lg">
+      {open && <div id={panelId} role="region" aria-label="Bildirimler" className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-card border border-separator bg-surface p-2 text-ink shadow-raised">
         <section aria-labelledby={`${panelId}-pending`}>
           <h2 id={`${panelId}-pending`} className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Onay bekleyen ({count})</h2>
           {data.pending.length === 0

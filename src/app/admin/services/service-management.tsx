@@ -1,8 +1,10 @@
 "use client";
 
-import { buttonPrimary, buttonSecondary, field } from "../../_ui/styles";
+import { field } from "../../_ui/styles";
 import { createServiceAction, toggleServiceAction, updateServiceAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
+import { Button } from "@/components/ui/button";
+import { StatusToggle } from "../../_ui/status-toggle";
 
 const label = "mb-1.5 block text-subhead font-medium text-ink";
 
@@ -45,9 +47,9 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
               <input id="service-new-buffer" name="bufferMinutes" type="number" min="0" inputMode="numeric" className={`${field} tabular-nums`} />
             </div>
           </div>
-          <button disabled={busy} className={`${buttonPrimary} w-full`}>
+          <Button type="submit" disabled={busy} variant="primary" className="w-full">
             Hizmet ekle
-          </button>
+          </Button>
         </form>
       </section>
 
@@ -65,22 +67,19 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                     <p className="text-footnote text-ink-muted tabular-nums">
                       {item.durationMinutes} dk · {item.bufferMinutes} dk ara
                     </p>
-                    <p className="text-footnote text-ink-muted">{item.active ? "Aktif" : "Pasif"}</p>
                   </div>
-                  <button
-                    type="button"
+                  <StatusToggle
+                    active={item.active}
+                    name={item.name}
                     disabled={busy}
-                    className={`${buttonSecondary} shrink-0`}
-                    onClick={() =>
+                    onToggle={() =>
                       startTransition(async () => {
                         const result = await toggleServiceAction(item.id, !item.active);
                         setFeedback(message(result.status));
                         if (result.status === "updated") refresh();
                       })
                     }
-                  >
-                    {item.active ? "Pasifleştir" : "Aktifleştir"}
-                  </button>
+                  />
                 </div>
                 <form
                   className="space-y-2 border-t border-separator pt-3"
@@ -126,9 +125,9 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                       />
                     </div>
                   </div>
-                  <button disabled={busy} className={`${buttonSecondary} w-full`}>
+                  <Button type="submit" disabled={busy} variant="secondary" className="w-full">
                     Bilgileri kaydet
-                  </button>
+                  </Button>
                 </form>
               </li>
             ))}

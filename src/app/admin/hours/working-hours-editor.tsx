@@ -1,9 +1,10 @@
 "use client";
 
-import { buttonPrimary, buttonSecondary, fieldInline } from "../../_ui/styles";
+import { fieldInline } from "../../_ui/styles";
 import { formatHoursRange, minutesToTime, timeToMinutes } from "../../_ui/time-of-day";
 import { removeWorkingHoursAction, saveWorkingHoursAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
+import { Button } from "@/components/ui/button";
 
 // Index = dayOfWeek (0 = Pazar), matching the server contract.
 const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
@@ -76,14 +77,14 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
                     />
                   </label>
                   <div className="flex w-full gap-2 sm:w-auto">
-                    <button disabled={busy} className={`${buttonPrimary} flex-1 sm:flex-none`}>
+                    <Button type="submit" disabled={busy} variant="primary" className="flex-1 sm:flex-none">
                       Kaydet
-                    </button>
+                    </Button>
                     {item && (
-                      <button
+                      <Button
                         type="button"
                         disabled={busy}
-                        className={`${buttonSecondary} flex-1 sm:flex-none`}
+                        variant="secondary" className="flex-1 sm:flex-none"
                         onClick={() =>
                           startTransition(async () => {
                             const result = await removeWorkingHoursAction(index);
@@ -93,7 +94,7 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
                         }
                       >
                         Kapalı yap
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </form>

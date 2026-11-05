@@ -6,9 +6,9 @@ import { createPrismaPublicSalonRepository } from "../../../persistence/prisma-p
 import { getPrisma } from "../../../infrastructure/prisma-runtime";
 import { loadPublicLegalView } from "../legal-data";
 import { PublicBookingForm } from "./form";
-import { buttonSecondary } from "../../_ui/styles";
-import { BackLink } from "../../_ui/back-link";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SalonLocationLink } from "../../_ui/salon-location-link";
+import { ButtonAnchor } from "@/components/ui/button";
 
 function todayInTimeZone(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -40,22 +40,22 @@ export default async function BookingPage({
     return (
       <main className="min-h-screen bg-canvas">
         <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
-          <BackLink href={`/${encodeURIComponent(slug)}`} label="Salon sayfası" className="mb-3" />
+          <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
           <section className="inset-group space-y-4 p-6">
             <h1 className="text-title">{vitrin.name}</h1>
             <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
               Şu anda online randevu alınmıyor.
             </p>
             {vitrin.whatsAppUrl && (
-              <a
+              <ButtonAnchor
                 href={vitrin.whatsAppUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={buttonSecondary}
+                variant="secondary"
               >
                 WhatsApp&apos;tan yaz
                 <span className="sr-only"> (yeni sekmede açılır)</span>
-              </a>
+              </ButtonAnchor>
             )}
           </section>
         </div>
@@ -69,7 +69,7 @@ export default async function BookingPage({
     return (
       <main className="min-h-screen bg-canvas">
         <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
-          <BackLink href={`/${encodeURIComponent(slug)}`} label="Salon sayfası" className="mb-3" />
+          <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
           <section className="inset-group space-y-4 p-6">
             <h1 className="text-title">{vitrin.name}</h1>
             {vitrin.location && <SalonLocationLink location={vitrin.location} />}
@@ -77,15 +77,15 @@ export default async function BookingPage({
               Bu salon online randevu için henüz hazır değil. Randevu için lütfen salonla doğrudan iletişime geçin.
             </p>
             {vitrin.whatsAppUrl && (
-              <a
+              <ButtonAnchor
                 href={vitrin.whatsAppUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={buttonSecondary}
+                variant="secondary"
               >
                 WhatsApp&apos;tan yaz
                 <span className="sr-only"> (yeni sekmede açılır)</span>
-              </a>
+              </ButtonAnchor>
             )}
           </section>
         </div>

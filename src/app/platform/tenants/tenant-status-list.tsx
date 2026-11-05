@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { badgeBase, buttonDestructiveOutline, buttonSecondary, field, statusNote } from "../../_ui/styles";
+import { StatusToggle } from "../../_ui/status-toggle";
+import { field, statusNote } from "../../_ui/styles";
 import { setTenantStatusAction } from "./actions";
 
 type TenantRow = Readonly<{
@@ -74,18 +75,12 @@ export function TenantStatusList({ tenants }: { tenants: ReadonlyArray<TenantRow
         {visible.map((tenant) => {
           const active = tenant.status === "ACTIVE";
           const next = active ? "INACTIVE" : "ACTIVE";
-          const label = active ? "Pasife al" : "Aktifleştir";
           return (
             <li key={tenant.id} className="inset-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-headline text-ink">{tenant.name}</p>
                 <p className="truncate text-subhead text-ink-muted">/{tenant.slug}</p>
               </div>
-              <span
-                className={`${badgeBase} ${active ? "bg-status-confirmed-bg text-status-confirmed" : "bg-status-cancelled-bg text-status-cancelled"}`}
-              >
-                {active ? "Aktif" : "Pasif"}
-              </span>
               <form
                 action={(formData) => {
                   setPendingId(tenant.id);
@@ -113,14 +108,13 @@ export function TenantStatusList({ tenants }: { tenants: ReadonlyArray<TenantRow
               >
                 <input type="hidden" name="tenantId" value={tenant.id} />
                 <input type="hidden" name="status" value={next} />
-                <button
+                <StatusToggle
                   type="submit"
+                  active={active}
+                  name={tenant.name}
                   disabled={busy}
-                  aria-label={`${tenant.name}: ${label}`}
-                  className={active ? buttonDestructiveOutline : buttonSecondary}
-                >
-                  {pendingId === tenant.id ? "Kaydediliyor..." : label}
-                </button>
+                  pending={pendingId === tenant.id}
+                />
               </form>
             </li>
           );

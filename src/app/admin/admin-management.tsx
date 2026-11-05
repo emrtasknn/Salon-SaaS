@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-
-import { BackLink } from "../_ui/back-link";
+import { House } from "lucide-react";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { statusNote } from "../_ui/styles";
 import { listAdminData } from "./actions";
 
@@ -65,7 +65,7 @@ export function AdminSubpage({
   return (
     <main className="min-h-screen bg-canvas text-ink">
       <div className="mx-auto w-full max-w-xl px-4 pb-10 pt-4 sm:px-6">
-        <BackLink href="/admin" label="Yönetim" />
+        <Breadcrumb items={[{ label: "Yönetim", href: "/admin", icon: House }, { label: title }]} />
         <h1 className="mt-2 text-large-title">{title}</h1>
         {feedback && (
           // Sticky so the result of a save further down the page stays in view.
