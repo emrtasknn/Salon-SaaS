@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { RingingIcon } from "@/components/ui/motion-icons";
+import { appointmentHref } from "./_ui/deep-link";
+import { appointmentStatusBadge, appointmentStatusDot, appointmentStatusLabel, badgeBase } from "./_ui/styles";
 import type { InAppNotificationView, InAppNotificationViewItem } from "../application/in-app-notifications";
+import { haptic } from "@/lib/haptics";
 
 /** Badge text: exact up to 9, then "9+" (the accessible name always carries the exact count). */
 export function formatBadgeCount(count: number): string {
@@ -26,23 +29,29 @@ type Props = {
   widthClassName?: string;
 };
 
-const labels: Record<string, string> = { PENDING: "Bekliyor", CONFIRMED: "Onaylandı", REJECTED: "Reddedildi", CANCELLED: "İptal", COMPLETED: "Tamamlandı" };
 
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 }
 
-function Item({ item, href }: { item: InAppNotificationViewItem; href: string }) {
+export function NotificationItem({ item, href, onNavigate }: { item: InAppNotificationViewItem; href: string; onNavigate: () => void }) {
   return <li>
-    <Link href={href} className="block rounded-lg px-3 py-2 hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+    <Link
+      href={appointmentHref(href, item)}
+      onClick={onNavigate}
+      className="focus-ring flex gap-3 rounded-control px-3 py-2.5 hover:bg-surface-muted"
+    >
+      <span aria-hidden="true" className={`mt-1.5 size-2.5 shrink-0 rounded-full ${appointmentStatusDot[item.status] ?? "bg-ink-muted"}`} />
+      <span className="min-w-0 flex-1">
       <span className="flex items-start justify-between gap-2">
-        <span className="text-sm font-medium">{formatDateTime(item.startAt)} · {item.serviceName}</span>
-        <span className="shrink-0 rounded-full border px-2 py-0.5 text-xs">{labels[item.status] ?? item.status}</span>
+        <span className="text-subhead font-semibold tabular-nums">{formatDateTime(item.startAt)} · {item.serviceName}</span>
+        <span className={`${badgeBase} shrink-0 px-2 py-0.5 ${appointmentStatusBadge[item.status] ?? "bg-surface-muted text-ink"}`}>{appointmentStatusLabel[item.status] ?? item.status}</span>
       </span>
-      <span className="mt-1 block text-xs text-ink-muted">
+      <span className="mt-1 block text-footnote text-ink-muted">
         Personel: {item.staffDisplayName}
         {item.customerDisplayName !== undefined && <> · Müşteri: {item.customerDisplayName}</>}
         {item.kind === "STATUS_CHANGED" && <> · Güncellendi: {formatDateTime(item.updatedAt)}</>}
+      </span>
       </span>
     </Link>
   </li>;
@@ -126,7 +135,10 @@ export function InAppNotifications({ initialData, reload, href, className, width
         aria-label={buttonLabel}
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) haptic("light");
+          setOpen((v) => !v);
+        }}
         onPointerEnter={(e) => { if (e.pointerType === "mouse") setRingKey((k) => k + 1); }}
         className="pressable focus-ring relative inline-flex size-11 items-center justify-center rounded-full border border-separator bg-surface text-ink shadow-card hover:bg-surface-muted"
       >
@@ -142,14 +154,14 @@ export function InAppNotifications({ initialData, reload, href, className, width
           <h2 id={`${panelId}-pending`} className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Onay bekleyen ({count})</h2>
           {data.pending.length === 0
             ? <p className="px-3 py-2 text-sm text-ink-muted">Onay bekleyen randevu yok.</p>
-            : <ul>{data.pending.map((item) => <Item key={item.appointmentId} item={item} href={href} />)}</ul>}
+            : <ul>{data.pending.map((item) => <NotificationItem key={item.appointmentId} item={item} href={href} onNavigate={() => setOpen(false)} />)}</ul>}
           {count > data.pending.length && <p className="px-3 py-1 text-xs text-ink-muted">İlk {data.pending.length} randevu gösteriliyor.</p>}
         </section>
         <section aria-labelledby={`${panelId}-recent`} className="mt-2 border-t pt-1">
           <h2 id={`${panelId}-recent`} className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Son değişiklikler (7 gün)</h2>
           {data.recent.length === 0
             ? <p className="px-3 py-2 text-sm text-ink-muted">Son 7 günde değişiklik yok.</p>
-            : <ul>{data.recent.map((item) => <Item key={item.appointmentId} item={item} href={href} />)}</ul>}
+            : <ul>{data.recent.map((item) => <NotificationItem key={item.appointmentId} item={item} href={href} onNavigate={() => setOpen(false)} />)}</ul>}
         </section>
       </div>}
     </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Notice } from "@/components/ui/notice";
 import { card, switchClassName } from "../_ui/styles";
 import { setAdminServesAsStaffAction } from "./actions";
+import { haptic } from "@/lib/haptics";
 
 // Owner decision 2026-11-05. Ready to mount on the admin page after the admin restructure lands:
 //   <ServesAsStaffToggle initialEnabled={data.adminServesAsStaff} />
@@ -50,7 +51,10 @@ export function ServesAsStaffToggle({ initialEnabled }: { initialEnabled: boolea
           aria-checked={enabled}
           checked={enabled}
           disabled={busy}
-          onChange={(event) => toggle(event.target.checked)}
+          onChange={(event) => {
+            haptic("selection");
+            toggle(event.target.checked);
+          }}
           className={switchClassName}
         />
       </label>

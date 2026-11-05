@@ -18,6 +18,7 @@ import type {
 
 import { Button } from "@/components/ui/button";
 import { field } from "./_ui/styles";
+import { haptic } from "@/lib/haptics";
 
 type AdminVariant = Readonly<{
   kind: "admin";
@@ -277,6 +278,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
 
       if (result.status === "CREATED") {
         closeDialog();
+        haptic("success");
         onCreated({ date: chosenDate, notified: result.notified });
         return;
       }

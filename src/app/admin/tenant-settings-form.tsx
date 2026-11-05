@@ -7,6 +7,7 @@ import { Notice } from "@/components/ui/notice";
 import { field } from "../_ui/styles";
 import type { TenantLegalErrorCode, TenantLegalFields } from "../legal-consent-contract";
 import { updateTenantSettingsAction } from "./settings-actions";
+import { haptic } from "@/lib/haptics";
 
 type TenantSettingsView = Readonly<{
   name: string;
@@ -81,6 +82,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
             try {
               const result = await updateTenantSettingsAction(formData);
               if (result.ok) {
+                haptic("success");
                 setFeedback({ kind: "success", text: "Salon ayarları kaydedildi." });
                 router.refresh();
               } else {

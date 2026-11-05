@@ -12,6 +12,7 @@ import {
   writeThemePreference,
   type ThemePreference,
 } from "./theme";
+import { haptic } from "@/lib/haptics";
 
 const listeners = new Set<() => void>();
 
@@ -54,7 +55,10 @@ export function ThemeToggle({ className = "", showLabel = false }: { className?:
   return (
     <button
       type="button"
-      onClick={() => setPreference(next)}
+      onClick={() => {
+        haptic("selection");
+        setPreference(next);
+      }}
       aria-label={`Görünüm: ${label}. Değiştirmek için dokunun (sonraki: ${meta[next].label}).`}
       title={`Görünüm: ${label}`}
       className={cx(

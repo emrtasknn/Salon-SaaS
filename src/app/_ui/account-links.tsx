@@ -8,6 +8,7 @@ import { releaseWebPushSubscription } from "../pwa/push-permission";
 
 
 import { ThemeToggle } from "./theme-toggle";
+import { HapticsToggle } from "./haptics-toggle";
 import { Button, ButtonLink } from "@/components/ui/button";
 
 /** Appearance (theme) switch, "Change password" (uses the current session on /reset-password) and "Log out" for signed-in users. */
@@ -34,6 +35,7 @@ export function AccountLinks() {
         {busy ? "Çıkış yapılıyor…" : "Çıkış yap"}
       </Button>
       <ThemeToggle showLabel />
+      <HapticsToggle />
     </div>
   );
 }

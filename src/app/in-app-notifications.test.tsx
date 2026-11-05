@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { formatBadgeCount, InAppNotifications } from "./in-app-notifications";
+import { formatBadgeCount, InAppNotifications, NotificationItem } from "./in-app-notifications";
 import type { InAppNotificationView } from "../application/in-app-notifications";
 
 const reload = async () => ({ status: "UNAUTHORIZED" }) as InAppNotificationView;
 
-function view(pendingCount: number) {
-  return { status: "ok", pendingCount, pending: [], recent: [] } as unknown as InAppNotificationView;
+function view(pendingCount: number, pending: unknown[] = []) {
+  return { status: "ok", pendingCount, pending, recent: [] } as unknown as InAppNotificationView;
 }
 
 describe("notification bell", () => {
@@ -29,5 +29,17 @@ describe("notification bell", () => {
     const html = renderToStaticMarkup(<InAppNotifications initialData={view(0)} reload={reload} href="/staff/appointments" />);
     expect(html).toContain("onay bekleyen randevu yok");
     expect(html).not.toContain("notification-count");
+  });
+
+  it("links each item to its appointment and colors the status chip", () => {
+    const item = {
+      appointmentId: "appt_1", kind: "PENDING_REQUEST", status: "CANCELLED",
+      startAt: "2026-11-10T07:00:00.000Z", updatedAt: "2026-11-09T07:00:00.000Z",
+      serviceName: "Kesim", staffDisplayName: "Ayşe",
+    } as const;
+    const html = renderToStaticMarkup(<ul><NotificationItem item={item} href="/staff" onNavigate={() => {}} /></ul>);
+    expect(html).toContain('href="/staff?date=2026-11-10&amp;appointment=appt_1"');
+    expect(html).toContain("bg-status-cancelled-bg text-status-cancelled");
+    expect(html).toContain(">İptal<");
   });
 });

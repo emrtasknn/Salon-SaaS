@@ -27,6 +27,15 @@ export const switchClassName =
 export const statusNote =
   "rounded-card border border-separator bg-surface p-3.5 text-subhead text-ink shadow-raised";
 
+/** Turkish status labels (single source; always shown with the color, never color-only). */
+export const appointmentStatusLabel: Record<string, string> = {
+  PENDING: "Bekliyor",
+  CONFIRMED: "Onaylandı",
+  REJECTED: "Reddedildi",
+  CANCELLED: "İptal",
+  COMPLETED: "Tamamlandı",
+};
+
 export const appointmentStatusBadge: Record<string, string> = {
   PENDING: "bg-status-pending-bg text-status-pending",
   CONFIRMED: "bg-status-confirmed-bg text-status-confirmed",

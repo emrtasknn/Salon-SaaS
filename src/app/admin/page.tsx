@@ -16,7 +16,7 @@ import { redirect } from "next/navigation";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import { AccountLinks } from "../_ui/account-links";
-import { GreetingHeader } from "../_ui/greeting-header";
+import { PageHeader } from "../_ui/page-header";
 import { formatGreetingDate, localDateIso } from "../_ui/greeting";
 import { readViewerGreeting } from "../_ui/viewer-greeting";
 
@@ -123,15 +123,14 @@ export default async function AdminPage() {
           </p>
         </div>
       )}
-      <GreetingHeader
-        displayName={greeting.displayName}
-        tenantName={salonName}
-        dateLabel={formatGreetingDate(now)}
-        accessory={pushBindingKey ? <PushPermission bindingKey={pushBindingKey} /> : undefined}
+      <PageHeader
+        eyebrow={<>{salonName ? `${salonName} · ` : ""}<span className="tabular-nums">{formatGreetingDate(now)}</span></>}
+        title={greeting.displayName ? `Merhaba, ${greeting.displayName}` : "Merhaba"}
+        accessory={<InAppNotifications initialData={notifications} reload={listAdminNotifications} href="/admin/calendar" />}
       />
-      <InAppNotifications initialData={notifications} reload={listAdminNotifications} href="/admin/calendar" className="px-4 sm:px-6" widthClassName="max-w-xl" />
 
       <div className="mx-auto w-full max-w-xl space-y-8 px-4 pb-10 pt-4 sm:px-6">
+        {pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" /> : null}
         <section aria-labelledby="today-title">
           <h2 id="today-title" className="group-label">Bugün</h2>
           <Link

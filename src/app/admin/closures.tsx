@@ -15,6 +15,7 @@ import { formatLocalDate } from "../create-appointment-dialog";
 import { createClosure, deleteClosure, listClosures, previewClosureImpact } from "./closure-actions";
 import { Button } from "@/components/ui/button";
 import { field } from "../_ui/styles";
+import { haptic } from "@/lib/haptics";
 
 type Props = Readonly<{
   initialData: ClosureListResult;
@@ -143,6 +144,7 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
   }
 
   function remove(closure: ClosureView) {
+    haptic("warning");
     setStatus("");
     startTransition(async () => {
       try {

@@ -20,6 +20,7 @@ import {
   toSubscribeInput,
   type PushPermission,
 } from "./push-state";
+import { haptic } from "@/lib/haptics";
 
 /*
  * WP-09 Web Push opt-in. UI-only: the server derives tenant/profile from the
@@ -271,6 +272,7 @@ export function PushPermission({ bindingKey, className = "" }: Props) {
       if (result.status === "subscribed") {
         writeStorage(PUSH_OPT_OUT_KEY, null);
         writeStorage(PUSH_BINDING_MARKER_KEY, bindingKey);
+        haptic("success");
         setView({ kind: "on", message: "Bildirimler açıldı." });
         return;
       }

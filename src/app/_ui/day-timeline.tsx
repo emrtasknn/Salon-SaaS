@@ -34,6 +34,7 @@ import {
   type MinuteRange,
 } from "./timeline-layout";
 import { Button } from "@/components/ui/button";
+import { haptic } from "@/lib/haptics";
 
 export const appointmentStatusLabels: Record<string, string> = {
   PENDING: "Bekliyor",
@@ -137,7 +138,10 @@ export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (
             key={value}
             type="button"
             aria-pressed={selected}
-            onClick={() => onChange(value)}
+            onClick={() => {
+              haptic("selection");
+              onChange(value);
+            }}
             className={`pressable focus-ring tap-target rounded-[10px] px-3.5 text-subhead font-semibold sm:px-4 ${
               selected ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink"
             }`}
@@ -226,17 +230,17 @@ export function DateStepper({
   const todayVisible = today >= showsToday.startDate && today <= showsToday.endDate && (view !== "month" || today.slice(0, 7) === date.slice(0, 7));
   return (
     <div className="flex items-center gap-1.5">
-      <button type="button" aria-label={previousLabel} disabled={disabled} onClick={() => onChange(stepDate(view, date, -1))} className={stepButton}>
+      <button type="button" aria-label={previousLabel} disabled={disabled} onClick={() => { haptic("selection"); onChange(stepDate(view, date, -1)); }} className={stepButton}>
         <span aria-hidden="true" className="text-headline">‹</span>
       </button>
       {children}
-      <button type="button" aria-label={nextLabel} disabled={disabled} onClick={() => onChange(stepDate(view, date, 1))} className={stepButton}>
+      <button type="button" aria-label={nextLabel} disabled={disabled} onClick={() => { haptic("selection"); onChange(stepDate(view, date, 1)); }} className={stepButton}>
         <span aria-hidden="true" className="text-headline">›</span>
       </button>
       <button
         type="button"
         disabled={disabled || date === today || (view !== "day" && view !== "list" && todayVisible)}
-        onClick={() => onChange(today)}
+        onClick={() => { haptic("selection"); onChange(today); }}
         className={`${stepButton} px-3.5 text-subhead font-medium`}
       >
         Bugün

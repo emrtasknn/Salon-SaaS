@@ -5,6 +5,7 @@
 // platform access, and every server action re-checks it.
 
 import { AccountLinks } from "../../_ui/account-links";
+import { PageHeader } from "../../_ui/page-header";
 import { useId, useRef, useState } from "react";
 import { statusNote } from "../../_ui/styles";
 import { TenantProvisioningForm } from "./tenant-provisioning-form";
@@ -37,13 +38,17 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
 
   return (
     <main className="min-h-screen bg-canvas">
-      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6 sm:py-12">
-        <header className="flex items-center justify-between gap-3">
-          <h1 className="text-large-title text-ink">Salonlar</h1>
+      <PageHeader
+        title="Salonlar"
+        eyebrow="Platform yönetimi"
+        widthClassName="max-w-3xl"
+        accessory={
           <Button ref={triggerRef} type="button" onClick={openSheet} aria-haspopup="dialog" variant="primary">
             Yeni salon
           </Button>
-        </header>
+        }
+      />
+      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
         <AccountLinks />
 
         <p role="status" aria-live="polite" className={notice !== "" ? statusNote : "sr-only"}>{notice}</p>

@@ -3,13 +3,13 @@ export const dynamic = "force-dynamic";
 import { listStaffAppointments, listStaffNotifications } from "./actions";
 import { StaffCalendar } from "./calendar";
 import { InAppNotifications } from "../in-app-notifications";
+import { parseCalendarDeepLink } from "../_ui/deep-link";
 import { createHash } from "node:crypto";
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
 import { PushPermission } from "../pwa/push-permission";
-import { GreetingHeader } from "../_ui/greeting-header";
 import { formatGreetingDate } from "../_ui/greeting";
 import { readViewerGreeting } from "../_ui/viewer-greeting";
 
@@ -38,29 +38,28 @@ function todayIso() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
-export default async function StaffPage() {
-  const date = todayIso();
+export default async function StaffPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { date, appointmentId } = parseCalendarDeepLink(await searchParams, todayIso());
   const [data, notifications, pushBindingKey, greeting] = await Promise.all([
     listStaffAppointments(date),
     listStaffNotifications(),
     readPushBindingKey(),
     readViewerGreeting(),
   ]);
-  const authorized = data.status !== "UNAUTHORIZED";
-  return <>
-    {authorized && (
-      <div className="bg-canvas">
-        <GreetingHeader
-          displayName={greeting.displayName}
-          tenantName={greeting.tenantName}
-          dateLabel={formatGreetingDate(new Date())}
-          widthClassName="max-w-5xl"
-          asHeading={false}
-          accessory={pushBindingKey ? <PushPermission bindingKey={pushBindingKey} /> : undefined}
-        />
-      </div>
-    )}
-    <InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff/appointments" className="bg-canvas px-4 pt-4 sm:px-6" widthClassName="max-w-5xl" />
-    <StaffCalendar initialDate={date} initialData={data} />
-  </>;
+  return (
+    <StaffCalendar
+      key={`${date}:${appointmentId ?? ""}`}
+      initialDate={date}
+      initialData={data}
+      initialSelectedId={appointmentId}
+      eyebrow={<>{greeting.tenantName ? `${greeting.tenantName} · ` : ""}<span className="tabular-nums">{formatGreetingDate(new Date())}</span></>}
+      title={greeting.displayName ? `Merhaba, ${greeting.displayName}` : "Merhaba"}
+      bell={<InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff" />}
+      pushPrompt={pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" /> : undefined}
+    />
+  );
 }

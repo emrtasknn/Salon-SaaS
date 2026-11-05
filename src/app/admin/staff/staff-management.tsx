@@ -5,6 +5,7 @@ import { createStaffAction, setStaffStatusAction, updateStaffProfileAction } fro
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
 import { StatusToggle } from "../../_ui/status-toggle";
+import { ServesAsStaffToggle } from "../serves-as-staff-toggle";
 
 const label = "mb-1.5 block text-subhead font-medium text-ink";
 
@@ -17,6 +18,7 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
 
   return (
     <AdminSubpage title="Personel" feedback={feedback}>
+      <ServesAsStaffToggle initialEnabled={data.adminServesAsStaff} />
       <section aria-labelledby="staff-new-title">
         <h2 id="staff-new-title" className="group-label">Yeni personel</h2>
         <form

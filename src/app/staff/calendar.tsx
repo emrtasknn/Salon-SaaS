@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots } from "./actions";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
-import { AppBar } from "../_ui/app-bar";
+import { PageHeader } from "../_ui/page-header";
 import { AccountLinks } from "../_ui/account-links";
-import { appointmentStatusBadge, badgeBase, fieldInline, statusNote } from "../_ui/styles";
+import { appointmentStatusBadge, badgeBase, fieldInline, statusNote, appointmentStatusLabel } from "../_ui/styles";
 import { AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
@@ -16,19 +16,26 @@ import { Button } from "@/components/ui/button";
 const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listSlots: listStaffSlots, create: createStaffAppointment } as const;
 import { decideAndNotify } from "./decide";
 import { BookingContactSummary } from "../booking-contact-summary";
+import { haptic } from "@/lib/haptics";
 
-type Props = { initialDate: string; initialData: Awaited<ReturnType<typeof listStaffAppointments>> };
-
-const labels: Record<string, string> = {
-  PENDING: "Bekliyor", CONFIRMED: "Onaylandı", REJECTED: "Reddedildi",
-  CANCELLED: "İptal", COMPLETED: "Tamamlandı",
+type Props = {
+  initialDate: string;
+  initialData: Awaited<ReturnType<typeof listStaffAppointments>>;
+  /** Fixed top layer content (greeting + bell), composed by the server page. */
+  eyebrow?: ReactNode;
+  title?: ReactNode;
+  bell?: ReactNode;
+  /** Push opt-in prompt, shown at the top of the content. */
+  pushPrompt?: ReactNode;
+  /** Appointment to open on load (deep link from a notification); UI selection only. */
+  initialSelectedId?: string | null;
 };
 
 /** The staff view is always the signed-in staff member's own day: a single column. */
 const SELF_COLUMN = [{ id: "self", label: "Randevularım" }] as const;
 const NO_CLOSURES: ReadonlySet<string> = new Set();
 
-export function StaffCalendar({ initialDate, initialData }: Props) {
+export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Randevularım", bell, pushPrompt, initialSelectedId = null }: Props) {
   const [date, setDate] = useState(initialDate);
   const [view, setView] = useCalendarView();
   // Own appointments only: the loader derives the staff member from the session.
@@ -36,7 +43,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const sheetTrigger = useRef<HTMLElement | null>(null);
 
   function changeDate(nextDate: string) {
@@ -57,8 +64,10 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
   }
 
   function decide(appointmentId: string, to: "CONFIRMED" | "REJECTED") {
+    haptic(to === "REJECTED" ? "warning" : "selection");
     startTransition(async () => {
       const result = await decideAndNotify(appointmentId, to);
+      haptic(result.status === "updated" ? (to === "CONFIRMED" ? "success" : "light") : "error");
       if (result.status === "updated") {
         setFeedback(to === "CONFIRMED" ? "Randevu onaylandı." : "Randevu reddedildi.");
         refresh();
@@ -86,28 +95,19 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
   const customerOf = (a: (typeof appointments)[number]) => a.bookingContact?.displayName ?? a.customerName;
 
   return <main className="min-h-screen bg-canvas">
-    <header className="mx-auto flex max-w-5xl flex-wrap items-end justify-between gap-3 px-4 pb-3 pt-6 sm:px-6">
-      <div>
-        <p className="text-footnote font-semibold text-ink-muted">RandevuN</p>
-        <h1 className="mt-1 text-large-title">Personel randevularım</h1>
-        <p className="mt-1 text-subhead text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Kept out of the sticky bar so the bar stays one row on phones. */}
+    <PageHeader eyebrow={eyebrow ?? "RandevuN"} title={title} accessory={bell} widthClassName="max-w-5xl">
+      <ViewSwitch view={view} onChange={(next) => { setSelectedId(null); setView(next); }} />
+      <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
+        <input aria-label="Tarih" type="date" value={date} onChange={(e) => { if (e.target.value) changeDate(e.target.value); }} className={`${fieldInline} tabular-nums`} />
+      </DateStepper>
+    </PageHeader>
+    <div className="mx-auto max-w-5xl px-4 pb-10 pt-4 sm:px-6">
+      {pushPrompt ? <div className="mb-4">{pushPrompt}</div> : null}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <p className="mr-auto text-subhead font-semibold text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
         <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
-        <AccountLinks />
-      </div>
-    </header>
-    <AppBar widthClassName="max-w-5xl">
-      <div className="flex flex-wrap items-center gap-2">
-        <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
-          <input aria-label="Tarih" type="date" value={date} onChange={(e) => { if (e.target.value) changeDate(e.target.value); }} className={`${fieldInline} tabular-nums`} />
-        </DateStepper>
         <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary">{loading ? "Yükleniyor…" : "Yenile"}</Button>
       </div>
-      <ViewSwitch view={view} onChange={(next) => { setSelectedId(null); setView(next); }} />
-    </AppBar>
-    <div className="mx-auto max-w-5xl px-4 pb-10 pt-4 sm:px-6">
       {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
       <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
       {view === "month" ? <MonthView date={date} items={appointments} closedDates={NO_CLOSURES} onOpenDay={openDay} /> :
@@ -133,7 +133,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
               <p className="break-words text-footnote text-ink-muted">{a.serviceName}</p>
               <BookingContactSummary contact={a.bookingContact} profile={{ displayName: customerOf(a) }} />
             </div>
-            <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{labels[a.status] ?? a.status}</span>
+            <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{appointmentStatusLabel[a.status] ?? a.status}</span>
           </div>
           {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2">
             <Button type="submit" disabled={busy} onClick={() => decide(a.id, "CONFIRMED")} variant="primary" className="flex-1 sm:flex-none">Onayla</Button>
@@ -141,6 +141,10 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
           </div>}
         </article></li>)}</ul>}
       </div>
+      <section aria-labelledby="staff-account-title" className="mt-10">
+        <h2 id="staff-account-title" className="group-label">Hesap</h2>
+        <AccountLinks />
+      </section>
     </div>
 
     <AppointmentSheet
@@ -149,7 +153,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
       onClose={() => { setSelectedId(null); sheetTrigger.current?.focus(); }}
     >
       {selected && <div className="space-y-4">
-        <span className={`${badgeBase} ${appointmentStatusBadge[selected.status] ?? "bg-surface-muted text-ink"}`}>{labels[selected.status] ?? selected.status}</span>
+        <span className={`${badgeBase} ${appointmentStatusBadge[selected.status] ?? "bg-surface-muted text-ink"}`}>{appointmentStatusLabel[selected.status] ?? selected.status}</span>
         <DetailList entries={[
           { label: "Müşteri", value: customerOf(selected) },
           { label: "Hizmet", value: selected.serviceName },

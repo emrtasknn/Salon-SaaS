@@ -1,7 +1,7 @@
 "use client";
 
-import { fieldInline } from "../../_ui/styles";
-import { formatHoursRange, minutesToTime, timeToMinutes } from "../../_ui/time-of-day";
+import { TimeSelect } from "../../_ui/time-select";
+import { formatHoursRange, timeToMinutes } from "../../_ui/time-of-day";
 import { removeWorkingHoursAction, saveWorkingHoursAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
                   className="mt-3 flex flex-wrap items-end gap-2"
                   action={(formData) =>
                     startTransition(async () => {
-                      // <input type="time"> gives "HH:MM"; the server contract stays in minutes.
+                      // TimeSelect posts "HH:MM"; the server contract stays in minutes.
                       const openMinute = timeToMinutes(String(formData.get("openTime") ?? ""));
                       const closeMinute = timeToMinutes(String(formData.get("closeTime") ?? ""));
                       if (openMinute === null || closeMinute === null) {
@@ -52,30 +52,20 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
                     })
                   }
                 >
-                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-footnote text-ink-muted">
-                    Açılış
-                    <input
-                      name="openTime"
-                      type="time"
-                      step={300}
-                      required
-                      defaultValue={minutesToTime(item?.openMinute ?? 540)}
-                      aria-label={day + " açılış"}
-                      className={`${fieldInline} w-full tabular-nums`}
-                    />
-                  </label>
-                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-footnote text-ink-muted">
-                    Kapanış
-                    <input
-                      name="closeTime"
-                      type="time"
-                      step={300}
-                      required
-                      defaultValue={minutesToTime(item?.closeMinute ?? 1080)}
-                      aria-label={day + " kapanış"}
-                      className={`${fieldInline} w-full tabular-nums`}
-                    />
-                  </label>
+                  <TimeSelect
+                    key={`open-${item?.openMinute ?? "new"}`}
+                    name="openTime"
+                    label={`${day} açılış`}
+                    defaultMinute={item?.openMinute ?? 540}
+                    required
+                  />
+                  <TimeSelect
+                    key={`close-${item?.closeMinute ?? "new"}`}
+                    name="closeTime"
+                    label={`${day} kapanış`}
+                    defaultMinute={item?.closeMinute ?? 1080}
+                    required
+                  />
                   <div className="flex w-full gap-2 sm:w-auto">
                     <Button type="submit" disabled={busy} variant="primary" className="flex-1 sm:flex-none">
                       Kaydet

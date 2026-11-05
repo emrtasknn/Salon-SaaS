@@ -3,6 +3,7 @@
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { MorphIcon } from "@/components/ui/motion-icons";
 import { cx } from "@/lib/utils";
+import { haptic } from "@/lib/haptics";
 
 /**
  * Aktif / Pasif switch (Amicro btn-18 "Visibility" morph: eye ↔ eye-off).
@@ -36,7 +37,10 @@ export function StatusToggle({
       aria-label={`${name}: ${active ? "aktif" : "pasif"}`}
       aria-busy={pending || undefined}
       disabled={disabled || pending}
-      onClick={onToggle}
+      onClick={() => {
+        haptic("selection");
+        onToggle?.();
+      }}
       className={cx(
         "pressable focus-ring inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3.5 text-footnote font-semibold disabled:cursor-not-allowed disabled:opacity-50",
         active

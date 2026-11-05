@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { listStaffAppointments } from "./actions";
 import { decideAndNotify } from "./decide";
+import { haptic } from "@/lib/haptics";
 import { BookingContactSummary } from "../booking-contact-summary";
-import { AppBar } from "../_ui/app-bar";
-import { appointmentStatusBadge, badgeBase, fieldInline, statusNote } from "../_ui/styles";
+import { PageHeader } from "../_ui/page-header";
+import { appointmentStatusBadge, badgeBase, fieldInline, statusNote, appointmentStatusLabel } from "../_ui/styles";
 import { Button } from "@/components/ui/button";
 
-type Props = { initialDate: string; initialData: Awaited<ReturnType<typeof listStaffAppointments>> };
-const labels: Record<string, string> = { PENDING: "Bekliyor", CONFIRMED: "Onaylandı", REJECTED: "Reddedildi", CANCELLED: "İptal", COMPLETED: "Tamamlandı" };
-
-export function StaffAppointments({ initialDate, initialData }: Props) {
+type Props = { initialDate: string; initialData: Awaited<ReturnType<typeof listStaffAppointments>>; bell?: ReactNode };
+export function StaffAppointments({ initialDate, initialData, bell }: Props) {
   const [date, setDate] = useState(initialDate);
   const [data, setData] = useState(initialData);
   const [busy, startTransition] = useTransition();
@@ -25,16 +24,12 @@ export function StaffAppointments({ initialDate, initialData }: Props) {
   const appointments = data.status === "ok" ? data.appointments : [];
 
   return <main className="min-h-screen bg-canvas">
-    <header className="mx-auto max-w-4xl px-4 pb-3 pt-6 sm:px-6">
-      <p className="text-footnote font-semibold text-ink-muted">RandevuN</p>
-      <h1 className="mt-1 text-large-title">Randevularım</h1>
-    </header>
-    <AppBar widthClassName="max-w-4xl">
+    <PageHeader eyebrow="RandevuN" title="Randevularım" accessory={bell} widthClassName="max-w-4xl">
       <div className="flex flex-wrap items-center gap-2">
         <input type="date" aria-label="Tarih" value={date} onChange={(e) => { setDate(e.target.value); refresh(e.target.value); }} className={`${fieldInline} tabular-nums`} />
-        <Button type="submit" onClick={() => refresh()} disabled={busy} variant="secondary">{busy ? "Yükleniyor…" : "Yenile"}</Button>
+        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary">{busy ? "Yükleniyor…" : "Yenile"}</Button>
       </div>
-    </AppBar>
+    </PageHeader>
     <div className="mx-auto max-w-4xl px-4 pb-10 pt-4 sm:px-6">
       {feedback && <p role="status" className={`${statusNote} mb-4`}>{feedback}</p>}
       {appointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
@@ -46,9 +41,9 @@ export function StaffAppointments({ initialDate, initialData }: Props) {
               <p className="break-words text-footnote text-ink-muted">{a.serviceName}</p>
               <BookingContactSummary contact={a.bookingContact} profile={{ displayName: a.bookingContact?.displayName ?? a.customerName }} />
             </div>
-            <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{labels[a.status] ?? a.status}</span>
+            <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{appointmentStatusLabel[a.status] ?? a.status}</span>
           </div>
-          {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2"><Button type="submit" disabled={busy} onClick={() => startTransition(async () => { const r = await decideAndNotify(a.id, "CONFIRMED"); setFeedback(r.status === "updated" ? "Randevu onaylandı." : "Randevu onaylanamadı."); if (r.status === "updated") refresh(); })} variant="primary" className="flex-1 sm:flex-none">Onayla</Button><Button type="submit" disabled={busy} onClick={() => startTransition(async () => { const r = await decideAndNotify(a.id, "REJECTED"); setFeedback(r.status === "updated" ? "Randevu reddedildi." : "Randevu reddedilemedi."); if (r.status === "updated") refresh(); })} variant="danger-outline" className="flex-1 sm:flex-none">Reddet</Button></div>}
+          {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2"><Button type="submit" disabled={busy} onClick={() => { haptic("selection"); startTransition(async () => { const r = await decideAndNotify(a.id, "CONFIRMED"); haptic(r.status === "updated" ? "success" : "error"); setFeedback(r.status === "updated" ? "Randevu onaylandı." : "Randevu onaylanamadı."); if (r.status === "updated") refresh(); }); }} variant="primary" className="flex-1 sm:flex-none">Onayla</Button><Button type="submit" disabled={busy} onClick={() => { haptic("warning"); startTransition(async () => { const r = await decideAndNotify(a.id, "REJECTED"); haptic(r.status === "updated" ? "light" : "error"); setFeedback(r.status === "updated" ? "Randevu reddedildi." : "Randevu reddedilemedi."); if (r.status === "updated") refresh(); }); }} variant="danger-outline" className="flex-1 sm:flex-none">Reddet</Button></div>}
         </article></li>)}</ul>}
     </div>
   </main>;
