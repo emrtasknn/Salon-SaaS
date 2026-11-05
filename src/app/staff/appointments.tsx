@@ -25,7 +25,7 @@ export function StaffAppointments({ initialDate, initialData }: Props) {
 
   return <main className="min-h-screen bg-canvas">
     <header className="mx-auto max-w-4xl px-4 pb-3 pt-6 sm:px-6">
-      <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>
+      <p className="text-footnote font-semibold text-ink-muted">RandevuN</p>
       <h1 className="mt-1 text-large-title">Randevularım</h1>
     </header>
     <AppBar widthClassName="max-w-4xl">

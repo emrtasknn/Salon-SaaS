@@ -72,7 +72,7 @@ export function buildIcsCalendar(event: CalendarEvent, now: Date): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Salon SaaS//Randevu//TR",
+    "PRODID:-//RandevuN//Randevu//TR",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
