@@ -21,6 +21,10 @@ model Tenant {
   legalName        String? @db.VarChar(200)
   legalAddress     String? @db.VarChar(500)
   kvkkContactEmail String? @db.VarChar(254)
+  // Customer-facing salon location (separate from legalAddress) + optional maps share link.
+  // Trimmed/non-blank and maps-host allowlist CHECKs live in migration 20261107100000_tenant_public_location.
+  publicAddress String? @db.VarChar(300)
+  mapsUrl       String? @db.VarChar(500)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

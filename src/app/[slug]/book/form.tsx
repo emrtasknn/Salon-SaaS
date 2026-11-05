@@ -5,6 +5,8 @@ import type { PublicLegalView } from "../../legal-consent-contract";
 import { getPublicAvailability } from "./actions";
 import { submitBooking } from "./submit";
 import { buttonPrimary, buttonSecondary, card, field, statusNote } from "../../_ui/styles";
+import { BackLink } from "../../_ui/back-link";
+import { SalonLocationLink, type SalonLocationView } from "../../_ui/salon-location-link";
 
 type ServiceOption = Readonly<{
   id: string;
@@ -42,6 +44,7 @@ function formatSlot(iso: string, timeZone: string) {
 export function PublicBookingForm({
   slug,
   legal,
+  location = null,
   services,
   staff,
   timeZone,
@@ -50,6 +53,8 @@ export function PublicBookingForm({
 }: {
   slug: string;
   legal: PublicLegalView;
+  /** Salon address + server-computed, allowlisted directions link; null when not set. */
+  location?: SalonLocationView | null;
   services: ReadonlyArray<ServiceOption>;
   staff: ReadonlyArray<StaffOption>;
   timeZone: string;
@@ -176,7 +181,8 @@ export function PublicBookingForm({
 
   return (
     <main className="min-h-screen bg-canvas">
-      <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">
+      <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
+        <BackLink href={`/${encodeURIComponent(slug)}`} label="Salon sayfası" className="mb-3" />
         <form
           className="space-y-7"
           onSubmit={(event) => {
@@ -187,6 +193,7 @@ export function PublicBookingForm({
           <header>
             <h1 className="text-large-title">Randevu talebi</h1>
             <p className="measure mt-2 text-body text-ink-muted">Hizmetinizi, personelinizi ve uygun saati seçin.</p>
+            {location && <SalonLocationLink location={location} className="mt-1" />}
           </header>
 
           <div className={`${card} space-y-4`}>

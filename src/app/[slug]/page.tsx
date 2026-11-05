@@ -6,6 +6,7 @@ import { getPrisma } from "../../infrastructure/prisma-runtime";
 import Link from "next/link";
 import { AppBar } from "../_ui/app-bar";
 import { buttonSecondary } from "../_ui/styles";
+import { SalonLocationLink } from "../_ui/salon-location-link";
 
 function WhatsAppLink({ href }: { href: string }) {
   return (
@@ -40,6 +41,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ sl
         <div className="mx-auto max-w-xl px-4 pb-10 pt-6 sm:px-6">
           <header className="space-y-4">
             <h1 className="text-large-title">{result.name}</h1>
+            {result.location && <SalonLocationLink location={result.location} />}
             <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
               Şu anda online randevu alınmıyor.
             </p>
@@ -59,6 +61,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ sl
       <div className="mx-auto max-w-xl px-4 pb-10 pt-6 sm:px-6">
         <header>
           <h1 className="text-large-title">{result.name}</h1>
+          {result.location && <SalonLocationLink location={result.location} className="mt-1" />}
           <p className="measure mt-2 text-body text-ink-muted">Randevu almak için bir hizmet seçin.</p>
         </header>
         <section aria-labelledby="services-title" className="mt-8">

@@ -13,6 +13,11 @@ import {
   createTenantLegalAddress,
   createTenantKvkkContactEmail,
   normalizeE164Phone,
+  TENANT_MAPS_URL_PATTERN,
+  createTenantMapsUrl,
+  createTenantPublicAddress,
+  isAllowedMapsUrl,
+  salonDirectionsUrl,
 } from "./tenant";
 
 describe("tenant domain", () => {
@@ -173,5 +178,102 @@ describe("tenant legal fields (WP-10)", () => {
     expect(normalizeE164Phone("0555 111 22 33")).toEqual({ ok: true, value: "+905551112233" });
     expect(normalizeE164Phone("")).toEqual({ ok: true, value: null });
     expect(normalizeE164Phone("+90555").ok).toBe(false);
+  });
+});
+
+describe("salon public location", () => {
+  it("trims the public address, flattens line breaks and clears blank input", () => {
+    expect(createTenantPublicAddress("  Moda Cad. No:12\nKadıköy / İstanbul ")).toEqual({
+      ok: true, value: "Moda Cad. No:12, Kadıköy / İstanbul",
+    });
+    for (const empty of [null, undefined, "", "   ", "\t\n "]) {
+      expect(createTenantPublicAddress(empty)).toEqual({ ok: true, value: null });
+    }
+  });
+
+  it("rejects an over-long, non-string or control-character public address", () => {
+    expect(createTenantPublicAddress("a".repeat(300)).ok).toBe(true);
+    expect(createTenantPublicAddress("a".repeat(301))).toMatchObject({ ok: false, error: { code: "INVALID_PUBLIC_ADDRESS" } });
+    expect(createTenantPublicAddress(42)).toMatchObject({ ok: false, error: { code: "INVALID_PUBLIC_ADDRESS" } });
+    expect(createTenantPublicAddress("Moda\tCad.")).toMatchObject({ ok: false, error: { code: "INVALID_PUBLIC_ADDRESS" } });
+  });
+
+  it.each([
+    ["https://maps.app.goo.gl/AbCdEf123", "https://maps.app.goo.gl/AbCdEf123"],
+    ["https://maps.app.goo.gl", "https://maps.app.goo.gl/"],
+    ["https://goo.gl/maps/AbCdEf123", "https://goo.gl/maps/AbCdEf123"],
+    ["https://www.google.com/maps/place/Salon/@41.0,29.0,17z", "https://www.google.com/maps/place/Salon/@41.0,29.0,17z"],
+    ["https://google.com/maps?q=Moda", "https://google.com/maps?q=Moda"],
+    ["https://maps.google.com/?q=41.0,29.0", "https://maps.google.com/?q=41.0,29.0"],
+    ["https://maps.apple.com/?address=Moda&ll=41.0,29.0", "https://maps.apple.com/?address=Moda&ll=41.0,29.0"],
+    ["https://www.google.com.tr/maps/place/Salon", "https://www.google.com.tr/maps/place/Salon"],
+    [" HTTPS://MAPS.APP.GOO.GL/AbC ", "https://maps.app.goo.gl/AbC"],
+  ])("accepts maps link %s", (raw, value) => {
+    expect(createTenantMapsUrl(raw)).toEqual({ ok: true, value });
+    expect(isAllowedMapsUrl(value)).toBe(true);
+  });
+
+  it.each([
+    "javascript:alert(1)",
+    "javascript://maps.google.com/%0Aalert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "http://maps.app.goo.gl/AbC",
+    "//maps.app.goo.gl/AbC",
+    "maps.app.goo.gl/AbC",
+    "https://maps.google.com.evil.com/x",
+    "https://evil.com/maps.google.com",
+    "https://evilmaps.google.com/",
+    "https://maps.google.com./x",
+    "https://x@maps.google.com/",
+    "https://user:pass@maps.app.goo.gl/AbC",
+    "https://maps.google.com@evil.com/",
+    "https://maps.google.com:8443/",
+    "https://maps.google.com:443/",
+    "https://goo.gl/AbCdEf",
+    "https://goo.gl/mapsx",
+    "https://www.google.com/",
+    "https://www.google.com/search?q=salon",
+    "https://www.google.com/url?q=https://evil.com",
+    "https://www.google.com.tr/url?q=https://evil.com",
+    "https://maps.google.com/ x",
+    "https://maps.google.com/\tx",
+    "https://maps.app.goo.gl/AbC\nhttps://evil.com",
+    "not a url",
+    `https://maps.app.goo.gl/${"a".repeat(480)}`,
+  ])("rejects maps link %j", (raw) => {
+    expect(createTenantMapsUrl(raw)).toMatchObject({ ok: false, error: { code: "INVALID_MAPS_URL" } });
+  });
+
+  it("clears a blank maps link and rejects non-strings", () => {
+    for (const empty of [null, undefined, "", "  "]) expect(createTenantMapsUrl(empty)).toEqual({ ok: true, value: null });
+    expect(createTenantMapsUrl(42)).toMatchObject({ ok: false, error: { code: "INVALID_MAPS_URL" } });
+  });
+
+  it("isAllowedMapsUrl rejects non-normalized or unlisted stored values", () => {
+    expect(isAllowedMapsUrl(null)).toBe(false);
+    expect(isAllowedMapsUrl("https://MAPS.app.goo.gl/x")).toBe(false);
+    expect(isAllowedMapsUrl("https://evil.com/")).toBe(false);
+  });
+
+  it("builds the directions link: allowlisted maps link first, else an address search, else null", () => {
+    expect(salonDirectionsUrl({ publicAddress: "Moda Cad. 12", mapsUrl: "https://maps.app.goo.gl/AbC" }))
+      .toBe("https://maps.app.goo.gl/AbC");
+    expect(salonDirectionsUrl({ publicAddress: "Moda Cad. No:12 & Kadıköy/İstanbul", mapsUrl: null }))
+      .toBe("https://www.google.com/maps/search/?api=1&query=Moda%20Cad.%20No%3A12%20%26%20Kad%C4%B1k%C3%B6y%2F%C4%B0stanbul");
+    // A stored link that is no longer allowlisted is never rendered; fall back to the address.
+    expect(salonDirectionsUrl({ publicAddress: "Moda", mapsUrl: "https://evil.com/" }))
+      .toBe("https://www.google.com/maps/search/?api=1&query=Moda");
+    expect(salonDirectionsUrl({ publicAddress: null, mapsUrl: "javascript:alert(1)" })).toBeNull();
+    expect(salonDirectionsUrl({ publicAddress: "  ", mapsUrl: null })).toBeNull();
+    expect(salonDirectionsUrl({ publicAddress: null, mapsUrl: null })).toBeNull();
+  });
+
+  it("keeps the JS maps pattern in sync with the DB CHECK", () => {
+    const sql = readFileSync(
+      join(process.cwd(), "prisma/migrations/20261107100000_tenant_public_location/migration.sql"),
+      "utf8",
+    );
+    const match = sql.match(/CHECK \("mapsUrl" ~ '([^']+)'\)/);
+    expect(match?.[1]).toBe(TENANT_MAPS_URL_PATTERN.source.replaceAll("\\/", "/").replace("[^\\s]", "[^[:space:]]"));
   });
 });

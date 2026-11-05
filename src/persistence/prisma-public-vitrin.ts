@@ -8,6 +8,7 @@ type Tx = PrismaTenantTransactionClient & {
   tenant: { findUnique(args: { where: { slug: string } }): Promise<{
     id: string; name: string; timezone: string; status: "ACTIVE" | "INACTIVE"; contactPhone: string | null;
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
+    publicAddress: string | null; mapsUrl: string | null;
   } | null> };
   service: { findMany(args: { where: { tenantId: string; active: boolean }; orderBy: { name: "asc" } }): Promise<ServiceRecord[]> };
   staff: { findMany(args: { where: { tenantId: string; status: "ACTIVE" }; orderBy: { id: "asc" } }): Promise<Array<{ id: string; profileId: string; status: "ACTIVE" }>> };
@@ -24,6 +25,7 @@ export function createPrismaPublicSalonRepository(prisma: PrismaTenantClient): P
         tenantContext: { tenantId: tenant.id as never }, name: tenant.name, timezone: tenant.timezone,
         status: tenant.status === "ACTIVE" ? "ACTIVE" : "INACTIVE", contactPhone: tenant.contactPhone ?? null,
         legalName: tenant.legalName ?? null, legalAddress: tenant.legalAddress ?? null, kvkkContactEmail: tenant.kvkkContactEmail ?? null,
+        publicAddress: tenant.publicAddress ?? null, mapsUrl: tenant.mapsUrl ?? null,
       };
     },
     async catalog(tenantContext: TenantContext) {
