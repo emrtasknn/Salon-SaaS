@@ -72,7 +72,7 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
   return (
     <div className="inset-row flex min-h-12 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-4 py-3">
       <dt className="text-subhead text-ink-muted">{label}</dt>
-      <dd className="text-right text-body font-medium text-ink">{children}</dd>
+      <dd className="min-w-0 break-words text-right text-body font-medium text-ink">{children}</dd>
     </div>
   );
 }

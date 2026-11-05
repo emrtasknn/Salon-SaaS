@@ -4,7 +4,12 @@ import type { TenantContext } from "../domain/tenant-context";
 import type { BookingContact } from "../domain/appointment-contact";
 
 /** WP-10: staff list row with the booking's contact snapshot (read-only; null for pre-WP-10 bookings). */
-export type StaffAppointmentListItem = AppointmentRecord & Readonly<{ bookingContact: BookingContact | null }>;
+export type StaffAppointmentListItem = AppointmentRecord & Readonly<{
+  bookingContact: BookingContact | null;
+  /** Display names so staff never see raw ids (read in the same tenant-scoped query). */
+  serviceName: string;
+  customerName: string;
+}>;
 
 export type StaffAppointmentsRepository = Readonly<{
   listForStaff(tenantContext: TenantContext, staffId: string, range: { startAt: Date; endAt: Date }): Promise<ReadonlyArray<StaffAppointmentListItem>>;
