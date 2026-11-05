@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
 
-import { buttonPrimary, card, field } from "../_ui/styles";
+import { buttonPrimary, buttonSecondary, card, field, statusNote } from "../_ui/styles";
 
 export function LoginForm() {
   const router = useRouter();
@@ -44,6 +44,28 @@ export function LoginForm() {
       setErrorMessage("Giriş sırasında beklenmeyen bir hata oluştu.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  const [resetNotice, setResetNotice] = useState("");
+
+  async function handleForgotPassword() {
+    setErrorMessage("");
+    setResetNotice("");
+    if (!email.includes("@")) {
+      setErrorMessage("Şifre yenileme için önce e-posta adresinizi yazın.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const supabase = createNextSupabaseBrowserClient();
+      // The link lands on the site root; RecoveryRedirect then opens /reset-password.
+      await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    } catch {
+      // Same message either way: never reveal whether an account exists.
+    } finally {
+      setIsSubmitting(false);
+      setResetNotice("Bu e-posta kayıtlıysa şifre yenileme bağlantısı gönderildi. Gelen kutunuzu kontrol edin.");
     }
   }
 
@@ -95,8 +117,13 @@ export function LoginForm() {
         </p>
       ) : null}
 
+      {resetNotice ? <p role="status" className={statusNote}>{resetNotice}</p> : null}
+
       <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className={`${buttonPrimary} w-full`}>
         {isSubmitting ? "Giriş yapılıyor..." : "Giriş yap"}
+      </button>
+      <button type="button" onClick={handleForgotPassword} disabled={isSubmitting} className={`${buttonSecondary} w-full`}>
+        Şifremi unuttum
       </button>
     </form>
   );

@@ -17,6 +17,8 @@ export type StaffProvisioningInput = Readonly<{
   displayName: unknown;
   email?: unknown;
   phone?: unknown;
+  /** Optional temporary password set by the tenant admin (8-128 chars, needs email). Never persisted by us. */
+  password?: unknown;
 }>;
 
 export type StaffProvisioningRepositoryInput = Readonly<{
@@ -81,6 +83,13 @@ export type StaffManagementResult =
         | "CONFLICT";
     }>;
 
+/** Empty = no password (email invite path). Not trimmed: spaces are valid password characters. */
+function temporaryPassword(value: unknown): string | null | "INVALID" {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string" || value.length < 8 || value.length > 128) return "INVALID";
+  return value;
+}
+
 function optionalText(value: unknown): string | null | "INVALID" {
   if (value == null || value === "") return null;
   if (typeof value !== "string") return "INVALID";
@@ -121,11 +130,16 @@ export function createStaffManager(
       const phone = optionalText(input.phone);
       if (email === "INVALID" || phone === "INVALID")
         return { status: "INVALID_INPUT" };
+      const password = temporaryPassword(input.password);
+      // A login password only makes sense with a login email.
+      if (password === "INVALID" || (password !== null && email === null))
+        return { status: "INVALID_INPUT" };
 
       const auth = await dependencies.authProvisioner.provision({
         email,
         displayName: input.displayName.trim(),
         tenantId: input.tenantContext.tenantId,
+        ...(password !== null ? { password } : {}),
       });
       if (auth.status === "failed")
         return { status: "AUTH_PROVISIONING_FAILED" };

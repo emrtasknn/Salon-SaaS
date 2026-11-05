@@ -16,6 +16,28 @@ import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-au
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
 import { PushPermission } from "../pwa/push-permission";
+import { redirect } from "next/navigation";
+import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
+import { getPrisma } from "../../infrastructure/prisma-runtime";
+
+/**
+ * Navigation only: the login form sends every tenant user to /admin, so staff
+ * members are forwarded to /staff (which re-checks authorization itself).
+ * Never used to grant access.
+ */
+async function isStaffMember(): Promise<boolean> {
+  try {
+    const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
+    const request = await readAuthenticatedTenantRequest(createSupabaseAuthAdapter({ client: supabase as never }));
+    if (request.state !== "authenticated") return false;
+    const membership = await createPrismaMembershipReader({ prisma: getPrisma() }).readMembership({
+      tenantContext: request.tenantContext, identity: request.identity,
+    });
+    return membership.status === "found" && membership.membership.role === "STAFF";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * WP-09: opaque, non-authoritative device-binding key for the push opt-in UI
@@ -37,6 +59,7 @@ async function readPushBindingKey(): Promise<string | null> {
 }
 
 export default async function AdminPage() {
+  if (await isStaffMember()) redirect("/staff");
   const closureRange = upcomingClosureRange();
   const [data, notifications, settings, closures, pushBindingKey] = await Promise.all([
     listAdminData(),

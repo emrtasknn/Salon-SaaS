@@ -67,6 +67,31 @@ describe("staff management", () => {
     expect(d.authProvisioner.compensate).toHaveBeenCalledWith("subject-2");
   });
 
+  it("passes an admin-set temporary password to auth provisioning (no invite email)", async () => {
+    const d = deps();
+    d.repository.create.mockResolvedValue({ status: "created", staff: { id: "s" } } as never);
+    await createStaffManager(d).create({
+      identity, tenantContext, displayName: "Ada", email: "ada@example.com", password: "gecici-123",
+    });
+    expect(d.authProvisioner.provision).toHaveBeenCalledWith({
+      email: "ada@example.com", displayName: "Ada", tenantId: "tenant-1", password: "gecici-123",
+    });
+    // The password never reaches persistence.
+    expect(JSON.stringify(d.repository.create.mock.calls)).not.toContain("gecici-123");
+  });
+
+  it.each([
+    ["too short", { email: "ada@example.com", password: "short" }],
+    ["too long", { email: "ada@example.com", password: "x".repeat(129) }],
+    ["not a string", { email: "ada@example.com", password: 12345678 }],
+    ["password without email", { password: "gecici-123" }],
+  ])("rejects a temporary password that is %s before provisioning", async (_label, extra) => {
+    const d = deps();
+    const result = await createStaffManager(d).create({ identity, tenantContext, displayName: "Ada", ...extra });
+    expect(result.status).toBe("INVALID_INPUT");
+    expect(d.authProvisioner.provision).not.toHaveBeenCalled();
+  });
+
   it("surfaces compensation failure explicitly", async () => {
     const d = deps();
     d.repository.create.mockResolvedValue({ status: "conflict" });

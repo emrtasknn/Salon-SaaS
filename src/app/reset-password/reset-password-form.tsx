@@ -33,14 +33,14 @@ export function ResetPasswordForm() {
       const { data } = await supabase.auth.getSession();
 
       if (data.session === null) {
-        setErrorMessage("Şifre yenileme oturumu geçersiz veya süresi dolmuş.");
+        setErrorMessage("Oturum bulunamadı veya bağlantının süresi dolmuş. Giriş ekranından \"Şifremi unuttum\" ile yeni bağlantı isteyin.");
         return;
       }
 
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error !== null) {
-        setErrorMessage("Şifre güncellenemedi. Yeni bir recovery bağlantısı isteyin.");
+        setErrorMessage("Şifre güncellenemedi. Giriş ekranından yeni bir şifre yenileme bağlantısı isteyin.");
         return;
       }
 
