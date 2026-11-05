@@ -41,8 +41,9 @@ export function StaffAppointments({ initialDate, initialData }: Props) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 [overflow-wrap:anywhere]">
               <p className="text-headline tabular-nums">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.startAt))}<span className="font-normal text-ink-muted">–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.endAt))}</span></p>
-              <p className="mt-1 break-all text-footnote text-ink-muted">Müşteri: {a.customerProfileId} · Hizmet: {a.serviceId}</p>
-              <BookingContactSummary contact={a.bookingContact} profile={{}} />
+              <p className="mt-1 break-words text-body">{a.bookingContact?.displayName ?? a.customerName}</p>
+              <p className="break-words text-footnote text-ink-muted">{a.serviceName}</p>
+              <BookingContactSummary contact={a.bookingContact} profile={{ displayName: a.bookingContact?.displayName ?? a.customerName }} />
             </div>
             <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{labels[a.status] ?? a.status}</span>
           </div>

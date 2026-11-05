@@ -6,10 +6,16 @@ import { toBookingContact } from "../domain/appointment-contact";
 
 type ContactRow = { displayName: string; phone: string | null; email: string | null; whatsappOptIn: boolean; optOutAt: Date | null };
 const contactSelect = { displayName: true, phone: true, email: true, whatsappOptIn: true, optOutAt: true } as const;
+const listInclude = {
+  contact: { select: contactSelect },
+  service: { select: { name: true } },
+  customerProfile: { select: { displayName: true } },
+} as const;
+type ListRow = AppointmentRecord & { contact: ContactRow | null; service: { name: string }; customerProfile: { displayName: string } };
 
 type Tx = PrismaTenantTransactionClient & {
   appointment: {
-    findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown>; include: { contact: { select: typeof contactSelect } } }): Promise<Array<AppointmentRecord & { contact: ContactRow | null }>>;
+    findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown>; include: typeof listInclude }): Promise<ListRow[]>;
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<AppointmentRecord | null>;
   };
   staff: {
@@ -29,11 +35,16 @@ export function createPrismaStaffAppointmentsRepository(prisma: PrismaTenantClie
             endAt: { gt: range.startAt },
           },
           orderBy: { startAt: "asc" },
-          include: { contact: { select: contactSelect } },
+          include: listInclude,
         }),
       );
       // Only the snapshot fields leave persistence (no notice/opt-in evidence columns).
-      return rows.map(({ contact, ...appointment }) => ({ ...appointment, bookingContact: toBookingContact(contact) }));
+      return rows.map(({ contact, service, customerProfile, ...appointment }) => ({
+        ...appointment,
+        bookingContact: toBookingContact(contact),
+        serviceName: service.name,
+        customerName: customerProfile.displayName,
+      }));
     },
     async findById(tenantContext, appointmentId) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
