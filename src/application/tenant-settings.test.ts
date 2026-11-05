@@ -7,6 +7,7 @@ const tenant = { tenantId: "tenant-a" as never };
 const settings = {
   name: "Salon", contactPhone: null, status: "ACTIVE" as const, timezone: "Europe/Istanbul",
   legal: { legalName: null, legalAddress: null, kvkkContactEmail: null },
+  location: { publicAddress: null, mapsUrl: null },
 };
 
 function makeService(options: Readonly<{ read?: boolean; update?: boolean }> = {}) {
@@ -136,6 +137,44 @@ describe("tenant settings legal fields (WP-10)", () => {
   it("forbids legal updates without update authorization", async () => {
     const { service, repository } = makeService({ update: false });
     await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "", legalName: "Ada" })).resolves.toEqual({ ok: false, code: "FORBIDDEN" });
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("tenant settings location fields", () => {
+  it("writes the trimmed public address and the normalized maps link", async () => {
+    const { service, repository } = makeService();
+    await expect(service.update(identity, tenant, {
+      name: "Salon", contactPhone: "", publicAddress: " Moda Cad. 12\nKadıköy ", mapsUrl: " https://maps.app.goo.gl/AbC ",
+    })).resolves.toEqual({ ok: true });
+    expect(repository.update).toHaveBeenCalledWith(tenant, {
+      name: "Salon", contactPhone: null, publicAddress: "Moda Cad. 12, Kadıköy", mapsUrl: "https://maps.app.goo.gl/AbC",
+    });
+  });
+
+  it("leaves absent location fields unchanged and clears blank ones", async () => {
+    const { service, repository } = makeService();
+    await service.update(identity, tenant, { name: "Salon", contactPhone: "", mapsUrl: "" });
+    expect(repository.update).toHaveBeenCalledWith(tenant, { name: "Salon", contactPhone: null, mapsUrl: null });
+  });
+
+  it.each([
+    [{ publicAddress: "a".repeat(301) }, "INVALID_PUBLIC_ADDRESS"],
+    [{ publicAddress: "Moda\tCad." }, "INVALID_PUBLIC_ADDRESS"],
+    [{ mapsUrl: "javascript:alert(1)" }, "INVALID_MAPS_URL"],
+    [{ mapsUrl: "http://maps.app.goo.gl/AbC" }, "INVALID_MAPS_URL"],
+    [{ mapsUrl: "https://maps.google.com.evil.com/" }, "INVALID_MAPS_URL"],
+    [{ mapsUrl: "https://x@maps.google.com/" }, "INVALID_MAPS_URL"],
+  ])("rejects %j with %s before writing", async (location, code) => {
+    const { service, repository } = makeService();
+    await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "", ...location })).resolves.toEqual({ ok: false, code });
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("forbids location updates without update authorization", async () => {
+    const { service, repository } = makeService({ update: false });
+    await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "", mapsUrl: "https://maps.app.goo.gl/AbC" }))
+      .resolves.toEqual({ ok: false, code: "FORBIDDEN" });
     expect(repository.update).not.toHaveBeenCalled();
   });
 });

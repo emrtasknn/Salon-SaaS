@@ -13,6 +13,8 @@ type TenantSettingsView = Readonly<{
   timezone: string;
   /** WP-10: salon legal fields used in the KVKK notice. */
   legal: TenantLegalFields;
+  /** Customer-facing address + optional maps share link (public "Yol tarifi al" link). */
+  location: Readonly<{ publicAddress: string | null; mapsUrl: string | null }>;
 }>;
 
 const legalErrorMessages: Record<TenantLegalErrorCode, string> = {
@@ -27,6 +29,9 @@ const errorMessages: Record<string, string> = {
     "Telefon numarası geçersiz. Ülke koduyla girin, örn. +905551234567.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
   PERSISTENCE_FAILURE: "Ayarlar kaydedilemedi. Lütfen tekrar deneyin.",
+  INVALID_PUBLIC_ADDRESS: "Salon adresini kontrol edin (en fazla 300 karakter).",
+  INVALID_MAPS_URL:
+    "Harita bağlantısı geçersiz. Google Haritalar veya Apple Haritalar'daki Paylaş bağlantısını yapıştırın.",
   ...legalErrorMessages,
 };
 
@@ -43,7 +48,10 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
   const legalNameInvalid = feedback?.code === "INVALID_LEGAL_NAME";
   const legalAddressInvalid = feedback?.code === "INVALID_LEGAL_ADDRESS";
   const kvkkEmailInvalid = feedback?.code === "INVALID_KVKK_EMAIL";
+  const publicAddressInvalid = feedback?.code === "INVALID_PUBLIC_ADDRESS";
+  const mapsUrlInvalid = feedback?.code === "INVALID_MAPS_URL";
   const legal = settings.legal;
+  const location = settings.location;
   const legalComplete = Boolean(legal.legalName && legal.legalAddress && legal.kvkkContactEmail);
 
   return (
@@ -67,7 +75,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
       </div>
 
       <form
-        key={`${settings.name}|${settings.contactPhone ?? ""}|${legal.legalName ?? ""}|${legal.legalAddress ?? ""}|${legal.kvkkContactEmail ?? ""}`}
+        key={`${settings.name}|${settings.contactPhone ?? ""}|${legal.legalName ?? ""}|${legal.legalAddress ?? ""}|${legal.kvkkContactEmail ?? ""}|${location.publicAddress ?? ""}|${location.mapsUrl ?? ""}`}
         className="mt-4 grid gap-4 sm:grid-cols-2"
         action={(formData) =>
           startTransition(async () => {
@@ -129,6 +137,59 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
             Örn. +905551234567. Müşteriler salon sayfasında bu numaraya WhatsApp&apos;tan yazabilir. Boş bırakırsanız WhatsApp bağlantısı gösterilmez.
           </p>
         </div>
+
+        <fieldset className="grid gap-4 border-t border-zinc-200 pt-4 sm:col-span-2 sm:grid-cols-2" aria-describedby="tenant-location-help">
+          <legend className="text-base font-semibold">Konum</legend>
+          <p id="tenant-location-help" className="text-xs text-zinc-600 sm:col-span-2">
+            Müşteriler salon ve randevu sayfasında &quot;Yol tarifi al&quot; bağlantısıyla salonunuza kolayca ulaşır.
+            Harita bağlantısı boşsa adres Google Haritalar&apos;da aranır.
+          </p>
+
+          <div className="space-y-1 sm:col-span-2">
+            <label htmlFor="tenant-public-address" className="text-sm font-medium">
+              Salon adresi
+            </label>
+            <textarea
+              id="tenant-public-address"
+              name="publicAddress"
+              rows={2}
+              maxLength={300}
+              autoComplete="street-address"
+              defaultValue={location.publicAddress ?? ""}
+              readOnly={!canEdit}
+              aria-invalid={publicAddressInvalid}
+              aria-describedby={
+                publicAddressInvalid ? "tenant-public-address-help tenant-settings-feedback" : "tenant-public-address-help"
+              }
+              className={inputClassName}
+            />
+            <p id="tenant-public-address-help" className="text-xs text-zinc-500">
+              Müşterilere gösterilen adres. Örn. Moda Cad. No:12, Kadıköy / İstanbul
+            </p>
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <label htmlFor="tenant-maps-url" className="text-sm font-medium">
+              Harita bağlantısı (isteğe bağlı)
+            </label>
+            <input
+              id="tenant-maps-url"
+              name="mapsUrl"
+              type="url"
+              inputMode="url"
+              maxLength={500}
+              placeholder="https://maps.app.goo.gl/…"
+              defaultValue={location.mapsUrl ?? ""}
+              readOnly={!canEdit}
+              aria-invalid={mapsUrlInvalid}
+              aria-describedby={mapsUrlInvalid ? "tenant-maps-url-help tenant-settings-feedback" : "tenant-maps-url-help"}
+              className={inputClassName}
+            />
+            <p id="tenant-maps-url-help" className="text-xs text-zinc-500">
+              Google Haritalar&apos;da salonunuzu açın → Paylaş → Bağlantıyı kopyala. Apple Haritalar bağlantısı da olur.
+            </p>
+          </div>
+        </fieldset>
 
         <fieldset className="grid gap-4 border-t border-zinc-200 pt-4 sm:col-span-2 sm:grid-cols-2" aria-describedby="tenant-legal-help">
           <legend className="text-base font-semibold">Yasal bilgiler (KVKK)</legend>

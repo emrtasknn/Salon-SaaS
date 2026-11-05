@@ -7,14 +7,21 @@ type Tx = PrismaTenantTransactionClient & {
   tenant: {
     findUnique(args: {
       where: { id: string };
-      select: { name: true; contactPhone: true; status: true; timezone: true; legalName: true; legalAddress: true; kvkkContactEmail: true };
+      select: {
+        name: true; contactPhone: true; status: true; timezone: true; legalName: true; legalAddress: true; kvkkContactEmail: true;
+        publicAddress: true; mapsUrl: true;
+      };
     }): Promise<{
       name: string; contactPhone: string | null; status: string; timezone: string;
       legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
+      publicAddress: string | null; mapsUrl: string | null;
     } | null>;
     updateMany(args: {
       where: { id: string };
-      data: { name: string; contactPhone: string | null; legalName?: string | null; legalAddress?: string | null; kvkkContactEmail?: string | null };
+      data: {
+        name: string; contactPhone: string | null; legalName?: string | null; legalAddress?: string | null; kvkkContactEmail?: string | null;
+        publicAddress?: string | null; mapsUrl?: string | null;
+      };
     }): Promise<{ count: number }>;
   };
 };
@@ -26,13 +33,17 @@ export function createPrismaTenantSettingsRepository(prisma: PrismaTenantClient)
       const tenant = await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
         tx.tenant.findUnique({
           where: { id: tenantContext.tenantId },
-          select: { name: true, contactPhone: true, status: true, timezone: true, legalName: true, legalAddress: true, kvkkContactEmail: true },
+          select: {
+            name: true, contactPhone: true, status: true, timezone: true, legalName: true, legalAddress: true, kvkkContactEmail: true,
+            publicAddress: true, mapsUrl: true,
+          },
         }),
       );
       if (!tenant || !isTenantStatus(tenant.status)) return null;
       return {
         name: tenant.name, contactPhone: tenant.contactPhone ?? null, status: tenant.status, timezone: tenant.timezone,
         legal: { legalName: tenant.legalName ?? null, legalAddress: tenant.legalAddress ?? null, kvkkContactEmail: tenant.kvkkContactEmail ?? null },
+        location: { publicAddress: tenant.publicAddress ?? null, mapsUrl: tenant.mapsUrl ?? null },
       };
     },
 
@@ -47,6 +58,8 @@ export function createPrismaTenantSettingsRepository(prisma: PrismaTenantClient)
               ...(input.legalName !== undefined ? { legalName: input.legalName } : {}),
               ...(input.legalAddress !== undefined ? { legalAddress: input.legalAddress } : {}),
               ...(input.kvkkContactEmail !== undefined ? { kvkkContactEmail: input.kvkkContactEmail } : {}),
+              ...(input.publicAddress !== undefined ? { publicAddress: input.publicAddress } : {}),
+              ...(input.mapsUrl !== undefined ? { mapsUrl: input.mapsUrl } : {}),
             },
           }),
         );

@@ -1,9 +1,16 @@
 import type { ApplicationIdentity } from "../domain/auth-identity";
 import type { TenantContext } from "../domain/tenant-context";
 import {
-  createTenantContactPhone, createTenantKvkkContactEmail, createTenantLegalAddress, createTenantLegalName, createTenantName,
+  createTenantContactPhone, createTenantKvkkContactEmail, createTenantLegalAddress, createTenantLegalName, createTenantMapsUrl,
+  createTenantName, createTenantPublicAddress,
   type TenantStatus,
 } from "../domain/tenant";
+
+/** Customer-facing salon location (null = not set; no directions link is shown when both are null). */
+export type TenantLocationSettings = Readonly<{
+  publicAddress: string | null;
+  mapsUrl: string | null;
+}>;
 
 /** WP-10: KVKK controller identity (null = not set; booking form stays closed until all three are set). */
 export type TenantLegalSettings = Readonly<{
@@ -19,14 +26,15 @@ export type TenantSettings = Readonly<{
   status: TenantStatus;
   timezone: string;
   legal: TenantLegalSettings;
+  location: TenantLocationSettings;
 }>;
 
 export type TenantSettingsRepository = Readonly<{
   read(tenantContext: TenantContext): Promise<TenantSettings | null>;
   update(
     tenantContext: TenantContext,
-    /** A legal key that is absent (undefined) is left unchanged; null clears it. */
-    input: Readonly<{ name: string; contactPhone: string | null } & Partial<TenantLegalSettings>>,
+    /** A legal/location key that is absent (undefined) is left unchanged; null clears it. */
+    input: Readonly<{ name: string; contactPhone: string | null } & Partial<TenantLegalSettings> & Partial<TenantLocationSettings>>,
   ): Promise<"updated" | "not_found" | "persistence_failure">;
 }>;
 
@@ -46,6 +54,7 @@ export type TenantSettingsUpdateResult =
   | { ok: false; code:
     | "INVALID_TENANT_NAME" | "INVALID_CONTACT_PHONE"
     | "INVALID_LEGAL_NAME" | "INVALID_LEGAL_ADDRESS" | "INVALID_KVKK_EMAIL"
+    | "INVALID_PUBLIC_ADDRESS" | "INVALID_MAPS_URL"
     | "FORBIDDEN" | "PERSISTENCE_FAILURE" };
 
 export function createTenantSettings(dependencies: Readonly<{
@@ -65,13 +74,17 @@ export function createTenantSettings(dependencies: Readonly<{
     },
 
     /**
-     * Only `name`, `contactPhone` and (WP-10) the legal fields are accepted; any other input
-     * (tenantId, status, timezone) is ignored. A legal field passed as `undefined` stays unchanged.
+     * Only `name`, `contactPhone`, (WP-10) the legal fields and the location fields are accepted;
+     * any other input (tenantId, status, timezone) is ignored. A legal/location field passed as
+     * `undefined` stays unchanged.
      */
     async update(
       identity: ApplicationIdentity,
       tenantContext: TenantContext,
-      input: Readonly<{ name: unknown; contactPhone: unknown; legalName?: unknown; legalAddress?: unknown; kvkkContactEmail?: unknown }>,
+      input: Readonly<{
+        name: unknown; contactPhone: unknown; legalName?: unknown; legalAddress?: unknown; kvkkContactEmail?: unknown;
+        publicAddress?: unknown; mapsUrl?: unknown;
+      }>,
     ): Promise<TenantSettingsUpdateResult> {
       try {
         if (!(await dependencies.authorizer.authorizeUpdate(identity, tenantContext))) return { ok: false, code: "FORBIDDEN" };
@@ -98,8 +111,21 @@ export function createTenantSettings(dependencies: Readonly<{
         if (!kvkkContactEmail.ok) return { ok: false, code: "INVALID_KVKK_EMAIL" };
         legal.kvkkContactEmail = kvkkContactEmail.value;
       }
+      const location: { -readonly [K in keyof TenantLocationSettings]?: string | null } = {};
+      if (input.publicAddress !== undefined) {
+        const publicAddress = createTenantPublicAddress(input.publicAddress);
+        if (!publicAddress.ok) return { ok: false, code: "INVALID_PUBLIC_ADDRESS" };
+        location.publicAddress = publicAddress.value;
+      }
+      if (input.mapsUrl !== undefined) {
+        const mapsUrl = createTenantMapsUrl(input.mapsUrl);
+        if (!mapsUrl.ok) return { ok: false, code: "INVALID_MAPS_URL" };
+        location.mapsUrl = mapsUrl.value;
+      }
       try {
-        const result = await dependencies.repository.update(tenantContext, { name: name.value, contactPhone: contactPhone.value, ...legal });
+        const result = await dependencies.repository.update(tenantContext, {
+          name: name.value, contactPhone: contactPhone.value, ...legal, ...location,
+        });
         return result === "updated" ? { ok: true } : { ok: false, code: "PERSISTENCE_FAILURE" };
       } catch {
         return { ok: false, code: "PERSISTENCE_FAILURE" };
