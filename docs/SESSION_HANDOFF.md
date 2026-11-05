@@ -32,8 +32,8 @@
 - **Scope change (owner decision 2026-11-05): drag-to-move in the day calendar.** Admin: any open
   appointment; active staff: own only (create scope). PENDING/CONFIRMED only, same staff/service, slot +
   closure + conflict re-check under the create advisory lock, stale guard. No migration, **no customer
-  notification** (needs a new event type + Meta template → follow-up). Previously listed as deferred in
-  docs/tasks/WP-08.md:16 and ADR-044 — those docs not yet updated.
+  notification** (needs a new event type + Meta template → follow-up). WP-08, ADR-044 (amendment) and
+  docs/tasks/README.md updated.
 - New integration test `src/persistence/prisma-booking-reschedule.integration.test.ts` (CI only).
 
 ## Decisions
@@ -46,4 +46,7 @@
 - `npm audit` reports advisories in the dependency tree (not reviewed here).
 
 ## Next task
+- Follow-up PR: customer reschedule notification. Migration = `APPOINTMENT_RESCHEDULED` enum value + per-reschedule
+  idempotency key on NotificationDelivery; apply to staging, then pilot (owner approval) **before** merging, since
+  `main` auto-deploys to the pilot Vercel project. WhatsApp template deferred by owner.
 - Visual pass on admin/staff screens (light/dark, 375px). Optional: ui.wensity.com KPI cards for the admin home.

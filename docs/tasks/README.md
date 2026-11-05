@@ -62,3 +62,4 @@ WP-02b, WP-03, WP-04 and WP-05 files are created by their own sessions.
 Migrations on `main`, none applied anywhere: `20261104100000_rate_limit`, `20261104110000_appointment_access_token`, `20261104120000_tenant_status_contact_phone`, `20261105120000_closure_date`, `20261105130000_web_push_subscription`, `20261105140000_whatsapp_delivery_tenant_resolver`.
 
 Deferred (owner 2026-11-04): DST timezones (MVP locked to Europe/Istanbul), per-tenant WhatsApp senders, reschedule by link.
+Added (owner 2026-11-05, PR #183): staff/admin calendar drag-to-move. Follow-up: customer reschedule notification (migration first, WhatsApp template deferred).
