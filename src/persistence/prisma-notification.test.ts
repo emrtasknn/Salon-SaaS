@@ -105,10 +105,49 @@ describe("Prisma notification repository", () => {
         tenantId: "tenant-a",
         appointmentId: "appointment-1",
         eventType: "APPOINTMENT_CONFIRMED",
+        eventKey: "",
         channel: "WHATSAPP",
         recipientProfileId: "customer-1",
       },
       data: { status: "PENDING" },
+    });
+  });
+
+  describe("eventKey (APPOINTMENT_RESCHEDULED idempotency)", () => {
+    function setupDelivery(existing: { status: string } | null) {
+      const findUnique = vi.fn().mockResolvedValue(existing);
+      const create = vi.fn().mockResolvedValue({});
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      const transaction = vi.fn(async (operation: (tx: unknown) => Promise<unknown>) =>
+        operation({ $executeRaw: vi.fn().mockResolvedValue(1), notificationDelivery: { findUnique, create, updateMany } }),
+      );
+      return { repository: createPrismaNotificationRepository({ $transaction: transaction as never }), findUnique, create, updateMany };
+    }
+    const target = { appointmentId: "appointment-1", eventType: "APPOINTMENT_RESCHEDULED" as const, channel: "WHATSAPP" as const, recipientProfileId: "customer-1" };
+
+    it("looks up and creates the delivery under the per-reschedule key", async () => {
+      const { repository, findUnique, create } = setupDelivery(null);
+      await expect(repository.claim(tenantContext("tenant-a"), { ...target, eventKey: "k1", templateKey: "appointment-rescheduled-customer" })).resolves.toBe("claimed");
+      expect(findUnique).toHaveBeenCalledWith({ where: { tenantId_appointmentId_eventType_channel_recipientProfileId_eventKey: { tenantId: "tenant-a", ...target, eventKey: "k1" } } });
+      expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ tenantId: "tenant-a", eventType: "APPOINTMENT_RESCHEDULED", eventKey: "k1", status: "PENDING" }) });
+    });
+
+    it("defaults a missing eventKey to '' (one-off events keep their old idempotency)", async () => {
+      const { repository, findUnique, create } = setupDelivery(null);
+      await repository.claim(tenantContext("tenant-a"), { ...target, eventType: "APPOINTMENT_CONFIRMED", templateKey: "appointment-confirmed-customer" });
+      expect(findUnique.mock.calls[0][0].where.tenantId_appointmentId_eventType_channel_recipientProfileId_eventKey.eventKey).toBe("");
+      expect(create.mock.calls[0][0].data.eventKey).toBe("");
+    });
+
+    it("marks only the row of this reschedule", async () => {
+      const { repository, updateMany } = setupDelivery(null);
+      await repository.markFailed(tenantContext("tenant-a"), { ...target, eventKey: "k2", errorCode: "WHATSAPP_TEMPLATE_NOT_CONFIGURED" });
+      await repository.markSent(tenantContext("tenant-a"), { ...target, eventKey: "k2", providerMessageId: "wamid.1" });
+      await repository.markUnknown(tenantContext("tenant-a"), { ...target, eventKey: "k2", errorCode: "PROVIDER_OUTCOME_UNKNOWN" });
+      expect(updateMany).toHaveBeenCalledTimes(3);
+      for (const call of updateMany.mock.calls) {
+        expect(call[0].where).toEqual({ tenantId: "tenant-a", ...target, eventKey: "k2" });
+      }
     });
   });
 
@@ -267,6 +306,20 @@ describe("Prisma notification repository", () => {
       await expect(repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CONFIRMED")).resolves.toEqual([]);
     });
 
+    it("APPOINTMENT_RESCHEDULED goes to the opted-in customer only, with the new time (owner decision 2026-11-05)", async () => {
+      const { repository, findMany } = setup([adminMembership("admin-1", "+905550000011")]);
+      const result = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_RESCHEDULED");
+      expect(result).toEqual([{
+        profileId: "customer-1",
+        displayName: "Customer",
+        phone: "+905550000002",
+        templateKey: "appointment-rescheduled-customer",
+        body: expect.stringContaining("Kesim"),
+        templateParameters: ["Kesim", expect.stringContaining("14:00"), "Staff"],
+      }]);
+      expect(findMany).not.toHaveBeenCalled();
+    });
+
     it.each([
       ["no contact row (pre-WP-10 booking)", null],
       ["opt-in with empty-string phone", { phone: "", whatsappOptIn: true, optOutAt: null }],
@@ -279,6 +332,7 @@ describe("Prisma notification repository", () => {
       expect(created.map((r) => r.profileId)).toEqual(["staff-1", "admin-1"]);
       await expect(repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CONFIRMED")).resolves.toEqual([]);
       await expect(repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_REJECTED")).resolves.toEqual([]);
+      await expect(repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_RESCHEDULED")).resolves.toEqual([]);
     });
   });
 });

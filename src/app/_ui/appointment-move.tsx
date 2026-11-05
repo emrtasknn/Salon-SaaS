@@ -68,7 +68,10 @@ export function useAppointmentMove({
       setPending(null);
       if (result.status === "RESCHEDULED") {
         haptic("success");
-        onDone(`Randevu ${formatTimeRange(result.startAt, result.endAt)} saatine taşındı. Müşteriye otomatik bildirim gönderilmedi.`, true);
+        const notice = result.notified
+          ? "Müşteriye WhatsApp ile bildirildi."
+          : "Müşteriye otomatik bildirim ulaşmadı; gerekirse siz haber verin.";
+        onDone(`Randevu ${formatTimeRange(result.startAt, result.endAt)} saatine taşındı. ${notice}`, true);
       } else {
         haptic("error");
         onDone(errorText[result.status] ?? "Randevu taşınamadı. Lütfen tekrar deneyin.", false);
@@ -89,7 +92,7 @@ export function useAppointmentMove({
             <span>{formatTimeRange(shift(pending.item.startAt, pending.deltaMinutes), shift(pending.item.endAt, pending.deltaMinutes))}</span>
           </p>
           <p className="text-subhead text-ink-muted">
-            Müşteriye otomatik bildirim gönderilmez; gerekirse müşteriye siz haber verin.
+            WhatsApp bildirimine izin veren müşteriye yeni saat otomatik bildirilir. Bildirim ulaşmazsa taşıma sonrası size söyleriz.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button type="button" pending={saving} onClick={confirm} className="sm:flex-1">

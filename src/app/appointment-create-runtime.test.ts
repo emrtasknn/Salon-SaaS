@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { publishAppointmentNotification } = vi.hoisted(() => ({ publishAppointmentNotification: vi.fn() }));
 vi.mock("./notification-runtime", () => ({ publishAppointmentNotification }));
 
-import { createOnBehalf, listSlotsOnBehalf, readCreateOptions } from "./appointment-create-runtime";
+import { createOnBehalf, listSlotsOnBehalf, readCreateOptions, rescheduleOnBehalf } from "./appointment-create-runtime";
 import { createAuthenticatedIdentity } from "../domain/auth-identity";
 
 const identity = createAuthenticatedIdentity("user-1", "profile-1");
@@ -18,6 +18,7 @@ const engine = {
   createOnBehalf: vi.fn(),
   slotsOnBehalf: vi.fn(),
   createOptions: vi.fn(),
+  reschedule: vi.fn(),
 };
 type Engine = Parameters<typeof createOnBehalf>[0];
 const asEngine = () => engine as unknown as Engine;
@@ -128,5 +129,59 @@ describe("listSlotsOnBehalf / readCreateOptions runtime (WP-08)", () => {
   it("returns null create options when forbidden", async () => {
     engine.createOptions.mockResolvedValueOnce({ status: "FORBIDDEN" });
     await expect(readCreateOptions(asEngine(), identity, tenantContext)).resolves.toBeNull();
+  });
+});
+
+describe("rescheduleOnBehalf runtime: APPOINTMENT_RESCHEDULED notification", () => {
+  const oldStart = new Date("2026-11-10T08:00:00.000Z");
+  const newStart = new Date("2026-11-10T09:00:00.000Z");
+  const newEnd = new Date("2026-11-10T09:45:00.000Z");
+  const movedAt = new Date("2026-11-06T12:00:00.000Z");
+  const appointmentRow = { id: "a1", tenantId: "tenant-from-session", staffId: "staff", serviceId: "svc", status: "CONFIRMED", startAt: oldStart, endAt: new Date("2026-11-10T08:45:00.000Z") };
+  const findUnique = vi.fn();
+  const prisma = {
+    $transaction: vi.fn(async (operation: (tx: unknown) => Promise<unknown>) =>
+      operation({ $executeRaw: vi.fn().mockResolvedValue(1), appointment: { findUnique } })),
+  };
+  type Prisma = Parameters<typeof rescheduleOnBehalf>[0];
+  const move = () => rescheduleOnBehalf(prisma as unknown as Prisma, asEngine(), identity, tenantContext, "a1", newStart.toISOString(), () => movedAt);
+
+  beforeEach(() => {
+    findUnique.mockResolvedValue(appointmentRow);
+    engine.reschedule.mockResolvedValue({ status: "RESCHEDULED", startAt: newStart, endAt: newEnd });
+  });
+
+  it("publishes once with a per-move eventKey in the server tenant context", async () => {
+    await expect(move()).resolves.toEqual({ status: "RESCHEDULED", startAt: newStart.toISOString(), endAt: newEnd.toISOString(), notified: true });
+    expect(publishAppointmentNotification).toHaveBeenCalledOnce();
+    expect(publishAppointmentNotification).toHaveBeenCalledWith(tenantContext, "a1", "APPOINTMENT_RESCHEDULED", `${newStart.toISOString()}@${movedAt.toISOString()}`);
+  });
+
+  it.each([
+    ["template not configured (FAILED)", { status: "processed", results: [{ profileId: "c", status: "FAILED", channel: "WHATSAPP" }] }],
+    ["no opted-in customer", { status: "processed", results: [] }],
+    ["staff Web Push only", { status: "processed", results: [{ profileId: "s", status: "SENT", channel: "WEB_PUSH" }] }],
+    ["channels not configured", { status: "NOT_CONFIGURED" }],
+    ["publish failure", { status: "FAILED" }],
+  ])("%s -> move still succeeds, notified=false", async (_label, published) => {
+    publishAppointmentNotification.mockResolvedValue(published);
+    await expect(move()).resolves.toMatchObject({ status: "RESCHEDULED", notified: false });
+  });
+
+  it("a throwing publish never fails the move", async () => {
+    publishAppointmentNotification.mockRejectedValue(new Error("db down"));
+    await expect(move()).resolves.toMatchObject({ status: "RESCHEDULED", notified: false });
+  });
+
+  it("no-op move (same start), failed moves and unknown ids do not publish", async () => {
+    engine.reschedule.mockResolvedValueOnce({ status: "RESCHEDULED", startAt: oldStart, endAt: appointmentRow.endAt });
+    await expect(move()).resolves.toMatchObject({ status: "RESCHEDULED", notified: false });
+    for (const status of ["FORBIDDEN", "SLOT_UNAVAILABLE", "STALE", "CLOSED_DATE", "PERSISTENCE_FAILURE"]) {
+      engine.reschedule.mockResolvedValueOnce({ status });
+      await expect(move()).resolves.toEqual({ status });
+    }
+    findUnique.mockResolvedValueOnce(null);
+    await expect(move()).resolves.toEqual({ status: "NOT_FOUND" });
+    expect(publishAppointmentNotification).not.toHaveBeenCalled();
   });
 });

@@ -9,7 +9,13 @@ export class NotificationProviderError extends Error {
   }
 }
 
-export type NotificationEventType = "APPOINTMENT_CREATED" | "APPOINTMENT_CONFIRMED" | "APPOINTMENT_REJECTED";
+export type NotificationEventType = "APPOINTMENT_CREATED" | "APPOINTMENT_CONFIRMED" | "APPOINTMENT_REJECTED" | "APPOINTMENT_RESCHEDULED";
+
+/**
+ * Part of the delivery idempotency key. One-off events use the empty key; a repeatable event
+ * (APPOINTMENT_RESCHEDULED) passes one key per occurrence so each occurrence is deliverable once.
+ */
+export const DEFAULT_NOTIFICATION_EVENT_KEY = "";
 export type NotificationChannel = "WHATSAPP" | "WEB_PUSH";
 export type NotificationDeliveryStatus = "PENDING" | "SENT" | "DELIVERED" | "FAILED" | "UNKNOWN";
 

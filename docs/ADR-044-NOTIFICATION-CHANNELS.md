@@ -184,6 +184,11 @@ Phases 2 and 3 can share one migration if approved together; otherwise each ship
    under the create advisory lock. **No customer notification yet**: needs a new `NotificationEventType`
    (`APPOINTMENT_RESCHEDULED`) and a per-reschedule idempotency key (migration), applied to staging and pilot
    before the code ships; WhatsApp template deferred by the owner. Staff see the change in-app (updatedAt).
+   Follow-up (2026-11-06): migration `20261108100000_appointment_rescheduled_notification` adds
+   `APPOINTMENT_RESCHEDULED` and `NotificationDelivery.eventKey` (in the idempotency key; '' for one-off events,
+   `<newStartISO>@<movedAtISO>` per move). Customer only, same opt-in rule as CONFIRMED, template key
+   `appointment-rescheduled-customer` (params: service, new time, staff). Until the Meta template is configured
+   the delivery is recorded FAILED with `WHATSAPP_TEMPLATE_NOT_CONFIGURED`; the move never fails on notification.
 6. Subscription revocation: after **5** consecutive transient failures (plus immediately on `404`/`410`).
 
 Consequence: with Option A, the `IN_APP` enum value and `InAppNotification` table are **not** part of the migration (§7 step 1 adds `WEB_PUSH` only).
