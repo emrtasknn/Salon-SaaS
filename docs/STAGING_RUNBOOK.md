@@ -102,6 +102,8 @@ where n.nspname = 'private' and p.proname like 'resolve_whatsapp%';
 
 ## 5. Vercel project and staging environment
 
+**Done 2026-11-05 (agent, owner-approved):** dedicated Vercel project **`salon-saas-staging`** (`prj_Y64itnAWE3hNG9xkaBz9i34tc9sU`) linked to `emrtasknn/Salon-SaaS`, Framework Next.js, Node 24.x, function region `lhr1` (London, next to the `salon-saas-test` DB), Vercel Authentication on **all** deployments (only signed-in team members can open it). No env vars were set by the agent. Because this project is staging-only, put the section 1 "Vercel (staging env)" values in its **Production** scope (its production branch is `main`); the pilot later gets its own Vercel project. Until the env vars exist, builds fail at `postinstall` (`prisma generate` needs `DATABASE_URL` defined) — expected. After adding them, Deployments → Redeploy. Options A/B below are the alternative for a single shared project.
+
 Choose one:
 
 - **A. Custom environment `staging`** (Vercel Pro; 1 included per project). Project → Settings → Environments → Create `staging`, track branch `staging` (or `main`), attach a domain such as `staging.<your-domain>`.

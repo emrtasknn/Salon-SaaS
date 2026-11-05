@@ -1,42 +1,40 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-04/05 — Run the MVP work packages to code completion with agent-to-agent workflows (orchestrating session).
+2026-11-05 — finish MVP code work, Apple-referenced PWA design, staging prep (Supabase/Vercel), Playwright MCP.
 
 ## State
-- `main` @ `2d9a144` (after #145) + this docs PR. All MVP code packages merged; status table in `docs/tasks/README.md`.
-- 6 new migrations on `main`, **none applied** to staging or pilot.
-- Environment touched: none by agents (no DB, migration apply, deploy, real Meta send).
+- Branch / commit: `main` @ b5a0f1c (+ this docs PR)
+- Working tree: clean apart from this PR
+- Environment touched: Pilot Supabase **read-only** (`_prisma_migrations` SELECT, advisors); `salon-saas-test` read-only; Vercel project created (no env vars)
 
 ## Done
-- Merged: #132 (WP-00 plan/docs), #133 (WP-2b), #134 (WP-3), #135 (WP-4), #136 + #143 (WP-11), #137 (WP-5), #138 + #145 (WP-02c), #139 (WP-12 artifacts), #140 (WP-06), #141 (WP-07), #142 (WP-08), #144 (WP-09).
-- Owner decisions recorded in task files: P9 on staging + pilot; ADR-044 accepted; shared Meta sender pilot-only (production gated); WhatsApp opt-in optional; Vercel + Supabase branch + built-in logs; `web-push` MPL-2.0; device list; tenants locked to Europe/Istanbul (DST fix deferred); WP-02c Option A + HTTP 200 for unresolved statuses.
-- Standing approval: main session squash-merges WP PRs when CI is green (not migrations/deploys).
+- WP-10 KVKK notice / WhatsApp opt-in / contact snapshot — #149
+- Staging DB = existing empty Supabase project `salon-saas-test` (owner decision; runbook §2) + pinned Playwright MCP `.mcp.json` — #150
+- Apple-referenced design pass (tokens, CSS-only glass, inset lists, 44px targets, 17px inputs) — #151, review fixes #154
+- Staff list/calendar show customer + service names, calendar shows booking contact — #155 (landed via #154 squash)
+- Login + platform pages on the design system — #157 (landed via #154 squash)
+- Staff/admin notification texts use the booking contact name — #156
+- Cloud-session setup notes in `docs/AI_TOOLING.md` — #152 (owner: not needed for now)
+- Vercel project `salon-saas-staging` (Next.js, Node 24.x, `lhr1`, Vercel Auth on all) — runbook §5
 
 ## Validation
 | Check | Result |
 |---|---|
-| Every merged PR | CI `quality-gates` green on Postgres 17 (lint, typecheck, unit + integration, build) |
-| Reviewer | salon-saas-reviewer on every WP; findings fixed before merge |
+| Lint / typecheck / targeted vitest / build | PASS on every PR above (DATABASE_URL unset) |
+| CI `quality-gates` | PASS on #149–#157 |
+| Visual | 375/1280px fake-data preview for booking + staff views only; no real-device check |
+
+## Decisions
+- No new UI deps: Lenis, liquid-glass-js, GSAP skipped; react-bits not copied (Commons Clause, owner to decide) — `.claude/skills/salon-saas-uiux/references/apple-design-rules.md`
+- Rate-limit cleanup already exists (opportunistic delete of rows > 1 day) — no job needed
 
 ## Open risks
-- SECURITY DEFINER resolvers (W11.6 + WP-02c) need the owner to verify on staging/pilot that their owner bypasses RLS and the runtime role can EXECUTE (`docs/STAGING_RUNBOOK.md` §4.5); CI runs as superuser and cannot prove it.
-- Meta shared-sender permission not established (WP-02); opt-in/consent storage pending WP-10.
-- Disk space limits parallel worktrees; finished worktrees under `.claude/worktrees/` can be cleaned by the owner.
+- Pilot DB: 11 of 18 migrations applied; 7 pending (WP-5..WP-10) — staging first, then owner-approved pilot workflow
+- Pilot Supabase advisor: Leaked Password Protection disabled — owner enables in Auth settings
+- Vercel staging builds fail until env vars are added (expected)
+- `/reset-password` page still unstyled; retention/deletion job waits for counsel's retention period; status-link token visible in request logs (post-MVP)
+- Stacked PRs merged into a non-main base: always confirm the base branch before merging
 
-## WP-10 legal drafts (2026-11-04)
-- `docs/legal/`: customer KVKK notice + WhatsApp opt-in (A), salon↔platform DPA + sub-processor list (B). All TASLAK; owner + counsel approve. Sources and UNVERIFIED items in `docs/legal/README.md`.
-- Owner decision: no "okudum" checkbox; notice shown above submit, shown version + hash recorded per booking.
-- Code gaps found while drafting (README "Uygulamaya yansıyacak"): profile reuse by email ignores new phone (wrong-recipient risk), WhatsApp templates lack salon name, no opt-in gate yet, no token revoke/cleanup, opportunistic rate-limit cleanup.
-
-## WP-10 code (2026-11-05)
-- Branch `feat/wp-10-kvkk-consent`: AppointmentContact snapshot + notice hash + WhatsApp opt-in/opt-out, tenant legal fields, migration `20261106100000` (not applied). Text is DRAFT; public launch needs counsel approval and salon legal fields filled.
-
-## PWA Apple design pass review (2026-11-05, PR #151)
-- Independent review (salon-saas-reviewer + main session): no blockers; no behavior change (field names, actions, legal text, opt-in unchecked/optional all unchanged). Contrast computed: lowest text pair 4.70:1 (`ink-muted` on glass over black).
-- #151 was merged before these fixes landed; they ship in a follow-up PR (branch `fix/pwa-design-review-followups`): dialog backdrop blur gets reduced-transparency/more-contrast fallback; booking "closed"/"not ready" screens use tokens; long values wrap on status page and staff list; staff calendar "Randevu oluştur" moved out of the sticky bar (bar is one row on phones); `themeColor`/manifest `theme_color` → `#f2f2f7`.
-- Checks (DATABASE_URL unset): lint 0 errors, typecheck, `vitest run src/app` (non-integration, 542 pass), build. Booking form + staff views rendered at 375/1280px via a temporary local preview with fake data (deleted): no horizontal overflow, no tap target < 44px.
-- Not verified: real iOS/Android devices, standalone PWA safe areas, admin pages visually (need auth/DB; they set own bg and text sizes, desktop stays 16px). `/login` and `/platform/tenants` are unstyled (pre-existing) — separate follow-up.
-
-## Next task
-- Owner: WP-12 staging (create Supabase branch + Vercel env, run staging-migrate, §4.5 gate, smoke), WP-02 live tests, legal review of `docs/legal/`. Then WP-10 implementation (needs a migration slot after `20261105140000`), WP-13, WP-14.
+## Next task (owner, see STAGING_RUNBOOK)
+1. Enable Leaked Password Protection on pilot. 2. `salon-saas-test`: set DB password, copy session-pooler URL. 3. GitHub Environment `staging` (§3). 4. Run "WP-12 Staging Supabase Migration" check → deploy (§4, §4.5). 5. Vercel staging env vars (Production scope of `salon-saas-staging`) → Redeploy (§5). 6. Auth URLs (§6), smoke test incl. KVKK flow (§7).
