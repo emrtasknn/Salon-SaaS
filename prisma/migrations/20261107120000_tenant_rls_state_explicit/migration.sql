@@ -1,0 +1,17 @@
+-- Make the intended RLS state of the root table "Tenant" explicit.
+--
+-- Why: "Tenant" is the tenant root and is intentionally NOT under RLS (slug
+-- lookup for public pages, platform tenant list, provisioning; see
+-- 20261005170000_rls_tenant_isolation). New Supabase projects ship an event
+-- trigger (public.rls_auto_enable) that turned RLS ON for "Tenant" with no
+-- policy on the staging project only. Harmless while the app connected as
+-- postgres (BYPASSRLS); with the salon_app runtime role
+-- (20261107110000_salon_app_runtime_role) it hid every tenant row, so the
+-- whole app failed closed on staging (2026-11-05 smoke test). Pilot and CI
+-- already have RLS off here, so this is a no-op there.
+--
+-- Tenant isolation is unchanged: every tenant-owned table keeps ENABLE +
+-- FORCE RLS with app.tenant_id policies.
+--
+-- Rollback: none needed (restores the designed state).
+ALTER TABLE "Tenant" DISABLE ROW LEVEL SECURITY;
