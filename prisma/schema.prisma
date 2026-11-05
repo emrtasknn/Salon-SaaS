@@ -121,7 +121,7 @@ model TenantMembership {
   updatedAt DateTime   @updatedAt
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  profile Profile @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  profile Profile @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "TenantMembership_profile_tenant_fkey")
 
   @@unique([tenantId, id])
   @@unique([tenantId, subjectId])
@@ -137,13 +137,13 @@ model Staff {
   updatedAt DateTime    @updatedAt
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  profile      Profile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  profile      Profile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Staff_profile_tenant_fkey")
   appointments Appointment[]
   closureDates ClosureDate[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, profileId])
-  @@index([tenantId, status])
+  @@index([tenantId])
 }
 
 model Service {
@@ -238,7 +238,7 @@ model NotificationDelivery {
   appointment Appointment @relation(fields: [tenantId, appointmentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([tenantId, id])
-  @@unique([tenantId, appointmentId, eventType, channel, recipientProfileId])
+  @@unique([tenantId, appointmentId, eventType, channel, recipientProfileId], map: "NotificationDelivery_idempotency_key")
   @@index([tenantId, status, createdAt])
   @@index([providerMessageId])
 }
@@ -357,9 +357,9 @@ model Appointment {
   updatedAt         DateTime @updatedAt
 
   tenant          Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  staff           Staff   @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  service         Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  staff           Staff   @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Appointment_staff_tenant_fkey")
+  service         Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Appointment_service_tenant_fkey")
+  customerProfile Profile @relation("AppointmentCustomer", fields: [tenantId, customerProfileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Appointment_customer_tenant_fkey")
   notificationDeliveries NotificationDelivery[]
   accessTokens    AppointmentAccessToken[]
   contact         AppointmentContact?
