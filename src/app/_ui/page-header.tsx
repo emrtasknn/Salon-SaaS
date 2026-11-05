@@ -29,8 +29,9 @@ export function PageHeader({
   titleAs?: "h1" | "p";
 }) {
   return (
-    <header data-page-header className="glass safe-top sticky top-0 z-30 border-b px-4 pb-3 sm:px-6">
-      <div className={cx("mx-auto w-full", widthClassName)}>
+    <header data-page-header className="glass safe-top sticky top-0 z-30 border-b pb-3">
+      {/* Same inner width + padding as the page content below, so edges line up. */}
+      <div className={cx("mx-auto w-full px-4 sm:px-6", widthClassName)}>
         {breadcrumb && breadcrumb.length > 0 ? <Breadcrumb items={breadcrumb} className="pt-1" /> : null}
         <div className={cx("flex items-end justify-between gap-3", breadcrumb?.length ? "pt-0.5" : "pt-3")}>
           <div className="min-w-0 flex-1">

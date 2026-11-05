@@ -26,13 +26,16 @@ export function minuteOptions(current: number): number[] {
 export function TimeSelect({
   name,
   label,
+  legend = label,
   defaultMinute,
   required = false,
   disabled = false,
 }: {
   name: string;
-  /** Visible group label, also used for the selects' accessible names ("… saat", "… dakika"). */
+  /** Accessible name base for the selects ("… saat", "… dakika"), e.g. "Pazartesi açılış". */
   label: string;
+  /** Visible group label (defaults to `label`), e.g. "Açılış". */
+  legend?: string;
   /** Minutes from midnight. */
   defaultMinute: number;
   required?: boolean;
@@ -44,7 +47,10 @@ export function TimeSelect({
 
   return (
     <fieldset className="flex min-w-0 flex-1 flex-col gap-1" disabled={disabled}>
-      <legend className="mb-1 text-footnote text-ink-muted">{label}</legend>
+      <legend className="mb-1 text-footnote text-ink-muted">
+        <span aria-hidden={legend !== label}>{legend}</span>
+        {legend !== label ? <span className="sr-only">{label}</span> : null}
+      </legend>
       <div className="flex items-center gap-1.5">
         <select
           aria-label={`${label} saat`}

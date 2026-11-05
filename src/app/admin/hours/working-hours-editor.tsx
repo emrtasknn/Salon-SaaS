@@ -56,6 +56,7 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
                     key={`open-${item?.openMinute ?? "new"}`}
                     name="openTime"
                     label={`${day} açılış`}
+                    legend="Açılış"
                     defaultMinute={item?.openMinute ?? 540}
                     required
                   />
@@ -63,6 +64,7 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
                     key={`close-${item?.closeMinute ?? "new"}`}
                     name="closeTime"
                     label={`${day} kapanış`}
+                    legend="Kapanış"
                     defaultMinute={item?.closeMinute ?? 1080}
                     required
                   />
