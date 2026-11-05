@@ -15,7 +15,14 @@ import type {
 import { formatLocalDate } from "../create-appointment-dialog";
 import { createClosure, deleteClosure, listClosures, previewClosureImpact } from "./closure-actions";
 
-type Props = Readonly<{ initialData: ClosureListResult; initialRange: Readonly<{ from: LocalDateIso; to: LocalDateIso }> }>;
+type Props = Readonly<{
+  initialData: ClosureListResult;
+  initialRange: Readonly<{ from: LocalDateIso; to: LocalDateIso }>;
+  /** Rendered inside the calendar's "Kapalı günler" sheet: no own card, the sheet supplies the title. */
+  embedded?: boolean;
+  /** Called after every reload so the calendar can re-mark closure days. */
+  onDataChange?: (data: ClosureListResult) => void;
+}>;
 
 const statusLabels: Record<ClosureImpactAppointmentView["status"], string> = {
   PENDING: "Bekliyor",
@@ -46,7 +53,7 @@ function todayIn(timeZone: string): LocalDateIso {
   }
 }
 
-export function AdminClosures({ initialData, initialRange }: Props) {
+export function AdminClosures({ initialData, initialRange, embedded = false, onDataChange }: Props) {
   const ids = useId();
   const [data, setData] = useState(initialData);
   const [busy, startTransition] = useTransition();
@@ -69,7 +76,9 @@ export function AdminClosures({ initialData, initialRange }: Props) {
 
   async function reload() {
     try {
-      setData(await listClosures(initialRange));
+      const next = await listClosures(initialRange);
+      setData(next);
+      onDataChange?.(next);
     } catch {
       setStatus("Kapalı günler yenilenemedi.");
     }
@@ -158,11 +167,14 @@ export function AdminClosures({ initialData, initialRange }: Props) {
   }
 
   return (
-    <section aria-labelledby={`${ids}-title`} className="mt-6 rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
-      <h2 id={`${ids}-title`} className="text-lg font-semibold">
+    <section
+      aria-labelledby={`${ids}-title`}
+      className={embedded ? "" : "mt-6 rounded-xl border border-zinc-300 bg-white p-5 shadow-sm"}
+    >
+      <h2 id={`${ids}-title`} className={embedded ? "sr-only" : "text-lg font-semibold"}>
         Kapalı günler
       </h2>
-      <p className="mt-1 max-w-2xl text-sm text-zinc-600">
+      <p className={`${embedded ? "" : "mt-1 "}max-w-2xl text-sm text-zinc-600`}>
         Kapalı günlerde online ve yeni randevu alınmaz. Mevcut randevular olduğu gibi kalır; bunları ayrıca sizin
         yönetmeniz gerekir.{timezone ? ` Tarihler salon saat dilimine göredir (${timezone}).` : ""}
       </p>
@@ -171,7 +183,7 @@ export function AdminClosures({ initialData, initialRange }: Props) {
         {status}
       </p>
 
-      <div className="mt-4 grid gap-6 lg:grid-cols-2">
+      <div className={embedded ? "mt-4 grid gap-6" : "mt-4 grid gap-6 lg:grid-cols-2"}>
         <form
           noValidate
           className="space-y-3"

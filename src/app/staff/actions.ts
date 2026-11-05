@@ -17,6 +17,7 @@ import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supaba
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import type { AppointmentStatus } from "../../domain/appointment";
+import { parseCalendarRange } from "../_ui/timeline-layout";
 import { createOnBehalf, createOnBehalfBookingEngine, listSlotsOnBehalf, readCreateOptions } from "../appointment-create-runtime";
 import type {
   CreateAppointmentResult, CreateOptionsView, LocalDateIso, SlotListResult, StaffCreateAppointmentInput,
@@ -95,15 +96,21 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
   });
 }
 
-export async function listStaffAppointments(dateIso: string) {
+/**
+ * The signed-in staff member's own appointments for an inclusive local date range (YYYY-MM-DD,
+ * tenant timezone). `endDate` defaults to `startDate`; span capped at CALENDAR_RANGE_MAX_DAYS.
+ * staffId always comes from the server-side context, never from the client.
+ */
+export async function listStaffAppointments(startDate: string, endDate?: string) {
   const context = await getStaffContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return { status: "INVALID_INPUT" as const };
+  const range = parseCalendarRange(startDate, endDate);
+  if (!range) return { status: "INVALID_INPUT" as const };
   const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
   if (!tenant) return { status: "NOT_FOUND" as const };
   const { localWallTimeToUtc } = await import("../../domain/availability");
-  const startAt = localWallTimeToUtc(dateIso, 0, tenant.timezone);
-  const endAt = localWallTimeToUtc(dateIso, 1439, tenant.timezone);
+  const startAt = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
+  const endAt = localWallTimeToUtc(range.endDate, 1439, tenant.timezone);
   return staffAppointments(context.prisma, context.reader).list(context.identity, context.tenantContext, context.staffId, { startAt, endAt });
 }
 

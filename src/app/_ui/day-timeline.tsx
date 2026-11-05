@@ -1,23 +1,36 @@
 "use client";
 
-// Day timeline ("Zaman çizelgesi"): a read-only, Gantt-like view of one day's appointments.
-// Presentation only. Bars open a detail sheet; every action inside it calls the same
-// server actions as the list view, and the server stays authoritative.
+// Calendar views shared by the admin and staff calendars: view switch (Gün | Hafta | Ay | Liste),
+// date stepper, the vertical time grid (Day and Week), and the appointment detail sheet.
+// Presentation only. Bars open a detail sheet; every action inside it calls the same server
+// actions as the list view, and the server stays authoritative.
 
-import { useEffect, useId, useMemo, useRef, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { appointmentStatusBadge, buttonSecondary } from "./styles";
 import {
-  addDays,
-  assignLanes,
   computeRange,
   formatMinute,
   initialScrollMinute,
+  layoutColumn,
   minutesFromDayStart,
-  minuteToPct,
-  placeInterval,
+  placeVertical,
+  stepDate,
   ticks,
   TIMELINE_TIME_ZONE,
   todayInZone,
+  viewDateRange,
+  weekDates,
+  type CalendarViewKind,
   type MinuteRange,
 } from "./timeline-layout";
 
@@ -29,18 +42,6 @@ export const appointmentStatusLabels: Record<string, string> = {
   COMPLETED: "Tamamlandı",
 };
 
-export type TimelineRow = Readonly<{ id: string; label: string }>;
-
-export type TimelineItem = Readonly<{
-  id: string;
-  rowId: string;
-  startAt: Date | string;
-  endAt: Date | string;
-  status: string;
-  customer: string;
-  service: string;
-}>;
-
 const timeFormatter = new Intl.DateTimeFormat("tr-TR", {
   hour: "2-digit",
   minute: "2-digit",
@@ -51,23 +52,54 @@ export function formatTimeRange(startAt: Date | string, endAt: Date | string) {
   return `${timeFormatter.format(new Date(startAt))}–${timeFormatter.format(new Date(endAt))}`;
 }
 
+/** Calendar-date formatting (dates are wall dates, so format them in UTC to avoid shifts). */
+function formatIsoDate(dateIso: string, options: Intl.DateTimeFormatOptions) {
+  return new Intl.DateTimeFormat("tr-TR", { ...options, timeZone: "UTC" }).format(new Date(`${dateIso}T12:00:00.000Z`));
+}
+
+export function formatLongDate(dateIso: string) {
+  return formatIsoDate(dateIso, { day: "numeric", month: "long", year: "numeric", weekday: "long" });
+}
+
+/** Heading for the visible period: "5 Kasım 2026 Perşembe", "2–8 Kasım 2026", "Kasım 2026". */
+export function formatPeriod(view: CalendarView, dateIso: string) {
+  if (view === "month") return formatIsoDate(dateIso, { month: "long", year: "numeric" });
+  if (view === "week") {
+    const days = weekDates(dateIso);
+    const first = days[0];
+    const last = days[6];
+    const sameMonth = first.slice(0, 7) === last.slice(0, 7);
+    const sameYear = first.slice(0, 4) === last.slice(0, 4);
+    const start = formatIsoDate(first, sameMonth ? { day: "numeric" } : sameYear ? { day: "numeric", month: "long" } : { day: "numeric", month: "long", year: "numeric" });
+    return `${start}–${formatIsoDate(last, { day: "numeric", month: "long", year: "numeric" })}`;
+  }
+  return formatLongDate(dateIso);
+}
+
 /* ------------------------------------------------------------------------------------------ */
-/* View switch (Çizelge | Liste), remembered per device.                                       */
+/* View switch (Gün | Hafta | Ay | Liste), remembered per device.                              */
 /* ------------------------------------------------------------------------------------------ */
 
-export type CalendarView = "timeline" | "list";
+export type CalendarView = CalendarViewKind;
 const VIEW_STORAGE_KEY = "salon-saas.calendar-view";
+const VIEWS: ReadonlyArray<CalendarView> = ["day", "week", "month", "list"];
 
 const viewListeners = new Set<() => void>();
 /** In-memory choice for this page view; survives even when storage is unavailable. */
 let chosenView: CalendarView | null = null;
 
+/** Stored value to view; the earlier "timeline" choice maps to the Day view. */
+export function parseStoredView(value: string | null): CalendarView {
+  if (value === "timeline") return "day";
+  return VIEWS.includes(value as CalendarView) ? (value as CalendarView) : "day";
+}
+
 function readView(): CalendarView {
   if (chosenView) return chosenView;
   try {
-    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "list" ? "list" : "timeline";
+    return parseStoredView(window.localStorage.getItem(VIEW_STORAGE_KEY));
   } catch {
-    return "timeline"; // Storage unavailable (private mode, blocked): keep the default.
+    return "day"; // Storage unavailable (private mode, blocked): keep the default.
   }
 }
 
@@ -79,7 +111,7 @@ function subscribeView(onChange: () => void) {
 }
 
 export function useCalendarView(): [CalendarView, (view: CalendarView) => void] {
-  const view = useSyncExternalStore(subscribeView, readView, () => "timeline" as const);
+  const view = useSyncExternalStore(subscribeView, readView, () => "day" as const);
   function update(next: CalendarView) {
     chosenView = next;
     try {
@@ -92,26 +124,24 @@ export function useCalendarView(): [CalendarView, (view: CalendarView) => void] 
   return [view, update];
 }
 
+const viewLabels: Record<CalendarView, string> = { day: "Gün", week: "Hafta", month: "Ay", list: "Liste" };
+
 export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (view: CalendarView) => void }) {
-  const options: Array<{ value: CalendarView; label: string }> = [
-    { value: "timeline", label: "Çizelge" },
-    { value: "list", label: "Liste" },
-  ];
   return (
     <div role="group" aria-label="Görünüm" className="inline-flex rounded-control bg-separator/70 p-0.5">
-      {options.map((option) => {
-        const selected = view === option.value;
+      {VIEWS.map((value) => {
+        const selected = view === value;
         return (
           <button
-            key={option.value}
+            key={value}
             type="button"
             aria-pressed={selected}
-            onClick={() => onChange(option.value)}
-            className={`pressable focus-ring tap-target rounded-[10px] px-4 text-subhead font-semibold ${
+            onClick={() => onChange(value)}
+            className={`pressable focus-ring tap-target rounded-[10px] px-3.5 text-subhead font-semibold sm:px-4 ${
               selected ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink"
             }`}
           >
-            {option.label}
+            {viewLabels[value]}
           </button>
         );
       })}
@@ -120,37 +150,91 @@ export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (
 }
 
 /* ------------------------------------------------------------------------------------------ */
-/* Date stepper (‹ Bugün ›) around the existing native date input.                             */
+/* Range data: reloads whenever the visible range (view + anchor date) changes.                */
+/* ------------------------------------------------------------------------------------------ */
+
+/**
+ * Keeps the loader result for the visible range. `refresh()` reloads the same range; a newer
+ * request always wins over a slower older one. `stale` is true while the shown data belongs to
+ * another range (e.g. right after switching Day → Week).
+ */
+export function useCalendarData<T>(
+  load: (startDate: string, endDate: string) => Promise<T>,
+  view: CalendarView,
+  date: string,
+  initial: Readonly<{ startDate: string; endDate: string; data: T }>,
+) {
+  const range = viewDateRange(view, date);
+  const key = `${range.startDate}|${range.endDate}`;
+  const [state, setState] = useState({ key: `${initial.startDate}|${initial.endDate}`, token: 0, data: initial.data });
+  const [token, setToken] = useState(0);
+  const [busy, startTransition] = useTransition();
+  const requestRef = useRef(0);
+
+  useEffect(() => {
+    if (state.key === key && state.token === token) return;
+    const request = ++requestRef.current;
+    startTransition(async () => {
+      const data = await load(range.startDate, range.endDate);
+      if (request !== requestRef.current) return;
+      startTransition(() => setState({ key, token, data }));
+    });
+    // Load only when the range or the refresh token changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, token]);
+
+  return {
+    data: state.data,
+    stale: state.key !== key,
+    busy,
+    refresh: () => setToken((value) => value + 1),
+  };
+}
+
+/* ------------------------------------------------------------------------------------------ */
+/* Date stepper (‹ Bugün ›) around the existing native date input; steps by the view's unit.  */
 /* ------------------------------------------------------------------------------------------ */
 
 const stepButton =
   "pressable focus-ring tap-target inline-flex items-center justify-center rounded-control border border-separator bg-surface text-ink hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40";
 
+const stepLabels: Record<CalendarView, [string, string]> = {
+  day: ["Önceki gün", "Sonraki gün"],
+  list: ["Önceki gün", "Sonraki gün"],
+  week: ["Önceki hafta", "Sonraki hafta"],
+  month: ["Önceki ay", "Sonraki ay"],
+};
+
 export function DateStepper({
   date,
+  view = "day",
   onChange,
   disabled,
   children,
 }: {
   date: string;
+  view?: CalendarView;
   onChange: (date: string) => void;
   disabled?: boolean;
   /** The existing date input, kept between the arrows. */
   children: ReactNode;
 }) {
   const today = todayInZone();
+  const [previousLabel, nextLabel] = stepLabels[view];
+  const showsToday = viewDateRange(view, date);
+  const todayVisible = today >= showsToday.startDate && today <= showsToday.endDate && (view !== "month" || today.slice(0, 7) === date.slice(0, 7));
   return (
     <div className="flex items-center gap-1.5">
-      <button type="button" aria-label="Önceki gün" disabled={disabled} onClick={() => onChange(addDays(date, -1))} className={stepButton}>
+      <button type="button" aria-label={previousLabel} disabled={disabled} onClick={() => onChange(stepDate(view, date, -1))} className={stepButton}>
         <span aria-hidden="true" className="text-headline">‹</span>
       </button>
       {children}
-      <button type="button" aria-label="Sonraki gün" disabled={disabled} onClick={() => onChange(addDays(date, 1))} className={stepButton}>
+      <button type="button" aria-label={nextLabel} disabled={disabled} onClick={() => onChange(stepDate(view, date, 1))} className={stepButton}>
         <span aria-hidden="true" className="text-headline">›</span>
       </button>
       <button
         type="button"
-        disabled={disabled || date === today}
+        disabled={disabled || date === today || (view !== "day" && view !== "list" && todayVisible)}
         onClick={() => onChange(today)}
         className={`${stepButton} px-3.5 text-subhead font-medium`}
       >
@@ -161,11 +245,14 @@ export function DateStepper({
 }
 
 /* ------------------------------------------------------------------------------------------ */
-/* Timeline                                                                                    */
+/* Vertical time grid: hours on Y, one column per staff (Day) or per date (Week).              */
 /* ------------------------------------------------------------------------------------------ */
 
-const LANE_HEIGHT_PX = 52; // 44px bar + 8px gap: keeps every bar a 44px touch target.
-const ROW_PADDING_PX = 4;
+/** 30 minutes = 44px, so a half-hour appointment is exactly one touch target tall. */
+export const HOUR_PX = 88;
+const MIN_BAR_PX = 44;
+const MIN_BAR_MINUTES = (MIN_BAR_PX / HOUR_PX) * 60;
+const GRID_PAD_PX = 10; // keeps the first and last hour labels inside the scroller
 
 function subscribeMinute(onChange: () => void) {
   const timer = window.setInterval(onChange, 30_000);
@@ -179,40 +266,42 @@ function readNowKey() {
   return `${today}|${minutesFromDayStart(current, today)}`;
 }
 
-/** Current wall minute when `date` is today in the tenant zone; null otherwise (and on the server). */
-function useNowMinute(date: string) {
+/** Today's date and wall minute in the tenant zone; null on the server. */
+function useNow(): { today: string; minute: number } | null {
   const key = useSyncExternalStore(subscribeMinute, readNowKey, () => null);
   if (!key) return null;
   const [today, minute] = key.split("|");
-  return today === date ? Number(minute) : null;
+  return { today, minute: Number(minute) };
 }
 
-function Gridlines({ range }: { range: MinuteRange }) {
-  return (
-    <>
-      {ticks(range).map((tick) => (
-        <span
-          key={tick.minute}
-          aria-hidden="true"
-          className={`absolute inset-y-0 w-px ${tick.kind === "hour" ? "bg-separator" : "bg-separator/50"}`}
-          style={{ left: `${minuteToPct(tick.minute, range)}%` }}
-        />
-      ))}
-    </>
-  );
-}
+export type GridColumn = Readonly<{
+  id: string;
+  /** Wall date (YYYY-MM-DD) the column's minutes are measured from. */
+  date: string;
+  label: string;
+  sublabel?: string;
+  /** Emphasised header (today in the week view). */
+  highlight?: boolean;
+  /** Makes the header a button (week view: open that day). */
+  onHeaderClick?: () => void;
+  headerAriaLabel?: string;
+}>;
 
-function NowLine({ pct, withLabel }: { pct: number; withLabel?: boolean }) {
-  return (
-    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-[5] w-0.5 -translate-x-1/2 bg-destructive" style={{ left: `${pct}%` }}>
-      {withLabel && (
-        <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 rounded-full bg-destructive px-1.5 text-caption font-semibold text-on-action">
-          Şimdi
-        </span>
-      )}
-    </span>
-  );
-}
+export type GridItem = Readonly<{
+  id: string;
+  columnId: string;
+  startAt: Date | string;
+  endAt: Date | string;
+  status: string;
+  /** First line, e.g. customer name. */
+  title: string;
+  /** Second line, e.g. service or staff. */
+  detail: string;
+  /** Extra words for the accessible name, e.g. staff name in the week view. */
+  ariaExtra?: string;
+  /** Fill classes; defaults to the status colors. */
+  colorClass?: string;
+}>;
 
 const statusBarExtra: Record<string, string> = {
   PENDING: "border border-dashed border-status-pending",
@@ -222,147 +311,217 @@ const statusBarExtra: Record<string, string> = {
   CANCELLED: "border border-status-cancelled/30",
 };
 
-export function DayTimeline({
-  date,
-  rows,
+export function TimeGrid({
+  caption,
+  cornerLabel,
+  columns,
   items,
   onSelect,
-  rowHeaderLabel = "Personel",
+  minColumnRem = 9,
 }: {
-  date: string;
-  rows: ReadonlyArray<TimelineRow>;
-  items: ReadonlyArray<TimelineItem>;
+  caption: string;
+  cornerLabel?: string;
+  columns: ReadonlyArray<GridColumn>;
+  items: ReadonlyArray<GridItem>;
   onSelect: (id: string, trigger: HTMLElement) => void;
-  rowHeaderLabel?: string;
+  minColumnRem?: number;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const captionId = useId();
-  const nowMinute = useNowMinute(date);
+  const now = useNow();
 
+  const columnDates = useMemo(() => new Map(columns.map((column) => [column.id, column.date])), [columns]);
   const placed = useMemo(
     () =>
-      items.map((item) => ({
-        item,
-        startMin: minutesFromDayStart(item.startAt, date),
-        endMin: minutesFromDayStart(item.endAt, date),
-      })),
-    [items, date],
-  );
-  const range = useMemo(() => computeRange(placed), [placed]);
-  const hours = (range.endMin - range.startMin) / 60;
-
-  const rowLayouts = useMemo(
-    () =>
-      rows.map((row) => {
-        const rowItems = placed.filter((p) => p.item.rowId === row.id);
-        const { lanes, laneCount } = assignLanes(rowItems.map((p) => ({ id: p.item.id, startMin: p.startMin, endMin: p.endMin })));
-        return { row, rowItems, lanes, laneCount };
+      items.flatMap((item) => {
+        const date = columnDates.get(item.columnId);
+        if (!date) return [];
+        return [{ item, startMin: minutesFromDayStart(item.startAt, date), endMin: minutesFromDayStart(item.endAt, date) }];
       }),
-    [rows, placed],
+    [items, columnDates],
+  );
+  const range: MinuteRange = useMemo(() => computeRange(placed), [placed]);
+  const bodyHeight = ((range.endMin - range.startMin) / 60) * HOUR_PX + GRID_PAD_PX * 2;
+
+  const columnLayouts = useMemo(
+    () =>
+      columns.map((column) => {
+        const columnItems = placed.filter((p) => p.item.columnId === column.id);
+        const lanes = layoutColumn(
+          columnItems.map((p) => ({ id: p.item.id, startMin: p.startMin, endMin: p.endMin })),
+          MIN_BAR_MINUTES,
+        );
+        return { column, columnItems, lanes };
+      }),
+    [columns, placed],
   );
 
+  const multiDate = new Set(columns.map((column) => column.date)).size > 1;
+  const isNowColumn = (column: GridColumn) => now !== null && column.date === now.today;
+  // Week: highlight and scroll to today's column. Day: every column is the same date.
+  const todayColumn = multiDate && now ? columns.findIndex((column) => column.date === now.today) : -1;
+  const nowMinute = now && columns.some(isNowColumn) ? now.minute : null;
+  const nowVisible = nowMinute !== null && nowMinute >= range.startMin && nowMinute <= range.endMin;
   const firstStart = placed.length ? Math.min(...placed.map((p) => p.startMin)) : null;
   const scrollMinute = initialScrollMinute(range, firstStart, nowMinute);
-  const hasNow = nowMinute !== null;
+  const scrollKey = `${columns.map((c) => c.id).join(",")}|${range.startMin}|${range.endMin}|${scrollMinute}|${todayColumn}`;
 
-  // Bring the current hour (or first appointment) into view on day change; instant, no animation.
+  // Bring the current hour (or first appointment) and today's column into view; instant, no motion.
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
-    const track = scroller.querySelector<HTMLElement>("[data-timeline-track]");
-    if (!track) return;
-    const fraction = (scrollMinute - range.startMin) / (range.endMin - range.startMin);
-    // Land the target hour just right of the sticky staff column (instant: no motion).
-    scroller.scrollLeft = Math.max(0, fraction * track.getBoundingClientRect().width - 16);
-    // Only on day/data change, not on every minute tick.
+    scroller.scrollTop = Math.max(0, GRID_PAD_PX + ((scrollMinute - range.startMin) / 60) * HOUR_PX - 8);
+    const today = scroller.querySelector<HTMLElement>("[data-today-column]");
+    const gutter = scroller.querySelector<HTMLElement>("[data-hour-gutter]");
+    if (today && gutter) {
+      const left = today.offsetLeft - gutter.offsetWidth;
+      if (left + today.offsetWidth > scroller.scrollLeft + scroller.clientWidth || left < scroller.scrollLeft) {
+        scroller.scrollLeft = Math.max(0, left);
+      }
+    }
+    // Only when the layout changes, not on every minute tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, range.startMin, range.endMin, hasNow, firstStart]);
+  }, [scrollKey]);
 
-  const nowPct = nowMinute !== null ? minuteToPct(nowMinute, range) : null;
+  const nowTop = nowVisible && nowMinute !== null ? GRID_PAD_PX + ((nowMinute - range.startMin) / 60) * HOUR_PX : null;
 
   return (
     <section aria-labelledby={captionId} className="inset-group">
       <h2 id={captionId} className="sr-only">
-        Zaman çizelgesi
+        {caption}
       </h2>
-      <div ref={scrollerRef} className="max-h-[70dvh] overflow-auto overscroll-x-contain">
-        <div
-          className="min-w-[calc(7.5rem+var(--tl-hours)*8rem)] lg:min-w-0"
-          style={{ "--tl-hours": hours } as CSSProperties}
-        >
-          {/* Hour header: sticky to the top of the scroller. */}
+      <div ref={scrollerRef} className="max-h-[70dvh] overflow-auto overscroll-contain">
+        <div style={{ minWidth: `calc(3.5rem + ${columns.length} * ${minColumnRem}rem)` } as CSSProperties}>
+          {/* Column headers: sticky to the top of the scroller. */}
           <div className="sticky top-0 z-20 flex border-b border-separator bg-surface">
-            <div className="sticky left-0 z-10 flex w-[7.5rem] shrink-0 items-end bg-surface px-3 pb-1.5 text-footnote font-medium text-ink-muted">
-              {rowHeaderLabel}
+            <div className="sticky left-0 z-10 flex w-14 shrink-0 items-end bg-surface px-2 pb-2 text-caption font-medium text-ink-muted">
+              {cornerLabel}
             </div>
-            <div data-timeline-track className="relative h-9 flex-1" aria-hidden="true">
-              {ticks(range).map((tick) => {
-                const pct = minuteToPct(tick.minute, range) ?? 0;
-                if (tick.kind === "half") {
-                  return <span key={tick.minute} className="absolute bottom-0 h-1.5 w-px bg-separator" style={{ left: `${pct}%` }} />;
-                }
-                const last = tick.minute === range.endMin;
-                return (
-                  <span key={tick.minute} className="absolute inset-y-0" style={{ left: `${pct}%` }}>
-                    <span className="absolute bottom-0 h-2.5 w-px bg-field-border/60" />
-                    {!last && (
-                      <span className="absolute bottom-2.5 left-1 whitespace-nowrap text-footnote tabular-nums text-ink-muted">
-                        {formatMinute(tick.minute)}
-                      </span>
-                    )}
-                  </span>
-                );
-              })}
-              {nowPct !== null && <NowLine pct={nowPct} withLabel />}
-            </div>
+            {columns.map((column) => {
+              const content = (
+                <>
+                  <span className="block truncate text-subhead font-semibold text-ink">{column.label}</span>
+                  {column.sublabel && (
+                    <span
+                      className={`mx-auto mt-0.5 inline-flex min-w-7 items-center justify-center rounded-full px-1.5 text-footnote tabular-nums ${
+                        column.highlight ? "bg-action font-semibold text-on-action" : "text-ink-muted"
+                      }`}
+                    >
+                      {column.sublabel}
+                    </span>
+                  )}
+                </>
+              );
+              return (
+                <div
+                  key={column.id}
+                  className="flex-1 basis-0 border-l border-separator"
+                  style={{ minWidth: `${minColumnRem}rem` }}
+                >
+                  {column.onHeaderClick ? (
+                    <button
+                      type="button"
+                      onClick={column.onHeaderClick}
+                      aria-label={column.headerAriaLabel}
+                      className="focus-ring tap-target flex w-full flex-col items-center justify-center px-2 py-1.5 text-center hover:bg-surface-muted"
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div className="flex min-h-11 flex-col items-center justify-center px-2 py-1.5 text-center">{content}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <ul>
-            {rowLayouts.map(({ row, rowItems, lanes, laneCount }) => (
-              <li key={row.id} className="flex border-b border-separator last:border-b-0">
-                <div className="sticky left-0 z-10 flex w-[7.5rem] shrink-0 items-start border-r border-separator bg-surface px-3 py-3">
-                  <span className="line-clamp-2 break-words text-subhead font-semibold text-ink">{row.label}</span>
-                </div>
-                <div className="relative flex-1" style={{ height: laneCount * LANE_HEIGHT_PX + ROW_PADDING_PX * 2 }}>
-                  <Gridlines range={range} />
-                  {nowPct !== null && <NowLine pct={nowPct} />}
-                  <ul aria-label={`${row.label} randevuları`}>
-                    {rowItems.map(({ item, startMin, endMin }) => {
-                      const { leftPct, widthPct } = placeInterval({ startMin, endMin }, range);
-                      const lane = lanes.get(item.id) ?? 0;
-                      const label = appointmentStatusLabels[item.status] ?? item.status;
-                      const time = formatTimeRange(item.startAt, item.endAt);
-                      const inactive = item.status === "REJECTED" || item.status === "CANCELLED";
-                      return (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            onClick={(event) => onSelect(item.id, event.currentTarget)}
-                            aria-label={`${time}, ${item.customer}, ${item.service}, ${label}. Ayrıntıları aç`}
-                            className={`focus-ring absolute z-[6] flex h-11 min-w-11 flex-col justify-center overflow-hidden rounded-[10px] px-2 text-left transition-[filter] duration-150 hover:brightness-[0.97] focus-visible:z-[7] motion-reduce:transition-none ${
-                              appointmentStatusBadge[item.status] ?? "bg-surface-muted text-ink"
-                            } ${statusBarExtra[item.status] ?? "border border-separator"}`}
-                            style={{
-                              left: `${leftPct}%`,
-                              width: `max(2.75rem, calc(${widthPct}% - 2px))`,
-                              top: ROW_PADDING_PX + lane * LANE_HEIGHT_PX,
-                            }}
-                          >
-                            <span aria-hidden="true" className="block w-full truncate text-caption font-semibold tabular-nums">
-                              {time} · {label}
-                            </span>
-                            <span aria-hidden="true" className={`block w-full truncate text-footnote ${inactive ? "line-through" : ""}`}>
-                              {item.customer} · {item.service}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              </li>
+          <div className="relative flex" style={{ height: bodyHeight }}>
+            {/* Hour gutter: sticky to the left edge. */}
+            <div data-hour-gutter className="sticky left-0 z-10 w-14 shrink-0 border-r border-separator bg-surface" aria-hidden="true">
+              {ticks(range).map((tick) =>
+                tick.kind === "hour" ? (
+                  <span
+                    key={tick.minute}
+                    className="absolute right-2 -translate-y-1/2 text-caption tabular-nums text-ink-muted"
+                    style={{ top: GRID_PAD_PX + ((tick.minute - range.startMin) / 60) * HOUR_PX }}
+                  >
+                    {formatMinute(tick.minute)}
+                  </span>
+                ) : null,
+              )}
+              {nowTop !== null && nowMinute !== null && (
+                <span
+                  className="absolute right-1 z-[1] -translate-y-1/2 rounded-full bg-destructive px-1.5 text-caption font-semibold tabular-nums text-on-action"
+                  style={{ top: nowTop }}
+                >
+                  {formatMinute(nowMinute)}
+                </span>
+              )}
+            </div>
+
+            {columnLayouts.map(({ column, columnItems, lanes }, index) => (
+              <div
+                key={column.id}
+                data-today-column={index === todayColumn ? "" : undefined}
+                className={`relative flex-1 basis-0 border-l border-separator ${index === todayColumn ? "bg-surface-muted/60" : ""}`}
+                style={{ minWidth: `${minColumnRem}rem` }}
+              >
+                {ticks(range).map((tick) => (
+                  <span
+                    key={tick.minute}
+                    aria-hidden="true"
+                    className={`absolute inset-x-0 h-px ${tick.kind === "hour" ? "bg-separator" : "bg-separator/50"}`}
+                    style={{ top: GRID_PAD_PX + ((tick.minute - range.startMin) / 60) * HOUR_PX }}
+                  />
+                ))}
+                {nowTop !== null && isNowColumn(column) && (
+                  <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 z-[5] h-0.5 -translate-y-1/2 bg-destructive" style={{ top: nowTop }}>
+                    {(index === 0 || multiDate) && <span className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-destructive" />}
+                  </span>
+                )}
+                <ul aria-label={`${column.label}${column.sublabel ? ` ${column.sublabel}` : ""} randevuları`}>
+                  {columnItems.map(({ item, startMin, endMin }) => {
+                    const { top, height } = placeVertical({ startMin, endMin }, range, HOUR_PX, MIN_BAR_PX);
+                    const { lane, laneCount } = lanes.get(item.id) ?? { lane: 0, laneCount: 1 };
+                    const label = appointmentStatusLabels[item.status] ?? item.status;
+                    const time = formatTimeRange(item.startAt, item.endAt);
+                    const inactive = item.status === "REJECTED" || item.status === "CANCELLED";
+                    const fill = item.colorClass
+                      ? `${item.colorClass} border-l-4 text-ink ${item.status === "PENDING" ? "border-y border-r border-dashed border-y-status-pending border-r-status-pending" : ""}`
+                      : `${appointmentStatusBadge[item.status] ?? "bg-surface-muted text-ink"} ${statusBarExtra[item.status] ?? "border border-separator"}`;
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onClick={(event) => onSelect(item.id, event.currentTarget)}
+                          aria-label={`${time}, ${item.title}, ${item.detail}${item.ariaExtra ? `, ${item.ariaExtra}` : ""}, ${label}. Ayrıntıları aç`}
+                          className={`focus-ring absolute z-[6] flex min-w-11 flex-col items-start overflow-hidden rounded-[10px] px-2 py-1 text-left transition-[filter] duration-150 hover:brightness-[0.97] focus-visible:z-[7] motion-reduce:transition-none ${fill} ${
+                            inactive ? "opacity-80" : ""
+                          }`}
+                          style={{
+                            top: GRID_PAD_PX + top + 1,
+                            height: height - 2,
+                            left: `calc(${(lane / laneCount) * 100}% + 2px)`,
+                            width: `calc(${100 / laneCount}% - 4px)`,
+                          }}
+                        >
+                          <span aria-hidden="true" className="block w-full truncate text-caption font-semibold tabular-nums">
+                            {time} · {label}
+                          </span>
+                          <span aria-hidden="true" className={`block w-full truncate text-footnote font-medium ${inactive ? "line-through" : ""}`}>
+                            {item.title}
+                          </span>
+                          <span aria-hidden="true" className="block w-full truncate text-caption">
+                            {item.detail}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       </div>
     </section>
@@ -370,7 +529,54 @@ export function DayTimeline({
 }
 
 /* ------------------------------------------------------------------------------------------ */
-/* Detail sheet: bottom sheet on phones, centered dialog from sm up. Esc closes (native).      */
+/* Day view: one column per staff member.                                                      */
+/* ------------------------------------------------------------------------------------------ */
+
+export type TimelineColumn = Readonly<{ id: string; label: string }>;
+
+export type TimelineItem = Readonly<{
+  id: string;
+  /** Staff column id. */
+  rowId: string;
+  startAt: Date | string;
+  endAt: Date | string;
+  status: string;
+  customer: string;
+  service: string;
+}>;
+
+export function DayTimeline({
+  date,
+  rows,
+  items,
+  onSelect,
+}: {
+  date: string;
+  /** One column per staff member. */
+  rows: ReadonlyArray<TimelineColumn>;
+  items: ReadonlyArray<TimelineItem>;
+  onSelect: (id: string, trigger: HTMLElement) => void;
+}) {
+  const columns = useMemo(() => rows.map((row) => ({ id: row.id, date, label: row.label })), [rows, date]);
+  const gridItems = useMemo(
+    () =>
+      items.map((item) => ({
+        id: item.id,
+        columnId: item.rowId,
+        startAt: item.startAt,
+        endAt: item.endAt,
+        status: item.status,
+        title: item.customer,
+        detail: item.service,
+      })),
+    [items],
+  );
+  return <TimeGrid caption={`${formatLongDate(date)} gün görünümü`} columns={columns} items={gridItems} onSelect={onSelect} minColumnRem={rows.length > 1 ? 9 : 12} />;
+}
+
+/* ------------------------------------------------------------------------------------------ */
+/* Sheet: bottom sheet on phones, centered dialog from sm (or md for wide content).            */
+/* Esc closes (native <dialog>).                                                               */
 /* ------------------------------------------------------------------------------------------ */
 
 export function AppointmentSheet({
@@ -378,11 +584,14 @@ export function AppointmentSheet({
   title,
   onClose,
   children,
+  wide = false,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** Larger content (closures form): bottom sheet below 768px, dialog from md up. */
+  wide?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -408,7 +617,11 @@ export function AppointmentSheet({
         // Tap on the backdrop closes the sheet.
         if (event.target === event.currentTarget) dialogRef.current?.close();
       }}
-      className="sheet-motion mx-0 mb-0 mt-auto max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-md sm:rounded-sheet"
+      className={
+        wide
+          ? "sheet-motion mx-0 mb-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 md:m-auto md:w-[calc(100%-2rem)] md:max-w-xl md:rounded-sheet"
+          : "sheet-motion mx-0 mb-0 mt-auto max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-md sm:rounded-sheet"
+      }
     >
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-separator bg-surface px-4 py-3">
         <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-headline tabular-nums focus:outline-none">

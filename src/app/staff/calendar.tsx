@@ -6,7 +6,10 @@ import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { AppBar } from "../_ui/app-bar";
 import { AccountLinks } from "../_ui/account-links";
 import { appointmentStatusBadge, badgeBase, buttonDestructiveOutline, buttonPrimary, buttonSecondary, fieldInline, statusNote } from "../_ui/styles";
-import { AppointmentSheet, DateStepper, DayTimeline, DetailList, formatTimeRange, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
+import { AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
+import { WeekView } from "../_ui/week-view";
+import { MonthView } from "../_ui/month-view";
+import { dateInZone } from "../_ui/timeline-layout";
 
 // Staff create for themselves only (staffId derived server-side), guest customer only.
 const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listSlots: listStaffSlots, create: createStaffAppointment } as const;
@@ -20,38 +23,36 @@ const labels: Record<string, string> = {
   CANCELLED: "İptal", COMPLETED: "Tamamlandı",
 };
 
-/** The staff view is always the signed-in staff member's own day: a single timeline row. */
-const SELF_ROW = [{ id: "self", label: "Ben" }] as const;
+/** The staff view is always the signed-in staff member's own day: a single column. */
+const SELF_COLUMN = [{ id: "self", label: "Randevularım" }] as const;
+const NO_CLOSURES: ReadonlySet<string> = new Set();
 
 export function StaffCalendar({ initialDate, initialData }: Props) {
   const [date, setDate] = useState(initialDate);
-  const [data, setData] = useState(initialData);
-  const [busy, startTransition] = useTransition();
-  const [feedback, setFeedback] = useState("");
   const [view, setView] = useCalendarView();
+  // Own appointments only: the loader derives the staff member from the session.
+  const { data, stale, busy: loading, refresh } = useCalendarData(listStaffAppointments, view, date, { startDate: initialDate, endDate: initialDate, data: initialData });
+  const [acting, startTransition] = useTransition();
+  const busy = loading || acting;
+  const [feedback, setFeedback] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const sheetTrigger = useRef<HTMLElement | null>(null);
 
   function changeDate(nextDate: string) {
     setSelectedId(null);
+    setFeedback("");
     setDate(nextDate);
-    refresh(nextDate);
   }
 
-  function refresh(nextDate = date) {
-    startTransition(async () => {
-      const result = await listStaffAppointments(nextDate);
-      setData(result);
-      if (result.status !== "ok") setFeedback(result.status === "UNAUTHORIZED" ? "Bu alan için yetkiniz yok." : "Randevular yüklenemedi.");
-    });
+  function openDay(nextDate: string) {
+    changeDate(nextDate);
+    setView("day");
   }
 
   function onCreated(created: { date: string; notified: boolean }) {
     setDate(created.date);
-    startTransition(async () => {
-      setData(await listStaffAppointments(created.date));
-      setFeedback(created.notified ? "Randevu oluşturuldu ve onaylandı. Müşteri bildirimi gönderime alındı." : "Randevu oluşturuldu ve onaylandı.");
-    });
+    refresh();
+    setFeedback(created.notified ? "Randevu oluşturuldu ve onaylandı. Müşteri bildirimi gönderime alındı." : "Randevu oluşturuldu ve onaylandı.");
   }
 
   function decide(appointmentId: string, to: "CONFIRMED" | "REJECTED") {
@@ -59,13 +60,13 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
       const result = await decideAndNotify(appointmentId, to);
       if (result.status === "updated") {
         setFeedback(to === "CONFIRMED" ? "Randevu onaylandı." : "Randevu reddedildi.");
-        setData(await listStaffAppointments(date));
+        refresh();
       } else if (result.status === "INVALID_TRANSITION") {
         setFeedback("Bu randevu için karar artık geçerli değil. Liste yenilendi.");
-        setData(await listStaffAppointments(date));
+        refresh();
       } else if (result.status === "NOT_FOUND") {
         setFeedback("Randevu bulunamadı. Liste yenilendi.");
-        setData(await listStaffAppointments(date));
+        refresh();
       } else if (result.status === "UNAUTHORIZED") {
         setFeedback("Bu randevu için yetkiniz yok.");
       } else {
@@ -76,6 +77,10 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
 
   if (data.status === "UNAUTHORIZED") return <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6"><h1 className="text-title">Yetkisiz erişim</h1></main>;
   const appointments = data.status === "ok" ? data.appointments : [];
+  const loadError = data.status !== "ok" ? "Randevular yüklenemedi." : "";
+  // Day and list show only the anchor date (data may still hold a wider range while reloading).
+  const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
+  const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setSelectedId(id); };
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const customerOf = (a: (typeof appointments)[number]) => a.bookingContact?.displayName ?? a.customerName;
 
@@ -84,6 +89,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
       <div>
         <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>
         <h1 className="mt-1 text-large-title">Personel randevularım</h1>
+        <p className="mt-1 text-subhead text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {/* Kept out of the sticky bar so the bar stays one row on phones. */}
@@ -93,24 +99,32 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
     </header>
     <AppBar widthClassName="max-w-5xl">
       <div className="flex flex-wrap items-center gap-2">
-        <DateStepper date={date} onChange={changeDate} disabled={busy}>
+        <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
           <input aria-label="Tarih" type="date" value={date} onChange={(e) => { if (e.target.value) changeDate(e.target.value); }} className={`${fieldInline} tabular-nums`} />
         </DateStepper>
-        <button onClick={() => refresh()} disabled={busy} className={buttonSecondary}>{busy ? "Yükleniyor…" : "Yenile"}</button>
+        <button type="button" onClick={() => refresh()} disabled={busy} className={buttonSecondary}>{loading ? "Yükleniyor…" : "Yenile"}</button>
       </div>
-      <ViewSwitch view={view} onChange={setView} />
+      <ViewSwitch view={view} onChange={(next) => { setSelectedId(null); setView(next); }} />
     </AppBar>
     <div className="mx-auto max-w-5xl px-4 pb-10 pt-4 sm:px-6">
-      {feedback && <p role="status" className={`${statusNote} mb-4`}>{feedback}</p>}
-      {appointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
-        view === "timeline" ? <DayTimeline
+      {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
+      <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
+      {view === "month" ? <MonthView date={date} items={appointments} closedDates={NO_CLOSURES} onOpenDay={openDay} /> :
+        view === "week" ? <WeekView
           date={date}
-          rows={SELF_ROW}
-          rowHeaderLabel="Personel"
-          items={appointments.map((a) => ({ id: a.id, rowId: "self", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
-          onSelect={(id, trigger) => { sheetTrigger.current = trigger; setSelectedId(id); }}
+          perStaffColors={false}
+          items={appointments.map((a) => ({ id: a.id, staffId: "self", staffName: "", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
+          onSelect={select}
+          onOpenDay={openDay}
         /> :
-        <ul className="inset-group">{appointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
+        dayAppointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
+        view === "day" ? <DayTimeline
+          date={date}
+          rows={SELF_COLUMN}
+          items={dayAppointments.map((a) => ({ id: a.id, rowId: "self", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
+          onSelect={select}
+        /> :
+        <ul className="inset-group">{dayAppointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-headline tabular-nums">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.startAt))}<span className="font-normal text-ink-muted">–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.endAt))}</span></p>
@@ -125,6 +139,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
             <button disabled={busy} onClick={() => decide(a.id, "REJECTED")} className={`${buttonDestructiveOutline} flex-1 sm:flex-none`}>Reddet</button>
           </div>}
         </article></li>)}</ul>}
+      </div>
     </div>
 
     <AppointmentSheet
