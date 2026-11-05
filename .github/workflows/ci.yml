@@ -34,6 +34,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma migrate deploy
+      # Migrations must produce exactly schema.prisma (catches constraint/index name drift,
+      # which staging-migrate.yml would otherwise only find on a real environment).
+      - run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
