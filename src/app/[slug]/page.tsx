@@ -18,7 +18,7 @@ function WhatsAppLink({ href }: { href: string }) {
 }
 
 function Brand() {
-  return <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>;
+  return <p className="text-footnote font-semibold text-ink-muted">RandevuN</p>;
 }
 
 export default async function PublicSalonPage({ params }: { params: Promise<{ slug: string }> }) {

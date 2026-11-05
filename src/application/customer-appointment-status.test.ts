@@ -17,6 +17,10 @@ type Row = { tenantId: string; appointmentId: string; tokenHash: string; revoked
 const tenants: Record<string, StatusLinkTenant> = {
   "salon-a": { tenantContext: { tenantId: "tenant-a" as never }, name: "Salon A", timezone: "Europe/Istanbul", publicAddress: " Bağdat Cad. 1, İstanbul " },
   "salon-b": { tenantContext: { tenantId: "tenant-b" as never }, name: "Salon B", timezone: "Europe/Istanbul" },
+  // Same tenant as salon-a under other slugs, to vary the location fields only.
+  "salon-a-maps": { tenantContext: { tenantId: "tenant-a" as never }, name: "Salon A", timezone: "Europe/Istanbul", publicAddress: "Bağdat Cad. 1", mapsUrl: "https://maps.app.goo.gl/abc123" },
+  "salon-a-bad-maps": { tenantContext: { tenantId: "tenant-a" as never }, name: "Salon A", timezone: "Europe/Istanbul", publicAddress: "  ", mapsUrl: "javascript:alert(1)" },
+  "salon-a-maps-only": { tenantContext: { tenantId: "tenant-a" as never }, name: "Salon A", timezone: "Europe/Istanbul", mapsUrl: "https://maps.apple.com/?q=salon" },
 };
 
 function setup(options: { status?: AppointmentStatus; startAt?: Date; revoked?: boolean; expiresAt?: Date; now?: Date; limited?: boolean } = {}) {
@@ -71,10 +75,36 @@ describe("customer appointment status — view", () => {
         startAtIso: START.toISOString(), endAtIso: END.toISOString(), timeZone: "Europe/Istanbul",
         status: "CONFIRMED", canCancel: true, cancelDeadlineIso: "2026-11-05T08:00:00.000Z",
         calendarUid: "appt-a@salon-saas", salonAddress: "Bağdat Cad. 1, İstanbul", calendarEligible: true,
+        location: {
+          address: "Bağdat Cad. 1, İstanbul",
+          directionsUrl: "https://www.google.com/maps/search/?api=1&query=Ba%C4%9Fdat%20Cad.%201%2C%20%C4%B0stanbul",
+        },
       },
     });
     expect(hits).toEqual(["status.view"]);
     expect(tenantIds).toEqual(["tenant-a"]);
+  });
+
+  it("exposes the salon location as address + safe directions link only", async () => {
+    const view = async (slug: string) => {
+      const { service, token } = setup();
+      const result = await service.view(slug, token);
+      if (result.status !== "ok") throw new Error(`expected ok for ${slug}`);
+      return result.appointment.location;
+    };
+    // An allowlisted stored maps link wins over the address search.
+    expect(await view("salon-a-maps")).toEqual({ address: "Bağdat Cad. 1", directionsUrl: "https://maps.app.goo.gl/abc123" });
+    // A maps link alone still yields a link (no address text).
+    expect(await view("salon-a-maps-only")).toEqual({ address: null, directionsUrl: "https://maps.apple.com/?q=salon" });
+    // A non-allowlisted maps link is never forwarded; with a blank address there is no location.
+    expect(await view("salon-a-bad-maps")).toBeNull();
+  });
+
+  it("returns a null location when the salon has no address or maps link", async () => {
+    const { service, token, row } = setup();
+    row.tenantId = "tenant-b";
+    const result = await service.view("salon-b", token);
+    expect(result.status === "ok" && result.appointment.location).toBeNull();
   });
 
   it("reports canCancel false after the cutoff", async () => {

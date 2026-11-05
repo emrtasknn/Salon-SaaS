@@ -9,6 +9,9 @@ import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-au
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
 import { PushPermission } from "../pwa/push-permission";
+import { GreetingHeader } from "../_ui/greeting-header";
+import { formatGreetingDate } from "../_ui/greeting";
+import { readViewerGreeting } from "../_ui/viewer-greeting";
 
 /**
  * WP-09: opaque, non-authoritative device-binding key for the push opt-in UI
@@ -36,14 +39,25 @@ function todayIso() {
 
 export default async function StaffPage() {
   const date = todayIso();
-  const [data, notifications, pushBindingKey] = await Promise.all([
+  const [data, notifications, pushBindingKey, greeting] = await Promise.all([
     listStaffAppointments(date),
     listStaffNotifications(),
     readPushBindingKey(),
+    readViewerGreeting(),
   ]);
+  const authorized = data.status !== "UNAUTHORIZED";
   return <>
-    {data.status !== "UNAUTHORIZED" && pushBindingKey && (
-      <PushPermission bindingKey={pushBindingKey} className="bg-canvas px-4 pt-4 sm:px-6" widthClassName="max-w-5xl" />
+    {authorized && (
+      <div className="bg-canvas">
+        <GreetingHeader
+          displayName={greeting.displayName}
+          tenantName={greeting.tenantName}
+          dateLabel={formatGreetingDate(new Date())}
+          widthClassName="max-w-5xl"
+          asHeading={false}
+          accessory={pushBindingKey ? <PushPermission bindingKey={pushBindingKey} /> : undefined}
+        />
+      </div>
     )}
     <InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff/appointments" className="bg-canvas px-4 pt-4 sm:px-6" widthClassName="max-w-5xl" />
     <StaffCalendar initialDate={date} initialData={data} />
