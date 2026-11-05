@@ -188,12 +188,15 @@ No new dependency. Pick one:
 
 | Date | Step | Commit | Run / URL | Duration | Result | By |
 |---|---|---|---|---|---|---|
-| | Branch created | | | | | |
-| | First migrate (deploy) | | | | | |
-| | Drift check | | | | | |
-| | RLS parity | | | | | |
-| | Auth redirect test | | | | | |
-| | Smoke checklist | | | | | |
+| 2026-11-05 | Staging DB = project `salon-saas-test` (no branch) | — | Supabase ref `kocsusejhsagrrpwfdkn` | — | PASS (empty, read-only check) | agent |
+| 2026-11-05 | GitHub Environment `staging` (reviewer = owner, `main` only, 2 vars) | — | — | — | PASS | agent; secret by owner |
+| 2026-11-05 | Check mode (guard) | b5a0f1c | Actions run 42011440193 | ~1 min | PASS guard; 18 pending (expected fail) | agent, owner-approved |
+| 2026-11-05 | First migrate (deploy) | b5a0f1c | Actions run 42012003023 | 1m 18s | PASS 18/18 applied; drift FAIL | agent, owner-approved |
+| 2026-11-05 | Drift check | e9af05c..e6aaee5 | runs 42012967729 (diff found) → #160 fix → 42014257846 | — | PASS "No schema drift." (cause: hand-named FKs/index in early migrations; schema.prisma mapped, CI drift step added) | agent |
+| 2026-11-05 | RLS parity / §4.5 | — | read-only SQL (Supabase connector) | — | PASS: 13 tenant tables RLS+FORCE; `private` fns owned by `postgres` (bypassrls) and executable by runtime. RISK: runtime role `postgres` bypasses RLS (owner decision pending: `salon_app` role). Staging keeps default anon grants + auto-RLS on `Tenant`/`_prisma_migrations`; pilot has grants revoked (parity item) | agent |
+| 2026-11-05 | Vercel `salon-saas-staging` | e9af05c / 8c52168 | Vercel deploys | — | PASS (Node 24, `lhr1`, Vercel Auth all, previews off) | agent; env vars by owner |
+| 2026-11-05 | Auth redirect test | — | — | — | PASS login/logout; reset email not verified (free mailer only reaches org members) | owner |
+| 2026-11-05 | Smoke checklist | 8c52168 | staging | — | PASS: platform salon create, legal fields gate, KVKK short + full notice (TASLAK), wa.me CTA, opt-in checkbox disabled without phone, booking, status page + WhatsApp opt-out, staff temp-password login → /staff, staff approve, 2nd-tenant isolation. Fixed during test: #161 (staff password/invite/routing), #162 (opt-out button name). Not run: WhatsApp send (off on staging), push on device, log masking review (§9) | owner |
 | | Backup/restore rehearsal | | | | | |
 | | Final rehearsal after WP-09 | | | | | |
 
