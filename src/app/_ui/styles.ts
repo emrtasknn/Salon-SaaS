@@ -32,3 +32,26 @@ export const appointmentStatusBadge: Record<string, string> = {
 };
 
 export const badgeBase = "inline-flex items-center rounded-full px-2.5 py-1 text-footnote font-semibold";
+
+/**
+ * Per-staff colors for the week view. Each entry reads an optional `--staff-N-*` token so a theme
+ * (e.g. dark mode in globals.css) can override it; the fallback is the light value. Text on these
+ * tints stays `ink` (≥ 4.5:1). Staff identity is also always written as text (legend + bar label).
+ */
+export const staffPalette: ReadonlyArray<{ bar: string; dot: string }> = [
+  { bar: "bg-[color:var(--staff-1-bg,#e3effd)] border-l-[color:var(--staff-1,#0a64c2)]", dot: "bg-[color:var(--staff-1,#0a64c2)]" },
+  { bar: "bg-[color:var(--staff-2-bg,#e2f4e7)] border-l-[color:var(--staff-2,#1f7a3d)]", dot: "bg-[color:var(--staff-2,#1f7a3d)]" },
+  { bar: "bg-[color:var(--staff-3-bg,#fdeedd)] border-l-[color:var(--staff-3,#b35900)]", dot: "bg-[color:var(--staff-3,#b35900)]" },
+  { bar: "bg-[color:var(--staff-4-bg,#efe7fb)] border-l-[color:var(--staff-4,#6e3ab5)]", dot: "bg-[color:var(--staff-4,#6e3ab5)]" },
+  { bar: "bg-[color:var(--staff-5-bg,#fce6ef)] border-l-[color:var(--staff-5,#b0245e)]", dot: "bg-[color:var(--staff-5,#b0245e)]" },
+  { bar: "bg-[color:var(--staff-6-bg,#ddf2f2)] border-l-[color:var(--staff-6,#0d7377)]", dot: "bg-[color:var(--staff-6,#0d7377)]" },
+];
+
+/** Status dot fill (month view); always paired with a text count in the accessible name. */
+export const appointmentStatusDot: Record<string, string> = {
+  PENDING: "bg-status-pending",
+  CONFIRMED: "bg-status-confirmed",
+  REJECTED: "bg-status-rejected",
+  CANCELLED: "bg-status-cancelled",
+  COMPLETED: "bg-status-completed",
+};

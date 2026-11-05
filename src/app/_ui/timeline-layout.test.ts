@@ -1,16 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays,
+  addMonths,
   assignLanes,
+  CALENDAR_RANGE_MAX_DAYS,
   computeRange,
+  dateInZone,
   DEFAULT_TIMELINE_RANGE,
   formatMinute,
   initialScrollMinute,
+  layoutColumn,
   minutesFromDayStart,
   minuteToPct,
+  monthGrid,
+  parseCalendarRange,
   placeInterval,
+  placeVertical,
+  startOfWeek,
+  stepDate,
   ticks,
   todayInZone,
+  viewDateRange,
+  weekDates,
+  weekdayIndex,
 } from "./timeline-layout";
 
 describe("minutesFromDayStart", () => {
@@ -137,5 +149,126 @@ describe("initialScrollMinute", () => {
     expect(initialScrollMinute(range, 11 * 60 + 15, null)).toBe(11 * 60);
     expect(initialScrollMinute(range, 11 * 60 + 15, 23 * 60)).toBe(11 * 60);
     expect(initialScrollMinute(range, null, null)).toBe(480);
+  });
+});
+
+describe("parseCalendarRange (loader range validation)", () => {
+  it("defaults the end to the start (single day)", () => {
+    expect(parseCalendarRange("2026-11-05")).toEqual({ startDate: "2026-11-05", endDate: "2026-11-05" });
+  });
+
+  it("accepts up to 42 inclusive days and rejects 43", () => {
+    expect(CALENDAR_RANGE_MAX_DAYS).toBe(42);
+    expect(parseCalendarRange("2026-10-26", "2026-12-06")).toEqual({ startDate: "2026-10-26", endDate: "2026-12-06" });
+    expect(parseCalendarRange("2026-10-26", "2026-12-07")).toBeNull();
+  });
+
+  it("rejects reversed, malformed, impossible and non-string dates", () => {
+    expect(parseCalendarRange("2026-11-06", "2026-11-05")).toBeNull();
+    expect(parseCalendarRange("2026-11-5", "2026-11-06")).toBeNull();
+    expect(parseCalendarRange("2026-02-30", "2026-03-01")).toBeNull();
+    expect(parseCalendarRange(20261105, "2026-11-06")).toBeNull();
+    expect(parseCalendarRange("2026-11-05", { toString: () => "2026-11-06" })).toBeNull();
+    expect(parseCalendarRange("2026-11-05T00:00:00Z")).toBeNull();
+  });
+});
+
+describe("week and month grids", () => {
+  it("weeks start on Monday", () => {
+    expect(weekdayIndex("2026-11-02")).toBe(0); // Monday
+    expect(weekdayIndex("2026-11-08")).toBe(6); // Sunday
+    expect(startOfWeek("2026-11-05")).toBe("2026-11-02");
+    expect(startOfWeek("2026-11-08")).toBe("2026-11-02");
+    expect(weekDates("2026-11-05")).toEqual([
+      "2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-07", "2026-11-08",
+    ]);
+  });
+
+  it("adds months with day clamping", () => {
+    expect(addMonths("2026-01-31", 1)).toBe("2026-02-28");
+    expect(addMonths("2026-03-15", -1)).toBe("2026-02-15");
+    expect(addMonths("2026-12-10", 1)).toBe("2027-01-10");
+  });
+
+  it("covers the month with whole Mon–Sun weeks, never more than 42 days", () => {
+    const november = monthGrid("2026-11-18");
+    expect(november.month).toBe("2026-11");
+    expect(november.startDate).toBe("2026-10-26");
+    expect(november.endDate).toBe("2026-12-06");
+    expect(november.weeks).toHaveLength(6);
+    expect(november.weeks.every((week) => week.length === 7)).toBe(true);
+    // February 2027 starts on Monday and has exactly four weeks.
+    const february = monthGrid("2027-02-10");
+    expect(february.weeks).toHaveLength(4);
+    expect(february.startDate).toBe("2027-02-01");
+    for (const iso of ["2026-01-01", "2026-05-31", "2026-08-15", "2027-03-01"]) {
+      const grid = monthGrid(iso);
+      expect(parseCalendarRange(grid.startDate, grid.endDate)).not.toBeNull();
+    }
+  });
+
+  it("maps a view to the loader range and steps by the view's unit", () => {
+    expect(viewDateRange("day", "2026-11-05")).toEqual({ startDate: "2026-11-05", endDate: "2026-11-05" });
+    expect(viewDateRange("list", "2026-11-05")).toEqual({ startDate: "2026-11-05", endDate: "2026-11-05" });
+    expect(viewDateRange("week", "2026-11-05")).toEqual({ startDate: "2026-11-02", endDate: "2026-11-08" });
+    expect(viewDateRange("month", "2026-11-05")).toEqual({ startDate: "2026-10-26", endDate: "2026-12-06" });
+    expect(stepDate("day", "2026-11-05", 1)).toBe("2026-11-06");
+    expect(stepDate("week", "2026-11-05", -1)).toBe("2026-10-29");
+    expect(stepDate("month", "2026-11-30", 1)).toBe("2026-12-30");
+  });
+
+  it("reads the local date of an instant in Europe/Istanbul", () => {
+    expect(dateInZone("2026-11-05T20:59:00.000Z")).toBe("2026-11-05");
+    expect(dateInZone("2026-11-05T21:00:00.000Z")).toBe("2026-11-06");
+  });
+});
+
+describe("placeVertical", () => {
+  const range = { startMin: 8 * 60, endMin: 21 * 60 };
+
+  it("maps minutes to px from the range start", () => {
+    expect(placeVertical({ startMin: 9 * 60, endMin: 9 * 60 + 30 }, range, 88)).toEqual({ top: 88, height: 44 });
+  });
+
+  it("enforces the minimum height (touch target) and clips to the range", () => {
+    expect(placeVertical({ startMin: 10 * 60, endMin: 10 * 60 + 10 }, range, 88, 44)).toEqual({ top: 176, height: 44 });
+    expect(placeVertical({ startMin: 7 * 60, endMin: 8 * 60 + 30 }, range, 88)).toEqual({ top: 0, height: 44 });
+    expect(placeVertical({ startMin: 20 * 60 + 30, endMin: 22 * 60 }, range, 88)).toEqual({ top: 12.5 * 88, height: 44 });
+  });
+});
+
+describe("layoutColumn", () => {
+  it("keeps non-overlapping items full width", () => {
+    const lanes = layoutColumn([
+      { id: "a", startMin: 600, endMin: 630 },
+      { id: "b", startMin: 630, endMin: 660 },
+    ]);
+    expect(lanes.get("a")).toEqual({ lane: 0, laneCount: 1 });
+    expect(lanes.get("b")).toEqual({ lane: 0, laneCount: 1 });
+  });
+
+  it("splits an overlap cluster into side-by-side lanes and resets after it", () => {
+    const lanes = layoutColumn([
+      { id: "a", startMin: 600, endMin: 660 },
+      { id: "b", startMin: 615, endMin: 645 },
+      { id: "c", startMin: 650, endMin: 700 },
+      { id: "d", startMin: 720, endMin: 750 },
+    ]);
+    expect(lanes.get("a")).toEqual({ lane: 0, laneCount: 2 });
+    expect(lanes.get("b")).toEqual({ lane: 1, laneCount: 2 });
+    expect(lanes.get("c")).toEqual({ lane: 1, laneCount: 2 }); // reuses b's lane, still chained to a
+    expect(lanes.get("d")).toEqual({ lane: 0, laneCount: 1 });
+  });
+
+  it("treats short items as their minimum drawn duration", () => {
+    const lanes = layoutColumn(
+      [
+        { id: "a", startMin: 600, endMin: 610 },
+        { id: "b", startMin: 615, endMin: 645 },
+      ],
+      30,
+    );
+    expect(lanes.get("a")).toEqual({ lane: 0, laneCount: 2 });
+    expect(lanes.get("b")).toEqual({ lane: 1, laneCount: 2 });
   });
 });

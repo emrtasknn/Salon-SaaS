@@ -16,6 +16,7 @@ import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supaba
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import { localWallTimeToUtc } from "../../domain/availability";
+import { parseCalendarRange } from "../_ui/timeline-layout";
 import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import type { AppointmentRecord, AppointmentStatus } from "../../domain/appointment";
 import type { NotificationEventType } from "../../domain/notification";
@@ -78,14 +79,20 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
   });
 }
 
-export async function listAdminAppointments(dateIso: string, staffId?: string) {
+/**
+ * Appointments for an inclusive local date range (YYYY-MM-DD, tenant timezone). `endDate`
+ * defaults to `startDate` (one day); the span is capped at CALENDAR_RANGE_MAX_DAYS (a month grid).
+ * Same tenant-scoped query and TENANT_ADMIN authorization for every range.
+ */
+export async function listAdminAppointments(startDate: string, endDate?: string, staffId?: string) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return { status: "INVALID_INPUT" as const };
+  const range = parseCalendarRange(startDate, endDate);
+  if (!range || (staffId !== undefined && typeof staffId !== "string")) return { status: "INVALID_INPUT" as const };
   const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
   if (!tenant) return { status: "NOT_FOUND" as const };
-  const startAt = localWallTimeToUtc(dateIso, 0, tenant.timezone);
-  const endAt = localWallTimeToUtc(dateIso, 1439, tenant.timezone);
+  const startAt = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
+  const endAt = localWallTimeToUtc(range.endDate, 1439, tenant.timezone);
   return calendar(context.prisma, context.reader).calendar(context.identity, context.tenantContext, { startAt, endAt, staffId });
 }
 
