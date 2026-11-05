@@ -42,6 +42,17 @@ describe("dedupeRecipients", () => {
     expect(result[0]).toBe(staff);
   });
 
+  it("admin who also serves as the assigned staff gets exactly one message, with or without a customer (owner decision 2026-11-05)", () => {
+    const adminStaff = recipient("admin-1", "+905550000001");
+    const admins = [recipient("admin-1", "+905550000001"), recipient("admin-2", "+905550000012")];
+    for (const withCustomer of [customer, null]) {
+      const result = dedupeRecipients({ staff: adminStaff, customer: withCustomer, admins });
+      expect(result.filter((r) => r.profileId === "admin-1")).toHaveLength(1);
+      expect(result[0]).toBe(adminStaff);
+      expect(result.map((r) => r.profileId)).toEqual(withCustomer ? ["admin-1", "customer-1", "admin-2"] : ["admin-1", "admin-2"]);
+    }
+  });
+
   it("skips an admin who is the customer profile", () => {
     const result = dedupeRecipients({ staff, customer, admins: [recipient("customer-1", "+905559999999")] });
     expect(result.map((r) => r.profileId)).toEqual(["staff-1", "customer-1"]);

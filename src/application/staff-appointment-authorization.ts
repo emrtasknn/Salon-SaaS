@@ -2,6 +2,7 @@ import type { ApplicationIdentity } from "../domain/auth-identity";
 import type { AppointmentRecord } from "../domain/appointment";
 import type { TenantContext } from "../domain/tenant-context";
 import type { TenantRole } from "../domain/authorization";
+import { isStaffWorkspaceRole } from "../domain/staff-workspace";
 
 export type StaffDecisionAuthorizationDependencies = Readonly<{
   membershipReader: {
@@ -26,7 +27,8 @@ export async function authorizeStaffDecision(
   if (appointment.tenantId !== tenantContext.tenantId) return false;
   if (appointment.status !== "PENDING") return false;
   const membership = await dependencies.membershipReader.readMembership({ tenantContext, identity });
-  if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
+  // STAFF, or a TENANT_ADMIN who also serves customers; both need their own ACTIVE staff row below.
+  if (membership.status !== "found" || !isStaffWorkspaceRole(membership.membership.role)) return false;
   const staff = await dependencies.staffReader.findByProfileId(tenantContext, membership.membership.profileId);
   return staff !== null && staff.status === "ACTIVE" && staff.id === appointment.staffId && staff.tenantId === appointment.tenantId;
 }

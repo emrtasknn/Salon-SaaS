@@ -170,6 +170,16 @@ describe("readPushRecipients (WP-09 routing)", () => {
     expect((await readPushRecipients(prisma, tenant, "appt-1"))?.recipients).toEqual([{ profileId: "admin-1", role: "TENANT_ADMIN" }]);
   });
 
+  it("an admin who is also the ACTIVE assigned staff gets exactly one push (owner decision 2026-11-05)", async () => {
+    const { prisma } = routing({ profileId: "admin-1", status: "ACTIVE" }, [
+      { profileId: "admin-1", role: "TENANT_ADMIN" }, { profileId: "admin-2", role: "TENANT_ADMIN" },
+    ]);
+    expect((await readPushRecipients(prisma, tenant, "appt-1"))?.recipients).toEqual([
+      { profileId: "admin-1", role: "TENANT_ADMIN" },
+      { profileId: "admin-2", role: "TENANT_ADMIN" },
+    ]);
+  });
+
   it("returns null when the appointment is not visible in the tenant", async () => {
     const { prisma, appointmentFind } = routing({ profileId: "staff-1", status: "ACTIVE" }, []);
     appointmentFind.mockResolvedValue(null);
