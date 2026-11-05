@@ -9,6 +9,12 @@ export const adminNavItems: readonly NavItem[] = [
   { href: "/admin/customers", label: "Müşteriler" },
 ];
 
+/** Extra tab for a TENANT_ADMIN who also serves customers (navigation only; /staff re-authorizes). */
+export const adminServesAsStaffNavItem: NavItem = { href: "/staff", label: "Randevularım" };
+
+/** Shown in the staff area to such an admin so they can return to the admin area. */
+export const backToAdminNavItem: NavItem = { href: "/admin", label: "Yönetim" };
+
 export const staffNavItems: readonly NavItem[] = [
   { href: "/staff", label: "Takvim" },
   { href: "/staff/appointments", label: "Randevularım" },
