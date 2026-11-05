@@ -32,7 +32,7 @@ describe("entry screen (/)", () => {
   it("shows the sign-in form when not signed in", async () => {
     readIdentity.mockResolvedValue({ state: "unauthenticated" });
     const html = await renderHome();
-    expect(html).toContain("Salon-SaaS");
+    expect(html).toContain("RandevuN");
     expect(html).toContain('id="email"');
     expect(html).toContain('id="password"');
     expect(html).toContain("Giriş yap");
