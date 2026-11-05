@@ -63,16 +63,19 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
   const appointments = data.status === "ok" ? data.appointments : [];
 
   return <main className="min-h-screen bg-canvas">
-    <header className="mx-auto max-w-5xl px-4 pb-3 pt-6 sm:px-6">
-      <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>
-      <h1 className="mt-1 text-large-title">Personel randevularım</h1>
+    <header className="mx-auto flex max-w-5xl flex-wrap items-end justify-between gap-3 px-4 pb-3 pt-6 sm:px-6">
+      <div>
+        <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>
+        <h1 className="mt-1 text-large-title">Personel randevularım</h1>
+      </div>
+      {/* Kept out of the sticky bar so the bar stays one row on phones. */}
+      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
     </header>
     <AppBar widthClassName="max-w-5xl">
       <div className="flex flex-wrap items-center gap-2">
         <input aria-label="Tarih" type="date" value={date} onChange={(e) => { setDate(e.target.value); refresh(e.target.value); }} className={`${fieldInline} tabular-nums`} />
         <button onClick={() => refresh()} disabled={busy} className={buttonSecondary}>{busy ? "Yükleniyor…" : "Yenile"}</button>
       </div>
-      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
     </AppBar>
     <div className="mx-auto max-w-5xl px-4 pb-10 pt-4 sm:px-6">
       {feedback && <p role="status" className={`${statusNote} mb-4`}>{feedback}</p>}

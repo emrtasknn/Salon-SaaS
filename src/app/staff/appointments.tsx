@@ -39,7 +39,7 @@ export function StaffAppointments({ initialDate, initialData }: Props) {
       {appointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
         <ul className="inset-group">{appointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+            <div className="min-w-0 [overflow-wrap:anywhere]">
               <p className="text-headline tabular-nums">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.startAt))}<span className="font-normal text-ink-muted">–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.endAt))}</span></p>
               <p className="mt-1 break-all text-footnote text-ink-muted">Müşteri: {a.customerProfileId} · Hizmet: {a.serviceId}</p>
               <BookingContactSummary contact={a.bookingContact} profile={{}} />
