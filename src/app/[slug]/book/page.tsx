@@ -36,10 +36,10 @@ export default async function BookingPage({
 
   if (!vitrin.active) {
     return (
-      <main className="min-h-screen bg-zinc-50">
-        <div className="mx-auto max-w-xl p-4 sm:p-8">
-          <section className="space-y-4 rounded-2xl border bg-white p-6 shadow-sm">
-            <h1 className="text-2xl font-semibold">{vitrin.name}</h1>
+      <main className="min-h-screen bg-canvas">
+        <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">
+          <section className="inset-group space-y-4 p-6">
+            <h1 className="text-title">{vitrin.name}</h1>
             <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
               Şu anda online randevu alınmıyor.
             </p>
@@ -64,10 +64,10 @@ export default async function BookingPage({
   // The server re-checks this inside the booking transaction (TENANT_LEGAL_INCOMPLETE).
   if (!legal || !legal.ready) {
     return (
-      <main className="min-h-screen bg-zinc-50">
-        <div className="mx-auto max-w-xl p-4 sm:p-8">
-          <section className="space-y-4 rounded-2xl border bg-white p-6 shadow-sm">
-            <h1 className="text-2xl font-semibold">{vitrin.name}</h1>
+      <main className="min-h-screen bg-canvas">
+        <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">
+          <section className="inset-group space-y-4 p-6">
+            <h1 className="text-title">{vitrin.name}</h1>
             <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
               Bu salon online randevu için henüz hazır değil. Randevu için lütfen salonla doğrudan iletişime geçin.
             </p>

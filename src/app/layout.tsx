@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#171717",
+  themeColor: "#f2f2f7",
   // Lets env(safe-area-inset-*) resolve in standalone mode; bars/body pad themselves.
   viewportFit: "cover",
 };

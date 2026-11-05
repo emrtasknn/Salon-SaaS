@@ -32,5 +32,11 @@
 ## WP-10 code (2026-11-05)
 - Branch `feat/wp-10-kvkk-consent`: AppointmentContact snapshot + notice hash + WhatsApp opt-in/opt-out, tenant legal fields, migration `20261106100000` (not applied). Text is DRAFT; public launch needs counsel approval and salon legal fields filled.
 
+## PWA Apple design pass review (2026-11-05, PR #151)
+- Independent review (salon-saas-reviewer + main session): no blockers; no behavior change (field names, actions, legal text, opt-in unchecked/optional all unchanged). Contrast computed: lowest text pair 4.70:1 (`ink-muted` on glass over black).
+- #151 was merged before these fixes landed; they ship in a follow-up PR (branch `fix/pwa-design-review-followups`): dialog backdrop blur gets reduced-transparency/more-contrast fallback; booking "closed"/"not ready" screens use tokens; long values wrap on status page and staff list; staff calendar "Randevu oluştur" moved out of the sticky bar (bar is one row on phones); `themeColor`/manifest `theme_color` → `#f2f2f7`.
+- Checks (DATABASE_URL unset): lint 0 errors, typecheck, `vitest run src/app` (non-integration, 542 pass), build. Booking form + staff views rendered at 375/1280px via a temporary local preview with fake data (deleted): no horizontal overflow, no tap target < 44px.
+- Not verified: real iOS/Android devices, standalone PWA safe areas, admin pages visually (need auth/DB; they set own bg and text sizes, desktop stays 16px). `/login` and `/platform/tenants` are unstyled (pre-existing) — separate follow-up.
+
 ## Next task
 - Owner: WP-12 staging (create Supabase branch + Vercel env, run staging-migrate, §4.5 gate, smoke), WP-02 live tests, legal review of `docs/legal/`. Then WP-10 implementation (needs a migration slot after `20261105140000`), WP-13, WP-14.

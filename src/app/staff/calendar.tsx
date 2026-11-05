@@ -9,6 +9,7 @@ import { appointmentStatusBadge, badgeBase, buttonDestructiveOutline, buttonPrim
 // Staff create for themselves only (staffId derived server-side), guest customer only.
 const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listSlots: listStaffSlots, create: createStaffAppointment } as const;
 import { decideAndNotify } from "./decide";
+import { BookingContactSummary } from "../booking-contact-summary";
 
 type Props = { initialDate: string; initialData: Awaited<ReturnType<typeof listStaffAppointments>> };
 
@@ -63,16 +64,19 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
   const appointments = data.status === "ok" ? data.appointments : [];
 
   return <main className="min-h-screen bg-canvas">
-    <header className="mx-auto max-w-5xl px-4 pb-3 pt-6 sm:px-6">
-      <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>
-      <h1 className="mt-1 text-large-title">Personel randevularım</h1>
+    <header className="mx-auto flex max-w-5xl flex-wrap items-end justify-between gap-3 px-4 pb-3 pt-6 sm:px-6">
+      <div>
+        <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>
+        <h1 className="mt-1 text-large-title">Personel randevularım</h1>
+      </div>
+      {/* Kept out of the sticky bar so the bar stays one row on phones. */}
+      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
     </header>
     <AppBar widthClassName="max-w-5xl">
       <div className="flex flex-wrap items-center gap-2">
         <input aria-label="Tarih" type="date" value={date} onChange={(e) => { setDate(e.target.value); refresh(e.target.value); }} className={`${fieldInline} tabular-nums`} />
         <button onClick={() => refresh()} disabled={busy} className={buttonSecondary}>{busy ? "Yükleniyor…" : "Yenile"}</button>
       </div>
-      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
     </AppBar>
     <div className="mx-auto max-w-5xl px-4 pb-10 pt-4 sm:px-6">
       {feedback && <p role="status" className={`${statusNote} mb-4`}>{feedback}</p>}
@@ -81,7 +85,9 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-headline tabular-nums">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.startAt))}<span className="font-normal text-ink-muted">–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.endAt))}</span></p>
-              <p className="mt-1 break-all text-footnote text-ink-muted">Müşteri: {a.customerProfileId} · Hizmet: {a.serviceId}</p>
+              <p className="mt-1 break-words text-body">{a.bookingContact?.displayName ?? a.customerName}</p>
+              <p className="break-words text-footnote text-ink-muted">{a.serviceName}</p>
+              <BookingContactSummary contact={a.bookingContact} profile={{ displayName: a.bookingContact?.displayName ?? a.customerName }} />
             </div>
             <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{labels[a.status] ?? a.status}</span>
           </div>

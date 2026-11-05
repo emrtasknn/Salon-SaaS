@@ -212,3 +212,11 @@ body {
     color: var(--color-ink-muted);
   }
 }
+
+/* Dialog backdrops may blur (glass); drop it for reduced transparency / more contrast. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  dialog::backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
