@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots } from "./actions";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { AppBar } from "../_ui/app-bar";
+import { AccountLinks } from "../_ui/account-links";
 import { appointmentStatusBadge, badgeBase, buttonDestructiveOutline, buttonPrimary, buttonSecondary, fieldInline, statusNote } from "../_ui/styles";
 
 // Staff create for themselves only (staffId derived server-side), guest customer only.
@@ -69,8 +70,11 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
         <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>
         <h1 className="mt-1 text-large-title">Personel randevularım</h1>
       </div>
-      {/* Kept out of the sticky bar so the bar stays one row on phones. */}
-      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Kept out of the sticky bar so the bar stays one row on phones. */}
+        <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
+        <AccountLinks />
+      </div>
     </header>
     <AppBar widthClassName="max-w-5xl">
       <div className="flex flex-wrap items-center gap-2">

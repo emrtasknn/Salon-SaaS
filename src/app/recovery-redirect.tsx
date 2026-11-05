@@ -11,7 +11,10 @@ export function RecoveryRedirect() {
 
     const hash = new URLSearchParams(window.location.hash.slice(1));
 
-    if (hash.get("type") !== "recovery") {
+    // "recovery" = password reset link; "invite" = staff invite link (no password yet).
+    // Both land on the Site URL and must continue to /reset-password to set a password.
+    const linkType = hash.get("type");
+    if (linkType !== "recovery" && linkType !== "invite") {
       return;
     }
 

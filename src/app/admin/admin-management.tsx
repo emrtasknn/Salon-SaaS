@@ -147,10 +147,13 @@ export function AdminManagement({ initialData, settings }: Props) {
                     displayName: String(formData.get("displayName") ?? ""),
                     email: String(formData.get("email") ?? ""),
                     phone: String(formData.get("phone") ?? ""),
+                    password: String(formData.get("password") ?? ""),
                   });
                   setFeedback(
                     result.status === "created"
-                      ? "Personel oluşturuldu."
+                      ? formData.get("password")
+                        ? "Personel oluşturuldu. E-posta ve geçici şifreyi personele iletin; giriş yaptıktan sonra şifresini değiştirebilir."
+                        : "Personel oluşturuldu."
                       : message(result.status),
                   );
                   if (result.status === "created") refresh();
@@ -175,6 +178,20 @@ export function AdminManagement({ initialData, settings }: Props) {
                 placeholder="Telefon"
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
               />
+              <input
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                maxLength={128}
+                aria-label="Geçici şifre (isteğe bağlı)"
+                aria-describedby="staff-password-hint"
+                placeholder="Geçici şifre (isteğe bağlı)"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+              />
+              <p id="staff-password-hint" className="text-xs text-zinc-600">
+                En az 8 karakter; e-posta gerekir. Boş bırakırsanız personele davet e-postası gönderilir.
+              </p>
               <button
                 disabled={busy}
                 className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white"

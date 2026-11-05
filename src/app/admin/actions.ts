@@ -200,6 +200,7 @@ export async function createStaffAction(input: {
   displayName: string;
   email?: string;
   phone?: string;
+  password?: string;
 }) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
