@@ -225,8 +225,28 @@ describe("Prisma notification repository", () => {
       expect(JSON.stringify([created, confirmed])).not.toContain("+905559999999");
     });
 
+    it("routes a STAFF-recorded (verbal) opt-in exactly like a public-form opt-in: snapshot phone only (WP-10)", async () => {
+      const staffContact = {
+        source: "STAFF", phone: "+905550000077", whatsappOptIn: true, optOutAt: null, optInRecordedByProfileId: "staff-1",
+      } as unknown as typeof appointmentRow.contact;
+      const { repository } = setup([], { ...appointmentRow, contact: staffContact });
+      const created = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CREATED");
+      expect(created.map((r) => [r.profileId, r.phone])).toEqual([["staff-1", "+905550000001"], ["customer-1", "+905550000077"]]);
+      await expect(repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_REJECTED"))
+        .resolves.toEqual([expect.objectContaining({ profileId: "customer-1", phone: "+905550000077", templateKey: "appointment-rejected-customer" })]);
+    });
+
+    it("STAFF-source opt-out also suppresses the customer (WP-10)", async () => {
+      const staffContact = {
+        source: "STAFF", phone: "+905550000077", whatsappOptIn: true, optOutAt: new Date("2026-11-10T09:00:00.000Z"),
+      } as unknown as typeof appointmentRow.contact;
+      const { repository } = setup([], { ...appointmentRow, contact: staffContact });
+      await expect(repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CONFIRMED")).resolves.toEqual([]);
+    });
+
     it.each([
       ["no contact row (pre-WP-10 booking)", null],
+      ["opt-in with empty-string phone", { phone: "", whatsappOptIn: true, optOutAt: null }],
       ["no opt-in", { phone: "+905550000002", whatsappOptIn: false, optOutAt: null }],
       ["opted out", { phone: "+905550000002", whatsappOptIn: true, optOutAt: new Date("2026-11-10T09:00:00.000Z") }],
       ["opt-in without phone", { phone: null, whatsappOptIn: true, optOutAt: null }],

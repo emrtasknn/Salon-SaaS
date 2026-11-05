@@ -11,6 +11,7 @@ import { createPrismaAppointmentAccessTokenRepository } from "./prisma-appointme
 import { createPrismaPublicBookingRepository } from "./prisma-public-booking";
 import { createPrismaPublicSalonRepository } from "./prisma-public-vitrin";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
+import { TENANT_LEGAL_COLUMNS_SQL, TENANT_LEGAL_VALUES, shownLegalHashes } from "../test/legal-fixtures";
 
 // WP-06: two-tenant integration test for "AppointmentAccessToken" (RLS, constraints, booking
 // write path, customer view/cancel). CI only (isolated PostgreSQL); skipped without DATABASE_URL.
@@ -122,9 +123,10 @@ describeDatabase("AppointmentAccessToken tenant isolation integration", () => {
   const seedTenant = async (fixture: TenantFixture, label: string) => {
     const p = db();
     await p.query(
-      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, 'Europe/Istanbul', now(), now())`,
-      [fixture.tenantId, fixture.slug, `Access Token Salon ${label}`],
+      // WP-10: KVKK legal fields set so the public booking write path can create bookings.
+      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone", ${TENANT_LEGAL_COLUMNS_SQL}, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, 'Europe/Istanbul', $4, $5, $6, now(), now())`,
+      [fixture.tenantId, fixture.slug, `Access Token Salon ${label}`, ...TENANT_LEGAL_VALUES],
     );
     await p.query(
       `INSERT INTO "Profile" ("id", "tenantId", "displayName", "createdAt", "updatedAt")
@@ -190,6 +192,8 @@ describeDatabase("AppointmentAccessToken tenant isolation integration", () => {
     const p = db();
     // Tokens first: the composite FK to Appointment is ON DELETE RESTRICT.
     await p.query(`DELETE FROM "${TABLE}" WHERE "tenantId" = $1`, [fixture.tenantId]);
+    // WP-10: contact snapshots (public booking path) also RESTRICT Appointment deletes.
+    await p.query('DELETE FROM "AppointmentContact" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "WorkingHours" WHERE "tenantId" = $1', [fixture.tenantId]);
@@ -454,6 +458,7 @@ describeDatabase("AppointmentAccessToken tenant isolation integration", () => {
       const result = await createPrismaPublicBookingRepository(client()).create({ tenantId: tenantA.tenantId as never }, {
         serviceId: tenantA.serviceId, staffId: tenantA.bookingStaffId, startAt,
         displayName: "Token Customer", email: `token-${randomUUID()}@example.test`, phone: null, accessTokenHash: tokenHash,
+        ...shownLegalHashes("Access Token Salon A"),
       });
       if (typeof result !== "object" || result.status !== "created") throw new Error(`Expected created, got ${JSON.stringify(result)}`);
 
@@ -474,6 +479,7 @@ describeDatabase("AppointmentAccessToken tenant isolation integration", () => {
         startAt: new Date(startAt.getTime() + 2 * 60 * 60_000),
         displayName: "Rollback Customer", email, phone: null,
         accessTokenHash: "NOT-A-SHA256-HEX", // violates the CHECK inside the booking transaction
+        ...shownLegalHashes("Access Token Salon A"),
       });
       expect(result).toBe("persistence_failure");
       const leftovers = await db().query(
@@ -481,10 +487,11 @@ describeDatabase("AppointmentAccessToken tenant isolation integration", () => {
            (SELECT count(*)::int FROM "Profile" WHERE "tenantId" = $1 AND "email" = $2) AS profiles,
            (SELECT count(*)::int FROM "Appointment" a JOIN "Profile" p ON p."id" = a."customerProfileId"
               WHERE a."tenantId" = $1 AND p."email" = $2) AS appointments,
-           (SELECT count(*)::int FROM "${TABLE}" WHERE "tenantId" = $1 AND "tokenHash" = 'NOT-A-SHA256-HEX') AS tokens`,
+           (SELECT count(*)::int FROM "${TABLE}" WHERE "tenantId" = $1 AND "tokenHash" = 'NOT-A-SHA256-HEX') AS tokens,
+           (SELECT count(*)::int FROM "AppointmentContact" WHERE "tenantId" = $1 AND "email" = $2) AS contacts`,
         [tenantA.tenantId, email],
       );
-      expect(leftovers.rows).toEqual([{ profiles: 0, appointments: 0, tokens: 0 }]);
+      expect(leftovers.rows).toEqual([{ profiles: 0, appointments: 0, tokens: 0, contacts: 0 }]);
     });
   });
 

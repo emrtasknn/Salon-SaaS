@@ -98,6 +98,41 @@ describe("tenant settings legal fields (WP-10)", () => {
     expect(repository.update).not.toHaveBeenCalled();
   });
 
+  it("clears tab-only / whitespace-only legal values to null (never sends a value the DB CHECK rejects)", async () => {
+    const { service, repository } = makeService();
+    await expect(service.update(identity, tenant, {
+      name: "Salon", contactPhone: "", legalName: "\t", legalAddress: "\t\n ", kvkkContactEmail: " \t",
+    })).resolves.toEqual({ ok: true });
+    expect(repository.update).toHaveBeenCalledWith(tenant, {
+      name: "Salon", contactPhone: null, legalName: null, legalAddress: null, kvkkContactEmail: null,
+    });
+  });
+
+  it.each([
+    [{ legalName: "Ada\tLtd." }, "INVALID_LEGAL_NAME"],
+    [{ legalName: 42 }, "INVALID_LEGAL_NAME"],
+    [{ legalAddress: { street: "Moda" } }, "INVALID_LEGAL_ADDRESS"],
+    [{ kvkkContactEmail: "kv kk@ada.example" }, "INVALID_KVKK_EMAIL"],
+    [{ kvkkContactEmail: "kvkk@@ada.example" }, "INVALID_KVKK_EMAIL"],
+    [{ kvkkContactEmail: "@ada.example" }, "INVALID_KVKK_EMAIL"],
+    [{ kvkkContactEmail: "kvkk@" }, "INVALID_KVKK_EMAIL"],
+    [{ kvkkContactEmail: `${"a".repeat(243)}@example.com` }, "INVALID_KVKK_EMAIL"],
+  ])("rejects %j with %s before writing", async (legal, code) => {
+    const { service, repository } = makeService();
+    await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "", ...legal })).resolves.toEqual({ ok: false, code });
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("accepts values exactly at the caps (200 / 500 / 254)", async () => {
+    const { service, repository } = makeService();
+    const email = `${"a".repeat(242)}@example.com`;
+    expect(email).toHaveLength(254);
+    await expect(service.update(identity, tenant, {
+      name: "Salon", contactPhone: "", legalName: "a".repeat(200), legalAddress: "b".repeat(500), kvkkContactEmail: email,
+    })).resolves.toEqual({ ok: true });
+    expect(repository.update).toHaveBeenCalledOnce();
+  });
+
   it("forbids legal updates without update authorization", async () => {
     const { service, repository } = makeService({ update: false });
     await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "", legalName: "Ada" })).resolves.toEqual({ ok: false, code: "FORBIDDEN" });

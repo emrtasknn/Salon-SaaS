@@ -103,6 +103,8 @@ describeDatabase("Tenant status / contact phone tenant isolation integration (WP
     await pool.query('DELETE FROM "CustomerNote" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "AppointmentAccessToken" WHERE "tenantId" = $1', [fixture.tenantId]);
+    // WP-10: staff/admin create writes an AppointmentContact (FK to Appointment is RESTRICT).
+    await pool.query('DELETE FROM "AppointmentContact" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "WorkingHours" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [fixture.tenantId]);
@@ -206,6 +208,8 @@ describeDatabase("Tenant status / contact phone tenant isolation integration (WP
       await expect(tenantRow(tenantB.tenantId)).resolves.toEqual(before);
       await expect(repository.read({ tenantId: tenantA.tenantId as never })).resolves.toEqual({
         name: "Salon A Yeni", contactPhone: "+905550000001", status: "ACTIVE", timezone: "Europe/Istanbul",
+        // WP-10: legal keys absent from the update stay unchanged (NULL from seeding).
+        legal: { legalName: null, legalAddress: null, kvkkContactEmail: null },
       });
       await expect(repository.read({ tenantId: tenantB.tenantId as never })).resolves.toMatchObject({ name: "Settings Tenant B" });
     });
@@ -217,6 +221,38 @@ describeDatabase("Tenant status / contact phone tenant isolation integration (WP
       await expect(repository.update({ tenantId: tenantA.tenantId as never }, { name: "Should Not Persist", contactPhone: "05551112233" }))
         .resolves.toBe("persistence_failure");
       await expect(tenantRow(tenantA.tenantId)).resolves.toEqual(before);
+    });
+
+    it("WP-10: sets the KVKK legal fields of the context tenant only; absent keys stay, null clears", async () => {
+      const repository = createPrismaTenantSettingsRepository(client());
+      const legalOf = async (tenantId: string) => (await db().query(
+        'SELECT "legalName", "legalAddress", "kvkkContactEmail" FROM "Tenant" WHERE "id" = $1', [tenantId])).rows[0];
+      const beforeB = await legalOf(tenantB.tenantId);
+      const current = await tenantRow(tenantA.tenantId);
+      if (!current) throw new Error("Tenant A missing");
+      const legal = { legalName: "Salon A Güzellik Ltd. Şti.", legalAddress: "Atatürk Cad. No:1\nKadıköy / İstanbul", kvkkContactEmail: "kvkk@salon-a.example.test" };
+      try {
+        await expect(repository.update({ tenantId: tenantA.tenantId as never }, { name: current.name, contactPhone: current.contactPhone, ...legal }))
+          .resolves.toBe("updated");
+        await expect(legalOf(tenantA.tenantId)).resolves.toEqual(legal);
+        await expect(legalOf(tenantB.tenantId)).resolves.toEqual(beforeB);
+        await expect(repository.read({ tenantId: tenantA.tenantId as never })).resolves.toMatchObject({ legal });
+
+        // Name-only update: legal keys absent -> unchanged.
+        await expect(repository.update({ tenantId: tenantA.tenantId as never }, { name: current.name, contactPhone: current.contactPhone }))
+          .resolves.toBe("updated");
+        await expect(legalOf(tenantA.tenantId)).resolves.toEqual(legal);
+
+        // A value the DB CHECK rejects (tab-only) fails and leaves the row unchanged.
+        await expect(repository.update({ tenantId: tenantA.tenantId as never }, { name: current.name, contactPhone: current.contactPhone, legalName: "\t" }))
+          .resolves.toBe("persistence_failure");
+        await expect(legalOf(tenantA.tenantId)).resolves.toEqual(legal);
+      } finally {
+        await expect(repository.update({ tenantId: tenantA.tenantId as never }, {
+          name: current.name, contactPhone: current.contactPhone, legalName: null, legalAddress: null, kvkkContactEmail: null,
+        })).resolves.toBe("updated");
+      }
+      await expect(legalOf(tenantA.tenantId)).resolves.toEqual({ legalName: null, legalAddress: null, kvkkContactEmail: null });
     });
 
     it("returns not_found for an unknown tenant context and changes no tenant", async () => {

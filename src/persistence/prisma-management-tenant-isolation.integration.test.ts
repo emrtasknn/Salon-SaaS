@@ -9,6 +9,7 @@ import { createPrismaWorkingHoursRepository } from "./prisma-working-hours-manag
 import { createPrismaNotificationRepository } from "./prisma-notification";
 import { createPrismaPublicAvailabilityRepository } from "./prisma-public-availability";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
+import { publicContactInsert } from "../test/legal-fixtures";
 
 const databaseUrl = process.env.DATABASE_URL;
 const describeDatabase = databaseUrl ? describe : describe.skip;
@@ -90,6 +91,11 @@ describeDatabase("Prisma management repositories tenant isolation integration", 
         fixture.customerProfileId,
       ],
     );
+    // WP-10: customer WhatsApp needs an opt-in contact snapshot; without it the customer is not a recipient.
+    await pool.query(...publicContactInsert({
+      tenantId: fixture.tenantId, appointmentId: fixture.appointmentId, tenantName: `Management Tenant ${label}`,
+      displayName: `Customer ${label}`, phone: label === "A" ? "+905557000001" : "+905557000002", optIn: true,
+    }));
     if (includeTuesday) {
       await pool.query(
         `INSERT INTO "WorkingHours" ("id", "tenantId", "dayOfWeek", "openMinute", "closeMinute", "createdAt", "updatedAt")
@@ -103,6 +109,7 @@ describeDatabase("Prisma management repositories tenant isolation integration", 
     if (!pool) return;
     await pool.query('DELETE FROM "CustomerNote" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
+    await pool.query('DELETE FROM "AppointmentContact" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "WorkingHours" WHERE "tenantId" = $1', [fixture.tenantId]);
     await pool.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [fixture.tenantId]);

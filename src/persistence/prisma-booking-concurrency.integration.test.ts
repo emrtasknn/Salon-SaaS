@@ -10,6 +10,7 @@ import { createPublicBooking } from "../application/public-booking";
 import { createPrismaBookingRepository } from "./prisma-booking-engine";
 import { createPrismaPublicBookingRepository } from "./prisma-public-booking";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
+import { TENANT_LEGAL_COLUMNS_SQL, TENANT_LEGAL_VALUES, publicLegalInput } from "../test/legal-fixtures";
 
 // WP-11: concurrent same-slot booking against real PostgreSQL. N parallel creates for one
 // staff/slot must yield exactly one appointment; every loser gets the conflict status.
@@ -24,6 +25,7 @@ const PARALLEL = 5;
 
 type Fixture = {
   tenantId: string;
+  name: string;
   slug: string;
   staffProfileId: string;
   customerProfileId: string;
@@ -44,6 +46,7 @@ function makeFixture(label: string): Fixture {
   const suffix = randomUUID();
   return {
     tenantId: `race-${label}-${suffix}`,
+    name: `Race Salon ${label.toUpperCase()}`,
     slug: `race-${label}-${suffix}`,
     staffProfileId: `race-staff-profile-${label}-${suffix}`,
     customerProfileId: `race-customer-${label}-${suffix}`,
@@ -92,6 +95,8 @@ describeDatabase("concurrent same-slot booking integration (WP-11)", () => {
   const bookPublic = (fixture: Fixture, startAt: Date) => publicBooking().create(ctx(fixture), {
     serviceId: fixture.serviceId, staffId: fixture.staffId, startAt,
     displayName: "Race Guest", email: `race-${randomUUID()}@example.com`, phone: null,
+    // WP-10: the notice the form showed (rendered from this tenant's seeded fields).
+    ...publicLegalInput(fixture.name),
   });
   const bookOnBehalf = (fixture: Fixture, startAt: Date) => onBehalfEngine().createOnBehalf(identity, ctx(fixture), {
     serviceId: fixture.serviceId, staffId: fixture.staffId, startAt,
@@ -101,9 +106,9 @@ describeDatabase("concurrent same-slot booking integration (WP-11)", () => {
   const seedTenant = async (fixture: Fixture, label: string) => {
     const p = db();
     await p.query(
-      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, '${TZ}', now(), now())`,
-      [fixture.tenantId, fixture.slug, `Race Salon ${label}`],
+      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone", ${TENANT_LEGAL_COLUMNS_SQL}, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, '${TZ}', $4, $5, $6, now(), now())`,
+      [fixture.tenantId, fixture.slug, fixture.name, ...TENANT_LEGAL_VALUES],
     );
     await p.query(
       `INSERT INTO "Profile" ("id", "tenantId", "displayName", "createdAt", "updatedAt")
@@ -133,6 +138,8 @@ describeDatabase("concurrent same-slot booking integration (WP-11)", () => {
     const p = db();
     await p.query('DELETE FROM "AppointmentAccessToken" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
+    // WP-10: both create paths write an AppointmentContact (FK to Appointment is RESTRICT).
+    await p.query('DELETE FROM "AppointmentContact" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "WorkingHours" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [fixture.tenantId]);
@@ -145,7 +152,8 @@ describeDatabase("concurrent same-slot booking integration (WP-11)", () => {
   const appointmentsOn = async (fixture: Fixture, dateIso: string) => {
     const result = await db().query(
       `SELECT a."id", a."status"::text AS "status",
-              (SELECT count(*)::int FROM "AppointmentAccessToken" t WHERE t."tenantId" = a."tenantId" AND t."appointmentId" = a."id") AS "tokens"
+              (SELECT count(*)::int FROM "AppointmentAccessToken" t WHERE t."tenantId" = a."tenantId" AND t."appointmentId" = a."id") AS "tokens",
+              (SELECT count(*)::int FROM "AppointmentContact" c WHERE c."tenantId" = a."tenantId" AND c."appointmentId" = a."id") AS "contacts"
        FROM "Appointment" a
        WHERE a."tenantId" = $1 AND a."staffId" = $2
          AND a."startAt" >= ($3::timestamptz AT TIME ZONE 'UTC') AND a."startAt" < ($4::timestamptz AT TIME ZONE 'UTC')
@@ -153,7 +161,7 @@ describeDatabase("concurrent same-slot booking integration (WP-11)", () => {
       // timestamp(3) columns hold UTC; pass ISO strings so the node-pg local-time serialization cannot shift them.
       [fixture.tenantId, fixture.staffId, localWallTimeToUtc(dateIso, 0, TZ).toISOString(), localWallTimeToUtc(addDaysToDateIso(dateIso, 1), 0, TZ).toISOString()],
     );
-    return result.rows as Array<{ id: string; status: string; tokens: number }>;
+    return result.rows as Array<{ id: string; status: string; tokens: number; contacts: number }>;
   };
 
   const winners = (results: ReadonlyArray<{ status: string }>) =>
@@ -202,7 +210,7 @@ describeDatabase("concurrent same-slot booking integration (WP-11)", () => {
     expect(winners(results)).toHaveLength(1);
     expect(results.filter((r) => r.status === "SLOT_UNAVAILABLE")).toHaveLength(PARALLEL - 1);
     const rows = await appointmentsOn(tenantA, publicMonday);
-    expect(rows).toEqual([{ id: winnerId(results), status: "PENDING", tokens: 1 }]);
+    expect(rows).toEqual([{ id: winnerId(results), status: "PENDING", tokens: 1, contacts: 1 }]);
   });
 
   it(`staff/admin createOnBehalf: ${PARALLEL} parallel creates for one slot -> exactly one CREATED, others SLOT_UNAVAILABLE`, async () => {
@@ -213,7 +221,7 @@ describeDatabase("concurrent same-slot booking integration (WP-11)", () => {
     // Persistence "conflict" (lost the advisory-lock race) maps to SLOT_UNAVAILABLE.
     expect(results.filter((r) => r.status === "SLOT_UNAVAILABLE")).toHaveLength(PARALLEL - 1);
     const rows = await appointmentsOn(tenantA, onBehalfMonday);
-    expect(rows).toEqual([{ id: winnerId(results), status: "CONFIRMED", tokens: 1 }]);
+    expect(rows).toEqual([{ id: winnerId(results), status: "CONFIRMED", tokens: 1, contacts: 1 }]);
   });
 
   it("mixed race: public and staff/admin creates for the same slot share one lock -> exactly one appointment", async () => {
@@ -228,6 +236,8 @@ describeDatabase("concurrent same-slot booking integration (WP-11)", () => {
     const rows = await appointmentsOn(tenantA, mixedMonday);
     expect(rows).toHaveLength(1);
     expect(rows[0].tokens).toBe(1);
+    // WP-10: the winner's contact snapshot is written once, in the winning transaction.
+    expect(rows[0].contacts).toBe(1);
   });
 
   it("overlapping (not identical) start times: 10:00 / 10:15 / 10:30 in parallel -> exactly one wins", async () => {

@@ -67,6 +67,26 @@ describe("legal notice templates (WP-10)", () => {
     expect(whatsAppOptInHash(tenant)).toBe(sha256Hex(`${optIn.label}\n${optIn.help}`));
   });
 
+  it.each([
+    ["all fields set", tenant],
+    ["legal fields and phone missing", { ...tenant, legalName: null, legalAddress: null, kvkkContactEmail: null, contactPhone: null }],
+  ])("leaves no template placeholders or stringified empty values in any rendered text (%s)", (_label, t) => {
+    const optIn = renderWhatsAppOptIn(t);
+    const texts = [renderShortNotice(t), renderFullNotice(t), renderNoticeRecordText(t), optIn.label, optIn.help, renderStaffVerbalOptIn()];
+    for (const text of texts) {
+      expect(text).not.toMatch(/\{\{|\}\}|\$\{/);
+      expect(text).not.toMatch(/\bundefined\b|\bnull\b|\[object Object\]|NaN/);
+      expect(text.trim()).toBe(text);
+      expect(text.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("changes the notice hash when the legal name changes, and the opt-in hash only with the salon name", () => {
+    expect(customerNoticeHash({ ...tenant, legalName: "Başka Ltd." })).not.toBe(customerNoticeHash(tenant));
+    expect(whatsAppOptInHash({ name: tenant.name })).toBe(whatsAppOptInHash(tenant));
+    expect(whatsAppOptInHash({ name: "Salon Ada 2" })).not.toBe(whatsAppOptInHash(tenant));
+  });
+
   it("has a fixed staff verbal opt-in label and hash", () => {
     expect(renderStaffVerbalOptIn()).toContain("sözlü");
     expect(staffVerbalOptInHash()).toBe(sha256Hex(renderStaffVerbalOptIn()));

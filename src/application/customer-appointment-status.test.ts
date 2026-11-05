@@ -304,6 +304,39 @@ describe("status-link WhatsApp state and opt-out (WP-10)", () => {
     expect(unknown.repository.stopWhatsAppByTokenHash).not.toHaveBeenCalled();
   });
 
+  it("returns rate_limited (not not_found) for a bad token once the miss budget is exhausted", async () => {
+    const { token } = generateAppointmentAccessToken();
+    const repository = {
+      findDetailsByTokenHash: vi.fn(), inCancelTransaction: vi.fn(),
+      stopWhatsAppByTokenHash: vi.fn(async () => "not_found" as const),
+    };
+    const limiter = { hit: vi.fn(async (bucket: "status.view" | "status.miss") => (bucket === "status.miss" ? "limited" as const : "allowed" as const)) };
+    const service = createCustomerAppointmentStatus({
+      resolveTenantBySlug: async (slug) => tenants[slug] ?? null,
+      repository: repository as unknown as CustomerAppointmentStatusRepository, limiter, now: () => NOW,
+    });
+    await expect(service.stopWhatsApp("salon-a", token)).resolves.toEqual({ status: "rate_limited" });
+    expect(repository.stopWhatsAppByTokenHash).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["malformed token", "not-a-token"],
+    ["non-string token", 42],
+    ["empty token", ""],
+  ] as const)("returns not_found for a %s without touching persistence", async (_label, badToken) => {
+    const { service, repository } = stopSetup("stopped");
+    await expect(service.stopWhatsApp("salon-a", badToken)).resolves.toEqual({ status: "not_found" });
+    expect(repository.stopWhatsAppByTokenHash).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent across repeated calls: stopped once, then already_stopped, logging only the first", async () => {
+    const { service, token, repository, logWhatsAppStopped } = stopSetup("stopped");
+    repository.stopWhatsAppByTokenHash.mockResolvedValueOnce("stopped").mockResolvedValueOnce("already_stopped");
+    await expect(service.stopWhatsApp("salon-a", token)).resolves.toEqual({ status: "stopped" });
+    await expect(service.stopWhatsApp("salon-a", token)).resolves.toEqual({ status: "already_stopped" });
+    expect(logWhatsAppStopped).toHaveBeenCalledOnce();
+  });
+
   it("is rate limited by the status-link limiter before any lookup", async () => {
     const { service, token, repository } = stopSetup("stopped", true);
     await expect(service.stopWhatsApp("salon-a", token)).resolves.toEqual({ status: "rate_limited" });
