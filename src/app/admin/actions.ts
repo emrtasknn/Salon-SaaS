@@ -16,6 +16,7 @@ import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supaba
 import { createSupabaseAdminAuthProvisioner } from "../../infrastructure/auth/supabase-admin-auth";
 import { createSupabaseTenantAdminAuthBinding } from "../../infrastructure/auth/supabase-tenant-admin-binding";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
+import { adminServesAsStaff } from "./admin-staff-flag";
 
 async function getAdminContext() {
   const supabase = await createNextSupabaseServerClient(
@@ -115,10 +116,11 @@ export async function listAdminData() {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
 
-  const [serviceResult, hoursResult, staffResult] = await Promise.all([
+  const [serviceResult, hoursResult, staffResult, selfStaffResult] = await Promise.all([
     services(context.prisma).list(context.identity, context.tenantContext),
     workingHours(context.prisma).list(context.identity, context.tenantContext),
     staff(context.prisma).list(context.identity, context.tenantContext),
+    adminServesAsStaff(context.prisma).read(context.identity, context.tenantContext),
   ]);
 
   return {
@@ -126,6 +128,8 @@ export async function listAdminData() {
     services: serviceResult,
     workingHours: hoursResult,
     staff: staffResult,
+    /** Whether the signed-in TENANT_ADMIN also serves customers (own ACTIVE Staff row). */
+    adminServesAsStaff: selfStaffResult.status === "ok" && selfStaffResult.servesAsStaff,
   };
 }
 
@@ -240,5 +244,20 @@ export async function updateStaffProfileAction(
       displayName: input.displayName,
       phone: input.phone,
     },
+  );
+}
+
+/**
+ * Owner decision 2026-11-05: the signed-in TENANT_ADMIN turns serving customers on/off for THEMSELF.
+ * Takes no ids: tenant and profile come only from the trusted session. Creates/reactivates or
+ * deactivates the caller's own Staff row; no auth user or membership change.
+ */
+export async function setAdminServesAsStaffAction(enabled: boolean) {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+  return adminServesAsStaff(context.prisma).set(
+    context.identity,
+    context.tenantContext,
+    enabled,
   );
 }

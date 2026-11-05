@@ -16,6 +16,7 @@ import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-au
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import { createAuthenticatedIdentity } from "../../domain/auth-identity";
+import { isStaffWorkspaceRole } from "../../domain/staff-workspace";
 import type { AppointmentStatus } from "../../domain/appointment";
 import { parseCalendarRange } from "../_ui/timeline-layout";
 import { createOnBehalf, createOnBehalfBookingEngine, listSlotsOnBehalf, readCreateOptions } from "../appointment-create-runtime";
@@ -23,6 +24,11 @@ import type {
   CreateAppointmentResult, CreateOptionsView, LocalDateIso, SlotListResult, StaffCreateAppointmentInput,
 } from "../appointment-create-contract";
 
+/**
+ * Staff workspace context: STAFF, or a TENANT_ADMIN who also serves customers (owner decision
+ * 2026-11-05). Both always need their own ACTIVE Staff row in the session tenant; staffId is
+ * read server-side from the membership profile, never from client input.
+ */
 async function getStaffContext() {
   const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
   const request = await readAuthenticatedTenantRequest(createSupabaseAuthAdapter({ client: supabase as never }));
@@ -30,7 +36,7 @@ async function getStaffContext() {
   const prisma = getPrisma();
   const reader = createPrismaMembershipReader({ prisma });
   const membership = await reader.readMembership({ tenantContext: request.tenantContext, identity: request.identity });
-  if (membership.status !== "found" || membership.membership.role !== "STAFF") return null;
+  if (membership.status !== "found" || !isStaffWorkspaceRole(membership.membership.role)) return null;
   const staff = await findStaffByProfileId(prisma, request.tenantContext, membership.membership.profileId);
   if (!staff || staff.status !== "ACTIVE") return null;
   return {
@@ -130,7 +136,7 @@ export async function decideStaffAppointment(
 }
 
 /**
- * WP-04: in-app notifications for the signed-in STAFF member (own appointments only).
+ * WP-04: in-app notifications for the signed-in staff member (own appointments only).
  * No arguments: tenant and staffId come only from trusted server context (WP4-R5).
  * Returns InAppNotificationView; staff items never include customerDisplayName.
  */
@@ -148,7 +154,7 @@ export async function listStaffNotifications(): Promise<InAppNotificationView> {
         async authorizeStaffScope(identity, tenantContext, staffId) {
           if (identity.state !== "authenticated") return false;
           const membership = await reader.readMembership({ tenantContext, identity });
-          if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
+          if (membership.status !== "found" || !isStaffWorkspaceRole(membership.membership.role)) return false;
           const staff = await findStaffByProfileId(prisma, tenantContext, membership.membership.profileId);
           return staff !== null && staff.status === "ACTIVE" && staff.id === staffId && staff.tenantId === tenantContext.tenantId;
         },

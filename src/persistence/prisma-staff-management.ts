@@ -1,9 +1,10 @@
 import type {
+  AdminSelfStaffRepository,
   StaffRepository,
   StaffProvisioningRepositoryInput,
   StaffListRecord,
 } from "../application/staff-management";
-import type { StaffRecord } from "../domain/staff";
+import type { StaffRecord, StaffStatus } from "../domain/staff";
 import {
   withPrismaTenantContext,
   type PrismaTenantClient,
@@ -226,6 +227,70 @@ export function createPrismaStaffRepository(
           }),
       );
       return rows.map(toStaff);
+    },
+  };
+}
+
+type AdminSelfStaffTransaction = PrismaTenantTransactionClient & {
+  staff: {
+    findUnique(args: {
+      where: { tenantId_profileId: { tenantId: string; profileId: string } };
+      select: { status: true };
+    }): Promise<{ status: StaffStatus } | null>;
+    create(args: {
+      data: { tenantId: string; profileId: string; status: "ACTIVE" };
+      select: { id: true };
+    }): Promise<{ id: string }>;
+    updateMany(args: {
+      where: { tenantId: string; profileId: string };
+      data: { status: StaffStatus };
+    }): Promise<{ count: number }>;
+  };
+};
+
+/**
+ * Admin-serves-as-staff persistence (owner decision 2026-11-05). The profileId is the caller's own
+ * membership profile, resolved server-side by the use case. Everything runs inside the trusted tenant
+ * context (Staff is FORCE RLS on app.tenant_id); the explicit tenantId filter is defence in depth.
+ * The composite (tenantId, profileId) FK keeps the profile inside the same tenant.
+ */
+export function createPrismaAdminSelfStaffRepository(
+  prisma: PrismaStaffClient,
+): AdminSelfStaffRepository {
+  return {
+    async findOwnStatus(tenantContext, profileId) {
+      const row = await withPrismaTenantContext(
+        prisma,
+        tenantContext,
+        async (tx: AdminSelfStaffTransaction) =>
+          tx.staff.findUnique({
+            where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId } },
+            select: { status: true },
+          }),
+      );
+      return row?.status ?? null;
+    },
+    async setOwnStatus(tenantContext, profileId, status) {
+      return withPrismaTenantContext(
+        prisma,
+        tenantContext,
+        async (tx: AdminSelfStaffTransaction) => {
+          // No Prisma upsert: its native form is INSERT ... ON CONFLICT ("profileId") (the global unique),
+          // which silently no-ops on another tenant's row instead of failing. Update in-tenant first,
+          // then a plain create that fails loudly (unique profileId / composite tenant FK).
+          const result = await tx.staff.updateMany({
+            where: { tenantId: tenantContext.tenantId, profileId },
+            data: { status },
+          });
+          if (result.count === 1) return "updated" as const;
+          if (status === "INACTIVE") return "not_found" as const;
+          await tx.staff.create({
+            data: { tenantId: tenantContext.tenantId, profileId, status: "ACTIVE" },
+            select: { id: true },
+          });
+          return "updated" as const;
+        },
+      );
     },
   };
 }

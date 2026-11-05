@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createStaffManager } from "./staff-management";
+import { createAdminServesAsStaff, createStaffManager } from "./staff-management";
 import type { TenantContext } from "../domain/tenant-context";
 import type { ApplicationIdentity } from "../domain/auth-identity";
 
@@ -260,5 +260,90 @@ describe("staff management", () => {
     );
 
     expect(result).toEqual({ status: "CONFLICT" });
+  });
+});
+
+describe("admin serves as staff (owner decision 2026-11-05)", () => {
+  function selfDeps(membership: { role: string; profileId: string } | null = { role: "TENANT_ADMIN", profileId: "profile-1" }) {
+    return {
+      membershipReader: { readOwnMembership: vi.fn().mockResolvedValue(membership) },
+      repository: {
+        findOwnStatus: vi.fn().mockResolvedValue(null),
+        setOwnStatus: vi.fn().mockResolvedValue("updated"),
+      },
+    };
+  }
+
+  it("enables serving for the caller's own membership profile only", async () => {
+    const dependencies = selfDeps();
+    const result = await createAdminServesAsStaff(dependencies as never).set(identity, tenantContext, true);
+    expect(result).toEqual({ status: "ok", servesAsStaff: true });
+    expect(dependencies.membershipReader.readOwnMembership).toHaveBeenCalledWith(identity, tenantContext);
+    expect(dependencies.repository.setOwnStatus).toHaveBeenCalledExactlyOnceWith(tenantContext, "profile-1", "ACTIVE");
+  });
+
+  it("disables by setting the own row INACTIVE (never deletes)", async () => {
+    const dependencies = selfDeps();
+    await expect(createAdminServesAsStaff(dependencies as never).set(identity, tenantContext, false))
+      .resolves.toEqual({ status: "ok", servesAsStaff: false });
+    expect(dependencies.repository.setOwnStatus).toHaveBeenCalledExactlyOnceWith(tenantContext, "profile-1", "INACTIVE");
+  });
+
+  it("cannot target another profile: a membership profile that differs from the session profile is refused", async () => {
+    const dependencies = selfDeps({ role: "TENANT_ADMIN", profileId: "someone-else" });
+    await expect(createAdminServesAsStaff(dependencies as never).set(identity, tenantContext, true))
+      .resolves.toEqual({ status: "UNAUTHORIZED" });
+    expect(dependencies.repository.setOwnStatus).not.toHaveBeenCalled();
+  });
+
+  it("takes no profile or staff id: extra arguments cannot redirect the write", async () => {
+    const dependencies = selfDeps();
+    const set = createAdminServesAsStaff(dependencies as never).set as (...args: unknown[]) => Promise<unknown>;
+    await set(identity, tenantContext, true, "other-profile", "other-staff");
+    expect(dependencies.repository.setOwnStatus).toHaveBeenCalledExactlyOnceWith(tenantContext, "profile-1", "ACTIVE");
+  });
+
+  it.each(["STAFF", "SUPER_ADMIN", "CUSTOMER"])("refuses a %s membership", async (role) => {
+    const dependencies = selfDeps({ role, profileId: "profile-1" });
+    await expect(createAdminServesAsStaff(dependencies as never).set(identity, tenantContext, true))
+      .resolves.toEqual({ status: "UNAUTHORIZED" });
+    await expect(createAdminServesAsStaff(dependencies as never).read(identity, tenantContext))
+      .resolves.toEqual({ status: "UNAUTHORIZED" });
+    expect(dependencies.repository.setOwnStatus).not.toHaveBeenCalled();
+    expect(dependencies.repository.findOwnStatus).not.toHaveBeenCalled();
+  });
+
+  it("refuses without a membership or an authenticated identity", async () => {
+    const dependencies = selfDeps(null);
+    await expect(createAdminServesAsStaff(dependencies as never).set(identity, tenantContext, true))
+      .resolves.toEqual({ status: "UNAUTHORIZED" });
+    const anonymous = { state: "unauthenticated" } as ApplicationIdentity;
+    await expect(createAdminServesAsStaff(selfDeps() as never).set(anonymous, tenantContext, true))
+      .resolves.toEqual({ status: "UNAUTHORIZED" });
+    expect(dependencies.repository.setOwnStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-boolean flag before any read", async () => {
+    const dependencies = selfDeps();
+    await expect(createAdminServesAsStaff(dependencies as never).set(identity, tenantContext, "true"))
+      .resolves.toEqual({ status: "INVALID_INPUT" });
+    expect(dependencies.membershipReader.readOwnMembership).not.toHaveBeenCalled();
+  });
+
+  it("reads the flag from the own row status", async () => {
+    for (const [status, expected] of [[null, false], ["INACTIVE", false], ["ACTIVE", true]] as const) {
+      const dependencies = selfDeps();
+      dependencies.repository.findOwnStatus.mockResolvedValue(status);
+      await expect(createAdminServesAsStaff(dependencies as never).read(identity, tenantContext))
+        .resolves.toEqual({ status: "ok", servesAsStaff: expected });
+      expect(dependencies.repository.findOwnStatus).toHaveBeenCalledWith(tenantContext, "profile-1");
+    }
+  });
+
+  it("maps persistence errors to PERSISTENCE_FAILURE", async () => {
+    const dependencies = selfDeps();
+    dependencies.repository.setOwnStatus.mockRejectedValue(new Error("db down"));
+    await expect(createAdminServesAsStaff(dependencies as never).set(identity, tenantContext, true))
+      .resolves.toEqual({ status: "PERSISTENCE_FAILURE" });
   });
 });

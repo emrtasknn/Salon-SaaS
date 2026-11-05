@@ -191,6 +191,15 @@ describe("Prisma notification repository", () => {
       expect(result.map((r) => r.profileId)).toEqual(["staff-1", "customer-1", "admin-ok"]);
     });
 
+    it("sends one WhatsApp to an admin who is also the appointment's staff (owner decision 2026-11-05)", async () => {
+      const adminStaffRow = { ...appointmentRow, staff: { profile: { id: "admin-1", displayName: "Admin Staff", phone: "+905550000011" } } };
+      const { repository } = setup([adminMembership("admin-1", "+905550000011"), adminMembership("admin-2", "+905550000012")], adminStaffRow);
+      const result = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CREATED");
+      expect(result.map((r) => r.profileId)).toEqual(["admin-1", "customer-1", "admin-2"]);
+      expect(result.filter((r) => r.profileId === "admin-1")).toHaveLength(1);
+      expect(result[0].templateKey).toBe("appointment-created-staff");
+    });
+
     it("dedupes admins by profile and internal phone but not by customer phone", async () => {
       const { repository } = setup([
         adminMembership("staff-1", "+905550000001"),

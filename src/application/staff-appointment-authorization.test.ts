@@ -89,8 +89,19 @@ describe("authorizeStaffDecision tenant boundary", () => {
     }
   });
 
+  it("allows a TENANT_ADMIN who serves customers only for their own ACTIVE staff row (owner decision 2026-11-05)", async () => {
+    const adminStaff = dependencies({ role: "TENANT_ADMIN" });
+    await expect(authorizeStaffDecision(adminStaff.value, identity, tenantContext, appointment)).resolves.toBe(true);
+    expect(adminStaff.findByProfileId).toHaveBeenCalledWith(tenantContext, "profile-a");
+
+    for (const staff of [null, { id: "staff-a", tenantId: "tenant-a", profileId: "profile-a", status: "INACTIVE" as const }, { id: "staff-b", tenantId: "tenant-a", profileId: "profile-a", status: "ACTIVE" as const }]) {
+      const denied = dependencies({ role: "TENANT_ADMIN", staff });
+      await expect(authorizeStaffDecision(denied.value, identity, tenantContext, appointment)).resolves.toBe(false);
+    }
+  });
+
   it("denies non-staff roles and inactive staff", async () => {
-    for (const role of ["TENANT_ADMIN", "CUSTOMER", "SUPER_ADMIN"] as const) {
+    for (const role of ["CUSTOMER", "SUPER_ADMIN"] as const) {
       const nonStaffMembership = dependencies({ role });
       await expect(
         authorizeStaffDecision(nonStaffMembership.value, identity, tenantContext, appointment),

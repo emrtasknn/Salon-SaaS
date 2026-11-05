@@ -299,3 +299,69 @@ export function createStaffManager(
     },
   };
 }
+
+/**
+ * Owner decision 2026-11-05: a TENANT_ADMIN may also serve customers as a bookable staff member.
+ * Acts ONLY on the caller's own membership profile in the trusted tenant; no client-supplied ids,
+ * no new auth user and no membership change. Enabling creates or reactivates the caller's Staff row;
+ * disabling sets it INACTIVE (never deletes it, so past appointments keep their staff).
+ */
+export type AdminSelfStaffMembershipReader = Readonly<{
+  /** Membership of the authenticated identity in the trusted tenant, read server-side. */
+  readOwnMembership(
+    identity: Extract<ApplicationIdentity, { state: "authenticated" }>,
+    tenantContext: TenantContext,
+  ): Promise<Readonly<{ role: TenantRole; profileId: string }> | null>;
+}>;
+
+export type AdminSelfStaffRepository = Readonly<{
+  findOwnStatus(tenantContext: TenantContext, profileId: string): Promise<StaffStatus | null>;
+  /** ACTIVE: create the row for this profile or reactivate it. INACTIVE: deactivate an existing row only. */
+  setOwnStatus(tenantContext: TenantContext, profileId: string, status: StaffStatus): Promise<"updated" | "not_found">;
+}>;
+
+export type AdminServesAsStaffResult =
+  | Readonly<{ status: "ok"; servesAsStaff: boolean }>
+  | Readonly<{ status: "UNAUTHORIZED" | "INVALID_INPUT" | "PERSISTENCE_FAILURE" }>;
+
+export function createAdminServesAsStaff(
+  dependencies: Readonly<{
+    membershipReader: AdminSelfStaffMembershipReader;
+    repository: AdminSelfStaffRepository;
+  }>,
+) {
+  /** Exact TENANT_ADMIN only (not SUPER_ADMIN), and the profile must be the session's own. */
+  async function ownAdminProfileId(identity: ApplicationIdentity, tenantContext: TenantContext): Promise<string | null> {
+    if (identity.state !== "authenticated") return null;
+    const membership = await dependencies.membershipReader.readOwnMembership(identity, tenantContext);
+    if (!membership || membership.role !== "TENANT_ADMIN") return null;
+    if (membership.profileId !== identity.profileId) return null;
+    return membership.profileId;
+  }
+
+  return {
+    async read(identity: ApplicationIdentity, tenantContext: TenantContext): Promise<AdminServesAsStaffResult> {
+      try {
+        const profileId = await ownAdminProfileId(identity, tenantContext);
+        if (!profileId) return { status: "UNAUTHORIZED" };
+        const status = await dependencies.repository.findOwnStatus(tenantContext, profileId);
+        return { status: "ok", servesAsStaff: status === "ACTIVE" };
+      } catch {
+        return { status: "PERSISTENCE_FAILURE" };
+      }
+    },
+
+    async set(identity: ApplicationIdentity, tenantContext: TenantContext, enabled: unknown): Promise<AdminServesAsStaffResult> {
+      if (typeof enabled !== "boolean") return { status: "INVALID_INPUT" };
+      try {
+        const profileId = await ownAdminProfileId(identity, tenantContext);
+        if (!profileId) return { status: "UNAUTHORIZED" };
+        // Disabling without a row is already the desired state.
+        await dependencies.repository.setOwnStatus(tenantContext, profileId, enabled ? "ACTIVE" : "INACTIVE");
+        return { status: "ok", servesAsStaff: enabled };
+      } catch {
+        return { status: "PERSISTENCE_FAILURE" };
+      }
+    },
+  };
+}

@@ -33,7 +33,7 @@ vi.mock("../../persistence/prisma-membership-reader", () => ({ createPrismaMembe
 vi.mock("../notification-runtime", () => ({ publishAppointmentNotification: vi.fn() }));
 vi.mock("../appointment-create-runtime", () => runtime);
 
-import { createStaffAppointment, getStaffCreateOptions, listStaffSlots } from "./actions";
+import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffNotifications, listStaffSlots } from "./actions";
 
 const sessionTenant = { tenantId: "tenant-from-session" };
 const input = {
@@ -72,10 +72,33 @@ describe("createStaffAppointment (WP-08)", () => {
     expect(passed).toEqual({ serviceId: "svc", staffId: "own-staff", startAt: input.startAt, customer: input.customer, notifyCustomer: true, whatsappVerbalOptIn: false });
   });
 
-  it.each(["TENANT_ADMIN", "SUPER_ADMIN", "CUSTOMER"])("rejects a %s membership with FORBIDDEN (staff flow is STAFF-only)", async (role) => {
+  it.each(["SUPER_ADMIN", "CUSTOMER"])("rejects a %s membership with FORBIDDEN (staff flow is STAFF or admin-staff only)", async (role) => {
     authenticatedAs(role);
     await expect(createStaffAppointment(input)).resolves.toEqual({ status: "FORBIDDEN" });
     expect(runtime.createOnBehalf).not.toHaveBeenCalled();
+    expect(staffFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("lets a TENANT_ADMIN with an own ACTIVE staff row use the staff flow for their own staffId (owner decision 2026-11-05)", async () => {
+    authenticatedAs("TENANT_ADMIN");
+    await expect(createStaffAppointment({ ...input, staffId: "other-staff" } as never)).resolves.toEqual({ status: "CREATED", appointmentId: "a1", notified: true });
+    expect(staffFindUnique).toHaveBeenCalledWith({ where: { tenantId_profileId: { tenantId: "tenant-from-session", profileId: "profile-1" } } });
+    const [, , , passed] = runtime.createOnBehalf.mock.calls[0] as unknown as [unknown, unknown, unknown, { staffId: string }];
+    expect(passed.staffId).toBe("own-staff");
+  });
+
+  it("denies a TENANT_ADMIN without a staff row or with an INACTIVE one", async () => {
+    authenticatedAs("TENANT_ADMIN", null);
+    await expect(createStaffAppointment(input)).resolves.toEqual({ status: "FORBIDDEN" });
+    await expect(listStaffSlots({ serviceId: "svc", date: "2026-11-09" })).resolves.toEqual({ status: "FORBIDDEN" });
+    await expect(listStaffAppointments("2026-11-09")).resolves.toEqual({ status: "UNAUTHORIZED" });
+    await expect(listStaffNotifications()).resolves.toEqual({ status: "UNAUTHORIZED" });
+    authenticatedAs("TENANT_ADMIN", { ...ownStaff, status: "INACTIVE" });
+    await expect(createStaffAppointment(input)).resolves.toEqual({ status: "FORBIDDEN" });
+    await expect(getStaffCreateOptions()).resolves.toBeNull();
+    await expect(listStaffAppointments("2026-11-09")).resolves.toEqual({ status: "UNAUTHORIZED" });
+    expect(runtime.createOnBehalf).not.toHaveBeenCalled();
+    expect(runtime.listSlotsOnBehalf).not.toHaveBeenCalled();
   });
 
   it("rejects an INACTIVE or missing staff row", async () => {
