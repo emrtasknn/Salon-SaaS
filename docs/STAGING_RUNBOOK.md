@@ -116,7 +116,7 @@ Per environment:
    ```
 
 3. Build the new URL from the existing pooled `DATABASE_URL`: only the user and password change. Supavisor needs the tenant-qualified user name **`salon_app.<project-ref>`** (same host, port and parameters as the current `postgres.<project-ref>` URL). URL-encode the password.
-4. Vercel → project → Settings → Environment Variables → `DATABASE_URL` (that environment only) → new URL → Redeploy. Keep the old value in the password manager for rollback. Do not change the URL that migration workflows use.
+4. Vercel → project → Settings → Environment Variables → `DATABASE_URL` (that environment only) → new URL → Redeploy. Keep the old value in the password manager for rollback. Do not change the URL that migration workflows use: the GitHub secrets `STAGING_DATABASE_URL` (Environment `staging`) and the **repo secret `DATABASE_URL`** (pilot, read by `w11-4-pilot-supabase-migrate.yml`) must stay on `postgres`. `salon_app` has no DDL rights, so migrations run as it would fail.
 5. Verify, read-only, in the SQL editor:
 
    ```sql
