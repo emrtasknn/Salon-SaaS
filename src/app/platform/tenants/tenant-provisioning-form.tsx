@@ -67,7 +67,7 @@ export function TenantProvisioningForm() {
             <input id="name" name="name" required className={field} />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="slug" className={labelClass}>Adres</label>
+            <label htmlFor="slug" className={labelClass}>Bağlantı adı</label>
             <input
               id="slug"
               name="slug"
@@ -75,8 +75,12 @@ export function TenantProvisioningForm() {
               autoCapitalize="none"
               spellCheck={false}
               required
+              aria-describedby="slug-hint"
               className={field}
             />
+            <p id="slug-hint" className="text-footnote text-ink-muted">
+              Salonun web adresinde görünür: …/salon-adi. Küçük harf, rakam ve tire kullanın. Fiziksel adres, salon ayarlarındaki “Konum” bölümünden girilir.
+            </p>
           </div>
           <div className="space-y-1.5">
             <label htmlFor="timezone" className={labelClass}>Saat dilimi</label>
