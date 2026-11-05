@@ -4,6 +4,7 @@
 // provisioning form in a sheet. Presentation only — the page has already checked
 // platform access, and every server action re-checks it.
 
+import { AccountLinks } from "../../_ui/account-links";
 import { useId, useRef, useState } from "react";
 import { buttonPrimary, buttonSecondary, statusNote } from "../../_ui/styles";
 import { TenantProvisioningForm } from "./tenant-provisioning-form";
@@ -42,6 +43,7 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
             Yeni salon
           </button>
         </header>
+        <AccountLinks />
 
         <p role="status" aria-live="polite" className={notice !== "" ? statusNote : "sr-only"}>{notice}</p>
 
