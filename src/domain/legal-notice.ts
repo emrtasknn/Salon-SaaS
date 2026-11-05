@@ -9,8 +9,8 @@ import { createTenantKvkkContactEmail, createTenantLegalAddress, createTenantLeg
 
 export type LegalTemplate = Readonly<{ version: string; draft: boolean }>;
 
-export const CUSTOMER_NOTICE: LegalTemplate = Object.freeze({ version: "draft-2026-11-04", draft: true });
-export const WHATSAPP_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-04", draft: true });
+export const CUSTOMER_NOTICE: LegalTemplate = Object.freeze({ version: "draft-2026-11-05", draft: true });
+export const WHATSAPP_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-05", draft: true });
 export const STAFF_VERBAL_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-04", draft: true });
 
 /** Visible marker for values not decided yet (retention periods, platform legal name, ...). */
@@ -26,7 +26,7 @@ export type LegalNoticeTenant = Readonly<{
 }>;
 
 /** Customer-facing opt-out method (status-link button, WP-10). */
-const OPT_OUT_METHOD = "randevu durum bağlantınızdaki \"WhatsApp bildirimlerini kapat\" düğmesiyle";
+const OPT_OUT_METHOD = "randevu durum bağlantınızdaki \"WhatsApp bildirimlerini durdur\" düğmesiyle";
 
 /** SHA-256 of the exact UTF-8 text, lowercase hex (matches the DB CHECK on AppointmentContact). */
 export function sha256Hex(text: string): string {
