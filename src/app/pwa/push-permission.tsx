@@ -118,19 +118,35 @@ type View =
   | { kind: "off"; message?: string }
   | { kind: "on"; message?: string };
 
+/** UI-only: "Daha sonra" on the opt-in banner. Never used for auth or subscription state. */
+export const PUSH_PROMPT_DISMISSED_KEY = "salon-saas:push-prompt-dismissed";
+/** UI-only: the "blocked in device settings" hint is shown once per device. */
+export const PUSH_DENIED_HINT_SHOWN_KEY = "salon-saas:push-denied-hint-shown";
+
 type Props = {
   /** Opaque, non-authoritative key of the signed-in tenant/profile (server-hashed). */
   bindingKey: string;
+  /**
+   * Classes for the full-width banner (off / install hint / denied). The compact
+   * bell (on, or off after "Daha sonra") renders inline without them.
+   */
   className?: string;
-  widthClassName?: string;
 };
 
-const buttonClass =
-  "inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-wait disabled:opacity-60";
+function BellIcon({ off = false }: { off?: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      {off && <path d="M3 3l18 18" />}
+    </svg>
+  );
+}
 
-export function PushPermission({ bindingKey, className, widthClassName = "max-w-6xl" }: Props) {
+export function PushPermission({ bindingKey, className = "" }: Props) {
   const [view, setView] = useState<View>({ kind: "hidden" });
   const [busy, setBusy] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const publicKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -144,6 +160,8 @@ export function PushPermission({ bindingKey, className, widthClassName = "max-w-
         return;
       }
       if (cancelled || !config.enabled) return;
+      // Read after mount (not during render) so server and client markup match.
+      setDismissed(readStorage(PUSH_PROMPT_DISMISSED_KEY) !== null);
       publicKeyRef.current = config.publicKey;
 
       const registration = await getRegistration();
@@ -161,7 +179,14 @@ export function PushPermission({ bindingKey, className, widthClassName = "max-w-
         }),
       });
 
-      if (state === "hidden" || state === "install-hint" || state === "denied") {
+      if (state === "denied") {
+        // Show the "blocked" hint only once per device; afterwards stay quiet.
+        if (readStorage(PUSH_DENIED_HINT_SHOWN_KEY) !== null) return;
+        writeStorage(PUSH_DENIED_HINT_SHOWN_KEY, "1");
+        setView({ kind: "denied" });
+        return;
+      }
+      if (state === "hidden" || state === "install-hint") {
         setView({ kind: state });
         return;
       }
@@ -227,6 +252,7 @@ export function PushPermission({ bindingKey, className, widthClassName = "max-w-
       // Permission and subscription are requested only from this tap.
       const permission = await Notification.requestPermission();
       if (permission === "denied") {
+        writeStorage(PUSH_DENIED_HINT_SHOWN_KEY, "1");
         setView({ kind: "denied" });
         return;
       }
@@ -277,6 +303,9 @@ export function PushPermission({ bindingKey, className, widthClassName = "max-w-
       }
       writeStorage(PUSH_BINDING_MARKER_KEY, null);
       writeStorage(PUSH_OPT_OUT_KEY, bindingKey);
+      // The user chose "off": keep the quiet bell instead of re-showing the banner.
+      writeStorage(PUSH_PROMPT_DISMISSED_KEY, "1");
+      setDismissed(true);
       setView({ kind: "off", message: "Bildirimler kapatıldı." });
     } catch {
       setView({ kind: "on", message: "Bildirimler kapatılamadı. Tekrar deneyin." });
@@ -285,73 +314,98 @@ export function PushPermission({ bindingKey, className, widthClassName = "max-w-
     }
   }
 
+  function later() {
+    writeStorage(PUSH_PROMPT_DISMISSED_KEY, "1");
+    setDismissed(true);
+  }
+
   if (view.kind === "hidden") return null;
 
+  // On, or off after "Daha sonra": a compact bell toggle instead of a persistent card.
+  if (view.kind === "on" || (view.kind === "off" && dismissed)) {
+    const on = view.kind === "on";
+    return (
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <button
+          type="button"
+          onClick={on ? disable : enable}
+          disabled={busy}
+          aria-busy={busy}
+          aria-label={on ? "Bildirimler açık. Kapatmak için dokunun." : "Bildirimler kapalı. Açmak için dokunun."}
+          className={`pressable focus-ring tap-target inline-flex items-center gap-1.5 rounded-full border px-3 text-footnote font-semibold disabled:cursor-wait disabled:opacity-60 ${
+            on ? "border-separator bg-surface text-ink hover:bg-surface-muted" : "border-separator bg-surface text-ink-muted hover:bg-surface-muted"
+          }`}
+        >
+          <BellIcon off={!on} />
+          <span>{busy ? (on ? "Kapatılıyor…" : "Açılıyor…") : on ? "Açık" : "Kapalı"}</span>
+        </button>
+        {view.message && (
+          <p role="status" className="max-w-48 text-right text-caption text-ink-muted">
+            {view.message}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Remaining views are a single-line banner; install hint can be postponed too.
+  if (view.kind === "install-hint" && dismissed) return null;
+
   return (
-    <div className={className}>
-      <section
-        aria-label="Bildirimler"
-        className={`mx-auto flex ${widthClassName} flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-zinc-200 bg-white p-3 text-sm text-zinc-900`}
-      >
-        {view.kind === "install-hint" && (
-          <p className="min-w-0 flex-1 leading-snug">
-            <span className="font-medium">Bildirim almak için ana ekrana ekleyin:</span>{" "}
-            <span className="text-zinc-700">
-              Paylaş <span aria-hidden="true">(⬆︎)</span> → Ana Ekrana Ekle
-            </span>
-          </p>
-        )}
+    <section
+      aria-label="Bildirimler"
+      className={`flex basis-full flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-separator bg-surface px-3.5 py-2 text-subhead text-ink ${className}`}
+    >
+      <BellIcon off={view.kind === "denied"} />
+      {view.kind === "install-hint" && (
+        <p className="min-w-0 flex-1 leading-snug">
+          Bildirim için ana ekrana ekleyin:{" "}
+          <span className="text-ink-muted">
+            Paylaş <span aria-hidden="true">(⬆︎)</span> → Ana Ekrana Ekle
+          </span>
+        </p>
+      )}
 
-        {view.kind === "denied" && (
-          <p className="min-w-0 flex-1 leading-snug">
-            <span className="font-medium">Bildirimler engellendi.</span>{" "}
-            <span className="text-zinc-700">
-              Açmak için cihaz ayarlarından bu uygulamanın bildirim iznini verin.
-            </span>
-          </p>
-        )}
+      {view.kind === "denied" && (
+        <p className="min-w-0 flex-1 leading-snug text-ink-muted">
+          Bildirimler engellendi. Cihaz ayarlarından izin verebilirsiniz.
+        </p>
+      )}
 
+      {view.kind === "off" && (
+        <p className="min-w-0 flex-1 leading-snug">
+          Yeni talepler için bildirim alın.
+          {view.message && (
+            <span role="status" className="block text-footnote text-ink-muted">
+              {view.message}
+            </span>
+          )}
+        </p>
+      )}
+
+      <div className="flex shrink-0 items-center gap-1">
         {view.kind === "off" && (
-          <>
-            <p className="min-w-0 flex-1 leading-snug">
-              <span className="font-medium">Yeni randevu talepleri için bildirim alın.</span>
-              {view.message && (
-                <span role="status" className="block text-zinc-700">
-                  {view.message}
-                </span>
-              )}
-            </p>
-            <button
-              type="button"
-              onClick={enable}
-              disabled={busy}
-              aria-busy={busy}
-              className={`${buttonClass} bg-zinc-900 text-white hover:bg-zinc-700 active:bg-zinc-800`}
-            >
-              {busy ? "Açılıyor…" : "Bildirimleri aç"}
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={enable}
+            disabled={busy}
+            aria-busy={busy}
+            className="pressable focus-ring tap-target inline-flex items-center rounded-control bg-action px-3 text-subhead font-semibold text-on-action hover:bg-action-hover disabled:cursor-wait disabled:opacity-60"
+          >
+            {busy ? "Açılıyor…" : "Bildirimleri aç"}
+          </button>
         )}
-
-        {view.kind === "on" && (
-          <>
-            <p role="status" className="min-w-0 flex-1 leading-snug">
-              <span className="font-medium">Bildirimler açık</span>
-              {view.message && <span className="block text-zinc-700">{view.message}</span>}
-            </p>
-            <button
-              type="button"
-              onClick={disable}
-              disabled={busy}
-              aria-busy={busy}
-              aria-label="Bildirimleri kapat"
-              className={`${buttonClass} border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50 active:bg-zinc-100`}
-            >
-              {busy ? "Kapatılıyor…" : "Kapat"}
-            </button>
-          </>
+        {(view.kind === "off" || view.kind === "install-hint") && (
+          <button
+            type="button"
+            onClick={later}
+            disabled={busy}
+            className="focus-ring tap-target inline-flex items-center rounded-control px-3 text-subhead font-medium text-ink-muted hover:bg-surface-muted"
+          >
+            Daha sonra
+          </button>
         )}
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }

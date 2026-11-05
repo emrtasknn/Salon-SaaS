@@ -8,14 +8,14 @@ import { ServiceWorkerRegistrar } from "./pwa/service-worker-registrar";
 // no web font is downloaded.
 
 export const metadata: Metadata = {
-  applicationName: "Salon-SaaS",
-  title: "Salon-SaaS · Online randevu",
+  applicationName: "RandevuN",
+  title: "RandevuN · Online randevu",
   description:
     "Salon, barbershop ve güzellik merkezleri için online randevu yönetimi platformu.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "Salon-SaaS",
+    title: "RandevuN",
     statusBarStyle: "default",
   },
   icons: {
