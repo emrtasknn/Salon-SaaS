@@ -112,6 +112,8 @@ jobs:
             echo "No schema drift." | tee -a "$GITHUB_STEP_SUMMARY"
           elif [ "$code" -eq 2 ]; then
             echo "::error::Schema drift detected between staging and prisma/schema.prisma."
+            # Also print to the job log (schema SQL only, no data or secrets) so it can be read without the summary page.
+            cat drift.txt
             { echo "### Schema drift (staging DB → schema.prisma)"; echo '```'; cat drift.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           else
