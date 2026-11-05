@@ -2,7 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { buttonPrimary, card, field, statusNote } from "../../_ui/styles";
 import { createTenantAction } from "./actions";
+
+const labelClass = "block text-subhead font-medium text-ink";
 
 export function TenantProvisioningForm() {
   const router = useRouter();
@@ -55,41 +58,85 @@ export function TenantProvisioningForm() {
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <fieldset disabled={isSubmitting}>
-        <legend>Salon bilgileri</legend>
-        <label htmlFor="name">Salon adı</label>
-        <input id="name" name="name" required />
-        <label htmlFor="slug">Adres</label>
-        <input id="slug" name="slug" placeholder="salon-adi" required />
-        <label htmlFor="timezone">Saat dilimi</label>
-        {/* MVP supports only Europe/Istanbul (see MVP_SUPPORTED_TIMEZONES); the server re-validates. */}
-        <input id="timezone" name="timezone" defaultValue="Europe/Istanbul" readOnly required />
+    <form onSubmit={onSubmit} className="space-y-6">
+      <fieldset disabled={isSubmitting} className="min-w-0">
+        <legend className="group-label">Salon bilgileri</legend>
+        <div className={`${card} space-y-4`}>
+          <div className="space-y-1.5">
+            <label htmlFor="name" className={labelClass}>Salon adı</label>
+            <input id="name" name="name" required className={field} />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="slug" className={labelClass}>Adres</label>
+            <input
+              id="slug"
+              name="slug"
+              placeholder="salon-adi"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              className={field}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="timezone" className={labelClass}>Saat dilimi</label>
+            {/* MVP supports only Europe/Istanbul (see MVP_SUPPORTED_TIMEZONES); the server re-validates. */}
+            <input
+              id="timezone"
+              name="timezone"
+              defaultValue="Europe/Istanbul"
+              readOnly
+              required
+              className={`${field} bg-surface-muted text-ink-muted`}
+            />
+          </div>
+        </div>
       </fieldset>
 
-      <fieldset disabled={isSubmitting}>
-        <legend>İlk tenant admin</legend>
-        <label htmlFor="firstAdminDisplayName">Ad soyad</label>
-        <input id="firstAdminDisplayName" name="firstAdminDisplayName" required />
-        <label htmlFor="firstAdminEmail">E-posta</label>
-        <input id="firstAdminEmail" name="firstAdminEmail" type="email" required />
-        <label htmlFor="firstAdminPassword">Şifre</label>
-        <input
-          id="firstAdminPassword"
-          name="firstAdminPassword"
-          type="password"
-          minLength={8}
-          required
-        />
-        <label htmlFor="firstAdminPhone">Telefon</label>
-        <input id="firstAdminPhone" name="firstAdminPhone" />
+      <fieldset disabled={isSubmitting} className="min-w-0">
+        <legend className="group-label">İlk tenant admin</legend>
+        <div className={`${card} space-y-4`}>
+          <div className="space-y-1.5">
+            <label htmlFor="firstAdminDisplayName" className={labelClass}>Ad soyad</label>
+            <input id="firstAdminDisplayName" name="firstAdminDisplayName" required className={field} />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="firstAdminEmail" className={labelClass}>E-posta</label>
+            <input
+              id="firstAdminEmail"
+              name="firstAdminEmail"
+              type="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              className={field}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="firstAdminPassword" className={labelClass}>Şifre</label>
+            <input
+              id="firstAdminPassword"
+              name="firstAdminPassword"
+              type="password"
+              minLength={8}
+              aria-describedby="firstAdminPassword-hint"
+              required
+              className={field}
+            />
+            <p id="firstAdminPassword-hint" className="text-footnote text-ink-muted">En az 8 karakter.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="firstAdminPhone" className={labelClass}>Telefon (isteğe bağlı)</label>
+            <input id="firstAdminPhone" name="firstAdminPhone" type="tel" className={`${field} tabular-nums`} />
+          </div>
+        </div>
       </fieldset>
 
-      <button type="submit" disabled={isSubmitting}>
+      <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className={`${buttonPrimary} w-full sm:w-auto`}>
         {isSubmitting ? "Oluşturuluyor..." : "Salon oluştur"}
       </button>
 
-      {message !== "" ? <p role="status">{message}</p> : null}
+      {message !== "" ? <p role="status" className={statusNote}>{message}</p> : null}
     </form>
   );
 }

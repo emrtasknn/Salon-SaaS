@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
 
+import { buttonPrimary, card, field } from "../_ui/styles";
+
 export function LoginForm() {
   const router = useRouter();
 
@@ -45,37 +47,55 @@ export function LoginForm() {
     }
   }
 
+  const hasError = errorMessage !== "";
+
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="email">E-posta</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className={`${card} space-y-4`}>
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="block text-subhead font-medium text-ink">E-posta</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            aria-describedby={hasError ? "login-error" : undefined}
+            className={field}
+            required
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="password" className="block text-subhead font-medium text-ink">Şifre</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            aria-describedby={hasError ? "login-error" : undefined}
+            className={field}
+            required
+          />
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="password">Şifre</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
-      </div>
+      {hasError ? (
+        <p
+          id="login-error"
+          role="alert"
+          className="rounded-control border border-destructive/40 bg-status-rejected-bg p-3.5 text-subhead font-medium text-status-rejected"
+        >
+          {errorMessage}
+        </p>
+      ) : null}
 
-      {errorMessage !== "" ? <p role="alert">{errorMessage}</p> : null}
-
-      <button type="submit" disabled={isSubmitting}>
+      <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className={`${buttonPrimary} w-full`}>
         {isSubmitting ? "Giriş yapılıyor..." : "Giriş yap"}
       </button>
     </form>
