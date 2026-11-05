@@ -21,6 +21,7 @@ export function customerAppointmentStatusService() {
     limiter: createStatusLinkRateLimiter({ check: checkRateLimit, readClientIp }),
     // Redacted console.info; context never includes the token.
     logCancelled: (event) => logInfo("customer_appointment_cancelled", event),
+    logWhatsAppStopped: (event) => logInfo("customer_whatsapp_opted_out", event),
   });
 }
 

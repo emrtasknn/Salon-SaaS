@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createBookingEngine, type AppointmentCreateScope } from "./booking-engine";
 import { createAuthenticatedIdentity } from "../domain/auth-identity";
+import { STAFF_VERBAL_OPTIN, renderStaffVerbalOptIn } from "../domain/legal-notice";
 import { addDaysToDateIso, localWallTimeToUtc } from "../domain/availability";
 
 function nextMondayIso(): string {
@@ -44,7 +45,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   repository.getBookingContext.mockResolvedValue(bookingContext());
   repository.getCreateOptions.mockResolvedValue({ timezone: "Europe/Istanbul", services: [], staff: [] });
-  repository.createAppointment.mockResolvedValue({ status: "created", appointmentId: "a1", customerPhone: "+905551112233" });
+  repository.createAppointment.mockResolvedValue({ status: "created", appointmentId: "a1", customerWhatsAppOptIn: false });
   repository.transition.mockResolvedValue("updated");
   authorizer.authorize.mockResolvedValue(true);
   authorizer.authorizeStaffDecision.mockResolvedValue(true);
@@ -136,12 +137,13 @@ describe("createOnBehalf (WP-08)", () => {
 
   it("creates CONFIRMED with an access-token hash and returns the raw token only to the caller", async () => {
     const result = await engine().createOnBehalf(identity, tenant, { serviceId: "svc", staffId: "staff", startAt: nineAm, customer: { ...guest, email: " g@example.com " } });
-    expect(result).toMatchObject({ status: "CREATED", appointmentId: "a1", customerPhone: "+905551112233" });
+    expect(result).toMatchObject({ status: "CREATED", appointmentId: "a1", customerWhatsAppOptIn: false });
     const call = repository.createAppointment.mock.calls[0][1];
     expect(call.initialStatus).toBe("CONFIRMED");
     expect(call.customer).toEqual({ kind: "guest", displayName: "Guest", email: "g@example.com", phone: "+905551112233" });
     expect(call.accessTokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(call).not.toHaveProperty("endAt");
+    expect(call.contact).toEqual({ whatsappVerbalOptIn: false, recordedByProfileId: "p" });
   });
 
   it("rejects malformed guest input", async () => {
@@ -295,5 +297,38 @@ describe("slotsOnBehalf inactive tenant (WP-11)", () => {
     repository.getBookingContext.mockResolvedValue(bookingContext({ tenantStatus: "INACTIVE", closedDates: [availabilityDate] }));
     await expect(engine().slotsOnBehalf(identity, tenant, { serviceId: "svc", staffId: "staff", dateIso: availabilityDate }))
       .resolves.toEqual({ status: "TENANT_INACTIVE" });
+  });
+});
+
+describe("verbal WhatsApp opt-in (WP-10)", () => {
+  it("passes the opt-in with the acting user's server-derived profile as recorder", async () => {
+    await engine().createOnBehalf(identity, tenant, { serviceId: "svc", staffId: "staff", startAt: nineAm, customer: guest, whatsappVerbalOptIn: true });
+    expect(repository.createAppointment.mock.calls[0][1].contact).toEqual({ whatsappVerbalOptIn: true, recordedByProfileId: "p" });
+  });
+
+  it("guest without a phone -> OPT_IN_REQUIRES_PHONE before persistence", async () => {
+    const result = await engine().createOnBehalf(identity, tenant, {
+      serviceId: "svc", staffId: "staff", startAt: nineAm, customer: { kind: "guest", displayName: "Guest" }, whatsappVerbalOptIn: true,
+    });
+    expect(result).toEqual({ status: "OPT_IN_REQUIRES_PHONE" });
+    expect(repository.createAppointment).not.toHaveBeenCalled();
+  });
+
+  it("maps persistence opt_in_requires_phone (existing customer without E.164 phone)", async () => {
+    repository.createAppointment.mockResolvedValueOnce("opt_in_requires_phone");
+    await expect(engine().createOnBehalf(identity, tenant, {
+      serviceId: "svc", staffId: "staff", startAt: nineAm, customer: { kind: "existing", profileId: "c1" }, whatsappVerbalOptIn: true,
+    })).resolves.toEqual({ status: "OPT_IN_REQUIRES_PHONE" });
+  });
+
+  it("rejects a non-boolean opt-in flag", async () => {
+    await expect(engine().createOnBehalf(identity, tenant, { serviceId: "svc", staffId: "staff", startAt: nineAm, customer: guest, whatsappVerbalOptIn: "yes" }))
+      .resolves.toEqual({ status: "INVALID_INPUT" });
+    expect(repository.createAppointment).not.toHaveBeenCalled();
+  });
+
+  it("create options carry the verbal opt-in template label/version", async () => {
+    const result = await engine().createOptions(identity, tenant);
+    expect(result).toMatchObject({ status: "OK", options: { verbalOptIn: { version: STAFF_VERBAL_OPTIN.version, label: renderStaffVerbalOptIn() } } });
   });
 });

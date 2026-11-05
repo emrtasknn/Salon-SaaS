@@ -29,7 +29,7 @@ type Call = [unknown, unknown, unknown, unknown];
 const sessionTenant = { tenantId: "tenant-from-session" };
 const input = {
   serviceId: "svc", staffId: "any-staff", startAt: "2026-11-09T06:00:00.000Z",
-  customer: { kind: "existing" as const, profileId: "c1" }, notifyCustomer: false,
+  customer: { kind: "existing" as const, profileId: "c1" }, notifyCustomer: false, whatsappVerbalOptIn: true,
 };
 
 function authenticatedAs(role: string) {
@@ -52,7 +52,7 @@ describe("createAdminAppointment (WP-08)", () => {
     const [, identity, tenantContext, passed] = runtime.createOnBehalf.mock.calls[0] as unknown as Call;
     expect(identity).toMatchObject({ subjectId: "user-1", profileId: "profile-1" });
     expect(tenantContext).toBe(sessionTenant);
-    expect(passed).toEqual({ serviceId: "svc", staffId: "any-staff", startAt: input.startAt, customer: input.customer, notifyCustomer: false });
+    expect(passed).toEqual({ serviceId: "svc", staffId: "any-staff", startAt: input.startAt, customer: input.customer, notifyCustomer: false, whatsappVerbalOptIn: true });
   });
 
   it.each(["STAFF", "CUSTOMER"])("rejects a %s membership with FORBIDDEN", async (role) => {

@@ -32,7 +32,11 @@ export type PublicLegalView = Readonly<{
   shortNotice: string;
   /** Link target for the full notice, e.g. `/${slug}/aydinlatma`. */
   fullNoticePath: string;
+  /** SHA-256 (lowercase hex) of the exact notice text shown (short + full); send back unchanged. */
+  noticeHash: string;
   optInVersion: string;
+  /** SHA-256 (lowercase hex) of the exact opt-in label + help shown; send back when opted in. */
+  optInHash: string;
   /** Checkbox label for the optional WhatsApp opt-in. Unchecked by default. */
   optInLabel: string;
   /** Small help text under the opt-in checkbox. */
@@ -58,9 +62,13 @@ export type PublicBookingInput = Readonly<{
   phone: string;
   /** PublicLegalView.noticeVersion the form displayed. */
   noticeVersion: string;
+  /** PublicLegalView.noticeHash the form displayed; mismatch with the text in force -> NOTICE_STALE. */
+  noticeHash: string;
   whatsappOptIn: boolean;
   /** PublicLegalView.optInVersion when whatsappOptIn is true, else null. */
   optInVersion: string | null;
+  /** PublicLegalView.optInHash when whatsappOptIn is true, else null. */
+  optInHash: string | null;
 }>;
 
 export type PublicBookingResult =
@@ -72,7 +80,7 @@ export type PublicBookingResult =
         | "TENANT_INACTIVE"
         /** Salon legal fields missing (re-checked in the booking transaction). */
         | "TENANT_LEGAL_INCOMPLETE"
-        /** Displayed notice/opt-in version is not current: reload the page. */
+        /** Displayed notice/opt-in version or text (hash) is not current: reload the page. */
         | "NOTICE_STALE"
         /** Opt-in ticked without a valid phone. */
         | "OPT_IN_REQUIRES_PHONE"

@@ -10,6 +10,7 @@ import {
   transitionAdminAppointment,
 } from "./calendar-actions";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
+import { BookingContactSummary } from "../booking-contact-summary";
 
 const createVariant = {
   kind: "admin",
@@ -198,6 +199,11 @@ export function AdminCalendar({ initialDate, initialData }: Props) {
                       <span className="font-medium">Hizmet:</span>{" "}
                       {appointment.serviceName}
                     </p>
+
+                    <BookingContactSummary
+                      contact={appointment.bookingContact}
+                      profile={{ displayName: appointment.customerDisplayName }}
+                    />
                   </div>
 
                   <span className="rounded-full border px-2 py-1 text-xs">

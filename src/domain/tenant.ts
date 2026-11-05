@@ -18,7 +18,10 @@ export type TenantValidationErrorCode =
   | "INVALID_TENANT_NAME"
   | "INVALID_TENANT_SLUG"
   | "INVALID_TIMEZONE"
-  | "INVALID_CONTACT_PHONE";
+  | "INVALID_CONTACT_PHONE"
+  | "INVALID_LEGAL_NAME"
+  | "INVALID_LEGAL_ADDRESS"
+  | "INVALID_KVKK_EMAIL";
 
 export type TenantValidationResult<T> =
   | { readonly ok: true; readonly value: T }
@@ -175,4 +178,57 @@ export function createTenantContactPhone(
 export function whatsAppLink(phone: string | null): string | null {
   if (typeof phone !== "string" || !TENANT_CONTACT_PHONE_PATTERN.test(phone)) return null;
   return `https://wa.me/${phone.slice(1)}`;
+}
+
+/**
+ * WP-10: generic E.164 normalization (same rules as the salon contact phone), used for the
+ * customer phone of a booking contact snapshot. Not the rate-limit subject normalizer.
+ */
+export const normalizeE164Phone = createTenantContactPhone;
+
+/** WP-10: KVKK controller identity on Tenant. Caps equal the VARCHAR(n) columns. */
+export const TENANT_LEGAL_NAME_MAX_LENGTH = 200;
+export const TENANT_LEGAL_ADDRESS_MAX_LENGTH = 500;
+export const TENANT_KVKK_EMAIL_MAX_LENGTH = 254;
+
+// C0/C1 control characters. JS trim() removes a superset of the DB's [[:space:]] at both ends,
+// so a trimmed, non-empty value without control characters satisfies the "trimmed non-blank" CHECKs.
+const LEGAL_CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/;
+/** Stricter than the DB CHECK "Tenant_kvkkContactEmail_format_check" (also requires a dot in the domain). */
+const KVKK_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function legalText(
+  raw: unknown,
+  code: TenantValidationErrorCode,
+  maxLength: number,
+  label: string,
+): TenantValidationResult<string | null> {
+  if (raw === null || raw === undefined) return { ok: true, value: null };
+  if (typeof raw !== "string") return failure(code, `${label} must be a string.`);
+  const value = raw.trim();
+  if (value.length === 0) return { ok: true, value: null };
+  if (value.length > maxLength) return failure(code, `${label} must be at most ${maxLength} characters.`);
+  if (LEGAL_CONTROL_CHARACTERS.test(value)) return failure(code, `${label} must not contain control characters.`);
+  return { ok: true, value };
+}
+
+/** WP-10: salon legal (trade) name. Empty input clears it (null). */
+export function createTenantLegalName(raw: unknown): TenantValidationResult<string | null> {
+  return legalText(raw, "INVALID_LEGAL_NAME", TENANT_LEGAL_NAME_MAX_LENGTH, "Legal name");
+}
+
+/** WP-10: salon notice address. Line breaks (textarea input) become ", ". Empty input clears it (null). */
+export function createTenantLegalAddress(raw: unknown): TenantValidationResult<string | null> {
+  const flattened = typeof raw === "string" ? raw.trim().replace(/[ \t]*\r?\n\s*/g, ", ") : raw;
+  return legalText(flattened, "INVALID_LEGAL_ADDRESS", TENANT_LEGAL_ADDRESS_MAX_LENGTH, "Legal address");
+}
+
+/** WP-10: KVKK application e-mail of the salon. Empty input clears it (null). */
+export function createTenantKvkkContactEmail(raw: unknown): TenantValidationResult<string | null> {
+  const result = legalText(raw, "INVALID_KVKK_EMAIL", TENANT_KVKK_EMAIL_MAX_LENGTH, "KVKK contact e-mail");
+  if (!result.ok || result.value === null) return result;
+  if (!KVKK_EMAIL_PATTERN.test(result.value)) {
+    return failure("INVALID_KVKK_EMAIL", "KVKK contact e-mail must be a valid e-mail address.");
+  }
+  return result;
 }

@@ -4,7 +4,10 @@ import { createAuthenticatedIdentity } from "../domain/auth-identity";
 
 const identity = createAuthenticatedIdentity("u", "p");
 const tenant = { tenantId: "tenant-a" as never };
-const settings = { name: "Salon", contactPhone: null, status: "ACTIVE" as const, timezone: "Europe/Istanbul" };
+const settings = {
+  name: "Salon", contactPhone: null, status: "ACTIVE" as const, timezone: "Europe/Istanbul",
+  legal: { legalName: null, legalAddress: null, kvkkContactEmail: null },
+};
 
 function makeService(options: Readonly<{ read?: boolean; update?: boolean }> = {}) {
   const repository = {
@@ -65,5 +68,39 @@ describe("tenant settings (WP-07)", () => {
     await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "" })).resolves.toEqual({ ok: false, code: "PERSISTENCE_FAILURE" });
     repository.update.mockRejectedValueOnce(new Error("db"));
     await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "" })).resolves.toEqual({ ok: false, code: "PERSISTENCE_FAILURE" });
+  });
+});
+
+describe("tenant settings legal fields (WP-10)", () => {
+  it("writes trimmed legal fields together with name/phone", async () => {
+    const { service, repository } = makeService();
+    await expect(service.update(identity, tenant, {
+      name: "Salon", contactPhone: "", legalName: " Ada Ltd. ", legalAddress: "Moda Cd. 1", kvkkContactEmail: "kvkk@ada.example",
+    })).resolves.toEqual({ ok: true });
+    expect(repository.update).toHaveBeenCalledWith(tenant, {
+      name: "Salon", contactPhone: null, legalName: "Ada Ltd.", legalAddress: "Moda Cd. 1", kvkkContactEmail: "kvkk@ada.example",
+    });
+  });
+
+  it("leaves absent legal fields unchanged and clears blank ones", async () => {
+    const { service, repository } = makeService();
+    await service.update(identity, tenant, { name: "Salon", contactPhone: "", legalName: "" });
+    expect(repository.update).toHaveBeenCalledWith(tenant, { name: "Salon", contactPhone: null, legalName: null });
+  });
+
+  it.each([
+    [{ legalName: "a".repeat(201) }, "INVALID_LEGAL_NAME"],
+    [{ legalAddress: "a".repeat(501) }, "INVALID_LEGAL_ADDRESS"],
+    [{ kvkkContactEmail: "kvkk" }, "INVALID_KVKK_EMAIL"],
+  ])("rejects %j with %s before writing", async (legal, code) => {
+    const { service, repository } = makeService();
+    await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "", ...legal })).resolves.toEqual({ ok: false, code });
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it("forbids legal updates without update authorization", async () => {
+    const { service, repository } = makeService({ update: false });
+    await expect(service.update(identity, tenant, { name: "Salon", contactPhone: "", legalName: "Ada" })).resolves.toEqual({ ok: false, code: "FORBIDDEN" });
+    expect(repository.update).not.toHaveBeenCalled();
   });
 });

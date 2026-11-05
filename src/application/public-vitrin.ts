@@ -3,11 +3,16 @@ import type { ServiceRecord } from "../domain/service";
 import type { StaffRecord } from "../domain/staff";
 import type { WorkingHoursRecord } from "../domain/working-hours";
 import { whatsAppLink, type TenantStatus } from "../domain/tenant";
+import { isLegalReady } from "../domain/legal-notice";
 
 export type PublicSalonRepository = Readonly<{
-  /** WP-07: `status` and `contactPhone` are additive, server-only fields (never forwarded to client props). */
+  /**
+   * WP-07: `status` and `contactPhone` are additive, server-only fields (never forwarded to client props).
+   * WP-10: legal fields are server-only too; they reach the public only inside the rendered notice text.
+   */
   resolveBySlug(slug: string): Promise<Readonly<{
     tenantContext: TenantContext; name: string; timezone: string; status: TenantStatus; contactPhone: string | null;
+    legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
   }> | null>;
   catalog(tenantContext: TenantContext): Promise<Readonly<{
     services: ReadonlyArray<ServiceRecord>;
@@ -29,6 +34,8 @@ export function createPublicVitrin(repository: PublicSalonRepository) {
         timezone: resolved.timezone,
         active: resolved.status === "ACTIVE",
         whatsAppUrl: whatsAppLink(resolved.contactPhone),
+        // WP-10: booking form opens only when the salon's KVKK controller identity is set (boolean only).
+        legalReady: isLegalReady(resolved),
       };
       // An inactive salon shows no catalog (no services / booking links).
       if (!salon.active) {

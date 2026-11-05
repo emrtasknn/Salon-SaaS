@@ -21,6 +21,8 @@
 //     createClosure(input: CreateClosureInput): Promise<CreateClosureResult>
 //     deleteClosure(closureId: string): Promise<DeleteClosureResult>
 
+import type { VerbalOptInView } from "./legal-consent-contract";
+
 /** "YYYY-MM-DD", a local calendar date in the tenant's timezone. */
 export type LocalDateIso = string;
 
@@ -29,6 +31,8 @@ export type CreateOptionsView = Readonly<{
   services: ReadonlyArray<Readonly<{ id: string; name: string; durationMinutes: number }>>;
   /** Admin: all ACTIVE staff. Staff: only themselves. */
   staff: ReadonlyArray<Readonly<{ id: string; displayName: string }>>;
+  /** WP-10: label/version of the "customer gave verbal WhatsApp opt-in" checkbox (server template). */
+  verbalOptIn: VerbalOptInView;
 }>;
 
 export type SlotView = Readonly<{
@@ -66,6 +70,8 @@ export type AdminCreateAppointmentInput = Readonly<{
   startAt: string;
   customer: ExistingCustomerInput | GuestCustomerInput;
   notifyCustomer: boolean;
+  /** WP-10: customer gave a verbal WhatsApp opt-in; requires an E.164 phone (guest input or CRM profile). */
+  whatsappVerbalOptIn: boolean;
 }>;
 
 /** Staff create for themselves only and enter a guest customer (no CRM search). */
@@ -74,6 +80,8 @@ export type StaffCreateAppointmentInput = Readonly<{
   startAt: string;
   customer: Omit<GuestCustomerInput, "email">;
   notifyCustomer: boolean;
+  /** WP-10: customer gave a verbal WhatsApp opt-in; requires an E.164 phone. */
+  whatsappVerbalOptIn: boolean;
 }>;
 
 export type CreateAppointmentResult =
@@ -87,7 +95,9 @@ export type CreateAppointmentResult =
         | "TENANT_INACTIVE"
         | "CUSTOMER_NOT_FOUND"
         | "INVALID_INPUT"
-        | "FORBIDDEN";
+        | "FORBIDDEN"
+        /** WP-10: verbal opt-in ticked but the customer has no valid (E.164) phone. */
+        | "OPT_IN_REQUIRES_PHONE";
     }>;
 
 export type ClosureView = Readonly<{ id: string; date: LocalDateIso; reason: string | null }>;

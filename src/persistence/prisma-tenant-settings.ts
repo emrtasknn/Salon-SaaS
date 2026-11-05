@@ -7,11 +7,14 @@ type Tx = PrismaTenantTransactionClient & {
   tenant: {
     findUnique(args: {
       where: { id: string };
-      select: { name: true; contactPhone: true; status: true; timezone: true };
-    }): Promise<{ name: string; contactPhone: string | null; status: string; timezone: string } | null>;
+      select: { name: true; contactPhone: true; status: true; timezone: true; legalName: true; legalAddress: true; kvkkContactEmail: true };
+    }): Promise<{
+      name: string; contactPhone: string | null; status: string; timezone: string;
+      legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
+    } | null>;
     updateMany(args: {
       where: { id: string };
-      data: { name: string; contactPhone: string | null };
+      data: { name: string; contactPhone: string | null; legalName?: string | null; legalAddress?: string | null; kvkkContactEmail?: string | null };
     }): Promise<{ count: number }>;
   };
 };
@@ -23,11 +26,14 @@ export function createPrismaTenantSettingsRepository(prisma: PrismaTenantClient)
       const tenant = await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
         tx.tenant.findUnique({
           where: { id: tenantContext.tenantId },
-          select: { name: true, contactPhone: true, status: true, timezone: true },
+          select: { name: true, contactPhone: true, status: true, timezone: true, legalName: true, legalAddress: true, kvkkContactEmail: true },
         }),
       );
       if (!tenant || !isTenantStatus(tenant.status)) return null;
-      return { name: tenant.name, contactPhone: tenant.contactPhone ?? null, status: tenant.status, timezone: tenant.timezone };
+      return {
+        name: tenant.name, contactPhone: tenant.contactPhone ?? null, status: tenant.status, timezone: tenant.timezone,
+        legal: { legalName: tenant.legalName ?? null, legalAddress: tenant.legalAddress ?? null, kvkkContactEmail: tenant.kvkkContactEmail ?? null },
+      };
     },
 
     async update(tenantContext: TenantContext, input) {
@@ -35,7 +41,13 @@ export function createPrismaTenantSettingsRepository(prisma: PrismaTenantClient)
         const result = await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
           tx.tenant.updateMany({
             where: { id: tenantContext.tenantId },
-            data: { name: input.name, contactPhone: input.contactPhone },
+            data: {
+              name: input.name, contactPhone: input.contactPhone,
+              // WP-10: only keys present in the input are written (absent = unchanged).
+              ...(input.legalName !== undefined ? { legalName: input.legalName } : {}),
+              ...(input.legalAddress !== undefined ? { legalAddress: input.legalAddress } : {}),
+              ...(input.kvkkContactEmail !== undefined ? { kvkkContactEmail: input.kvkkContactEmail } : {}),
+            },
           }),
         );
         return result.count === 1 ? "updated" : "not_found";

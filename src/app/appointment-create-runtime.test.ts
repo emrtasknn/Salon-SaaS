@@ -24,7 +24,7 @@ const asEngine = () => engine as unknown as Engine;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  engine.createOnBehalf.mockResolvedValue({ status: "CREATED", appointmentId: "a1", customerPhone: "+905551112233", accessToken: "raw" });
+  engine.createOnBehalf.mockResolvedValue({ status: "CREATED", appointmentId: "a1", customerWhatsAppOptIn: true, accessToken: "raw" });
   publishAppointmentNotification.mockResolvedValue({ status: "processed", results: [{ profileId: "c", status: "SENT", channel: "WHATSAPP" }] });
 });
 
@@ -38,10 +38,15 @@ describe("createOnBehalf runtime (WP-08)", () => {
   it("passes the server tenant context and a parsed Date to the engine, and never returns the raw access token", async () => {
     const result = await create();
     expect(engine.createOnBehalf).toHaveBeenCalledWith(identity, tenantContext, {
-      serviceId: "svc", staffId: "staff", startAt: new Date(startIso), customer: guest,
+      serviceId: "svc", staffId: "staff", startAt: new Date(startIso), customer: guest, whatsappVerbalOptIn: false,
     });
     expect(result).toEqual({ status: "CREATED", appointmentId: "a1", notified: true });
     expect(JSON.stringify(result)).not.toContain("raw");
+  });
+
+  it("forwards whatsappVerbalOptIn=true to the engine (WP-10)", async () => {
+    await create({ whatsappVerbalOptIn: true });
+    expect(engine.createOnBehalf.mock.calls[0][2]).toMatchObject({ whatsappVerbalOptIn: true });
   });
 
   it("publishes APPOINTMENT_CONFIRMED for the created appointment in the same tenant", async () => {
@@ -55,8 +60,8 @@ describe("createOnBehalf runtime (WP-08)", () => {
     expect(publishAppointmentNotification).not.toHaveBeenCalled();
   });
 
-  it("customer without phone -> no publish even when notifyCustomer is true", async () => {
-    engine.createOnBehalf.mockResolvedValue({ status: "CREATED", appointmentId: "a1", customerPhone: null, accessToken: "raw" });
+  it("customer without a WhatsApp opt-in record -> no publish even when notifyCustomer is true (WP-10)", async () => {
+    engine.createOnBehalf.mockResolvedValue({ status: "CREATED", appointmentId: "a1", customerWhatsAppOptIn: false, accessToken: "raw" });
     await expect(create()).resolves.toEqual({ status: "CREATED", appointmentId: "a1", notified: false });
     expect(publishAppointmentNotification).not.toHaveBeenCalled();
   });
@@ -85,7 +90,7 @@ describe("createOnBehalf runtime (WP-08)", () => {
   });
 
   it("does not publish for any non-CREATED outcome", async () => {
-    for (const status of ["SLOT_UNAVAILABLE", "CLOSED_DATE", "TENANT_INACTIVE", "CUSTOMER_NOT_FOUND", "FORBIDDEN", "INVALID_INPUT"]) {
+    for (const status of ["SLOT_UNAVAILABLE", "CLOSED_DATE", "TENANT_INACTIVE", "CUSTOMER_NOT_FOUND", "FORBIDDEN", "INVALID_INPUT", "OPT_IN_REQUIRES_PHONE"]) {
       engine.createOnBehalf.mockResolvedValueOnce({ status });
       await expect(create()).resolves.toEqual({ status });
     }
@@ -102,7 +107,7 @@ describe("createOnBehalf runtime (WP-08)", () => {
   });
 
   it("rejects malformed startAt / notifyCustomer before calling the engine", async () => {
-    for (const overrides of [{ startAt: "not-a-date" }, { startAt: 123 }, { startAt: "x".repeat(41) }, { notifyCustomer: "true" }, { notifyCustomer: undefined }]) {
+    for (const overrides of [{ startAt: "not-a-date" }, { startAt: 123 }, { startAt: "x".repeat(41) }, { notifyCustomer: "true" }, { notifyCustomer: undefined }, { whatsappVerbalOptIn: "true" }]) {
       await expect(create(overrides)).resolves.toEqual({ status: "INVALID_INPUT" });
     }
     expect(engine.createOnBehalf).not.toHaveBeenCalled();

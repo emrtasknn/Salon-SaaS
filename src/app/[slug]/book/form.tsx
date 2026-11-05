@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import type { PublicLegalView } from "../../legal-consent-contract";
 import { getPublicAvailability } from "./actions";
 import { submitBooking } from "./submit";
 
@@ -21,6 +22,17 @@ type Slot = Readonly<{
   endAtIso: string;
 }>;
 
+const fieldClassName =
+  "w-full min-h-11 rounded-lg border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 aria-[invalid=true]:border-red-600";
+
+// WP-10 failure codes. The server is authoritative; these are display strings only.
+const legalErrors: Record<string, string> = {
+  TENANT_LEGAL_INCOMPLETE: "Bu salon online randevu için henüz hazır değil. Lütfen salonla doğrudan iletişime geçin.",
+  NOTICE_STALE: "Bilgilendirme metni güncellendi, lütfen sayfayı yenileyin.",
+  OPT_IN_REQUIRES_PHONE: "WhatsApp bilgilendirmesi için telefon numaranızı girin veya kutunun işaretini kaldırın.",
+  INVALID_PHONE: "Telefon numarası geçersiz. Ülke koduyla girin, örn. +905551234567.",
+};
+
 function formatSlot(iso: string, timeZone: string) {
   return new Intl.DateTimeFormat("tr-TR", {
     timeZone,
@@ -31,6 +43,7 @@ function formatSlot(iso: string, timeZone: string) {
 
 export function PublicBookingForm({
   slug,
+  legal,
   services,
   staff,
   timeZone,
@@ -38,6 +51,7 @@ export function PublicBookingForm({
   initialServiceId,
 }: {
   slug: string;
+  legal: PublicLegalView;
   services: ReadonlyArray<ServiceOption>;
   staff: ReadonlyArray<StaffOption>;
   timeZone: string;
@@ -55,6 +69,11 @@ export function PublicBookingForm({
   const [status, setStatus] = useState("");
   const [statusUrl, setStatusUrl] = useState("");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const [phone, setPhone] = useState("");
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false);
+  const [phoneError, setPhoneError] = useState(false);
+  const [stale, setStale] = useState(false);
+  const hasPhone = phone.trim() !== "";
   const [busy, startTransition] = useTransition();
 
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
@@ -91,7 +110,9 @@ export function PublicBookingForm({
       return;
     }
 
+    const optedIn = whatsappOptIn && hasPhone;
     setStatus("");
+    setPhoneError(false);
     setStatusUrl("");
     setCopyState("idle");
     startTransition(async () => {
@@ -102,7 +123,12 @@ export function PublicBookingForm({
         startAtIso: selectedSlot,
         displayName: String(formData.get("displayName") ?? ""),
         email: String(formData.get("email") ?? ""),
-        phone: String(formData.get("phone") ?? ""),
+        phone: phone.trim(),
+        noticeVersion: legal.noticeVersion,
+        noticeHash: legal.noticeHash,
+        whatsappOptIn: optedIn,
+        optInVersion: optedIn ? legal.optInVersion : null,
+        optInHash: optedIn ? legal.optInHash : null,
       });
 
       if (result.status === "created") {
@@ -133,6 +159,15 @@ export function PublicBookingForm({
         setSelectedSlot("");
         setSlots([]);
         setAvailabilityStatus("inactive");
+      } else if (result.status in legalErrors) {
+        setStatus(legalErrors[result.status]);
+        if (result.status === "INVALID_PHONE" || result.status === "OPT_IN_REQUIRES_PHONE") setPhoneError(true);
+        if (result.status === "NOTICE_STALE") setStale(true);
+        if (result.status === "TENANT_LEGAL_INCOMPLETE") {
+          setSelectedSlot("");
+          setSlots([]);
+          setAvailabilityStatus("inactive");
+        }
       } else if (result.status === "RATE_LIMITED") {
         setStatus("Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.");
       } else {
@@ -248,21 +283,94 @@ export function PublicBookingForm({
           </section>
 
           <div className="space-y-3 border-t pt-5">
-            <div className="text-sm font-medium">İletişim bilgileri</div>
-            <input name="displayName" required placeholder="Ad soyad" className="w-full rounded-lg border px-3 py-2 text-sm" />
-            <input name="email" required type="email" placeholder="E-posta" className="w-full rounded-lg border px-3 py-2 text-sm" />
-            <input name="phone" placeholder="Telefon (opsiyonel)" className="w-full rounded-lg border px-3 py-2 text-sm" />
+            <h2 className="text-sm font-medium">İletişim bilgileri</h2>
+            <div className="space-y-1">
+              <label htmlFor="booking-name" className="text-sm">Ad soyad</label>
+              <input id="booking-name" name="displayName" required autoComplete="name" className={fieldClassName} />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="booking-email" className="text-sm">E-posta</label>
+              <input id="booking-email" name="email" required type="email" autoComplete="email" className={fieldClassName} />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="booking-phone" className="text-sm">Telefon (isteğe bağlı)</label>
+              <input
+                id="booking-phone"
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(event) => {
+                  setPhone(event.target.value);
+                  setPhoneError(false);
+                  // Clearing the phone withdraws the (not yet submitted) opt-in.
+                  if (event.target.value.trim() === "") setWhatsappOptIn(false);
+                }}
+                aria-invalid={phoneError}
+                aria-describedby="booking-phone-help"
+                className={fieldClassName}
+              />
+              <p id="booking-phone-help" className="text-xs text-zinc-600">Ülke koduyla girin, örn. +905551234567.</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-start gap-3">
+                <input
+                  id="booking-whatsapp-optin"
+                  type="checkbox"
+                  checked={whatsappOptIn && hasPhone}
+                  disabled={!hasPhone}
+                  onChange={(event) => setWhatsappOptIn(event.target.checked)}
+                  aria-describedby={hasPhone ? "booking-whatsapp-help" : "booking-whatsapp-help booking-whatsapp-disabled"}
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-black focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+                />
+                <label htmlFor="booking-whatsapp-optin" className={`text-sm ${hasPhone ? "text-zinc-900" : "text-zinc-500"}`}>
+                  {legal.optInLabel}
+                </label>
+              </div>
+              <p id="booking-whatsapp-help" className="pl-8 text-xs text-zinc-600">{legal.optInHelp}</p>
+              {!hasPhone && (
+                <p id="booking-whatsapp-disabled" className="pl-8 text-xs text-zinc-600">
+                  Bu seçenek için önce telefon numaranızı girin.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div id="booking-notice" className="space-y-1 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
+            <p className="whitespace-pre-line">{legal.shortNotice}</p>
+            <a
+              href={legal.fullNoticePath}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex min-h-11 items-center font-medium text-zinc-900 underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            >
+              Aydınlatma Metni
+              <span className="sr-only"> (yeni sekmede açılır)</span>
+            </a>
           </div>
 
           <button
             type="submit"
-            disabled={busy || !selectedSlot || availabilityStatus !== "ready"}
-            className="w-full rounded-lg bg-black px-4 py-3 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={busy || stale || !selectedSlot || availabilityStatus !== "ready"}
+            aria-describedby="booking-notice"
+            className="min-h-11 w-full rounded-lg bg-black px-4 py-3 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "Gönderiliyor…" : "Randevu talebi gönder"}
           </button>
 
           {status && <p role="status" className="rounded-lg border p-3 text-sm">{status}</p>}
+
+          {stale && (
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="min-h-11 w-full rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+            >
+              Sayfayı yenile
+            </button>
+          )}
 
           {statusUrl && (
             <section aria-labelledby="status-link-title" className="space-y-3 rounded-lg border bg-zinc-50 p-4">

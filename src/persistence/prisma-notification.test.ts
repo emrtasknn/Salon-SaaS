@@ -115,21 +115,23 @@ describe("Prisma notification repository", () => {
   describe("recipients()", () => {
     const appointmentRow = {
       startAt: new Date("2026-11-10T11:00:00.000Z"),
-      customerProfile: { id: "customer-1", displayName: "Customer", phone: "+905550000002" },
+      customerProfile: { id: "customer-1", displayName: "Customer", phone: "+905559999999" },
       staff: { profile: { id: "staff-1", displayName: "Staff", phone: "+905550000001" } },
       service: { name: "Kesim" },
+      // WP-10: customer WhatsApp uses only the booking contact snapshot with an active opt-in.
+      contact: { phone: "+905550000002", whatsappOptIn: true, optOutAt: null as Date | null } as { phone: string | null; whatsappOptIn: boolean; optOutAt: Date | null } | null,
     };
 
     function adminMembership(profileId: string, phone: string | null) {
       return { profileId, profile: { id: profileId, displayName: `Admin ${profileId}`, phone } };
     }
 
-    function setup(memberships: ReturnType<typeof adminMembership>[]) {
+    function setup(memberships: ReturnType<typeof adminMembership>[], row: typeof appointmentRow = appointmentRow) {
       const findMany = vi.fn().mockResolvedValue(memberships);
       const transaction = vi.fn(async (operation: (tx: unknown) => Promise<unknown>) =>
         operation({
           $executeRaw: vi.fn().mockResolvedValue(1),
-          appointment: { findUnique: vi.fn().mockResolvedValue(appointmentRow) },
+          appointment: { findUnique: vi.fn().mockResolvedValue(row) },
           tenant: { findUnique: vi.fn().mockResolvedValue({ timezone: "Europe/Istanbul" }) },
           tenantMembership: { findMany },
           notificationDelivery: { findUnique: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
@@ -213,5 +215,27 @@ describe("Prisma notification repository", () => {
         expect(findMany).not.toHaveBeenCalled();
       },
     );
+
+    it("sends the customer message to the contact-snapshot phone, never Profile.phone (WP-10)", async () => {
+      const { repository } = setup([]);
+      const created = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CREATED");
+      expect(created.find((r) => r.profileId === "customer-1")?.phone).toBe("+905550000002");
+      const confirmed = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CONFIRMED");
+      expect(confirmed).toEqual([expect.objectContaining({ profileId: "customer-1", phone: "+905550000002" })]);
+      expect(JSON.stringify([created, confirmed])).not.toContain("+905559999999");
+    });
+
+    it.each([
+      ["no contact row (pre-WP-10 booking)", null],
+      ["no opt-in", { phone: "+905550000002", whatsappOptIn: false, optOutAt: null }],
+      ["opted out", { phone: "+905550000002", whatsappOptIn: true, optOutAt: new Date("2026-11-10T09:00:00.000Z") }],
+      ["opt-in without phone", { phone: null, whatsappOptIn: true, optOutAt: null }],
+    ])("%s -> no customer recipient; staff/admin routing unchanged (WP-10)", async (_label, contact) => {
+      const { repository } = setup([adminMembership("admin-1", "+905550000011")], { ...appointmentRow, contact });
+      const created = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CREATED");
+      expect(created.map((r) => r.profileId)).toEqual(["staff-1", "admin-1"]);
+      await expect(repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CONFIRMED")).resolves.toEqual([]);
+      await expect(repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_REJECTED")).resolves.toEqual([]);
+    });
   });
 });

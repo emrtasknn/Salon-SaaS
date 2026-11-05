@@ -37,8 +37,21 @@ describe("public vitrin", () => {
     const result = await createPublicVitrin(repository).load("salon");
     expect(result).toEqual({
       status: "ok", tenantContext: { tenantId: "t" }, name: "Salon", timezone: "Europe/Istanbul",
-      active: false, whatsAppUrl: "https://wa.me/905551112233", services: [], staff: [], workingHours: [],
+      active: false, whatsAppUrl: "https://wa.me/905551112233", legalReady: false, services: [], staff: [], workingHours: [],
     });
     expect(repository.catalog).not.toHaveBeenCalled();
+  });
+
+  it("exposes only a legalReady boolean, never the raw legal fields (WP-10)", async () => {
+    const legal = { legalName: "Ada Güzellik Ltd. Şti.", legalAddress: "Moda Cd. 1, Kadıköy", kvkkContactEmail: "kvkk@ada.example" };
+    const repository = {
+      resolveBySlug: vi.fn().mockResolvedValue({ tenantContext: { tenantId: "t" }, name: "Salon", timezone: "Europe/Istanbul", status: "ACTIVE", contactPhone: null, ...legal }),
+      catalog: vi.fn().mockResolvedValue({ services: [], staff: [], workingHours: [] }),
+    };
+    const ready = await createPublicVitrin(repository).load("salon");
+    expect(ready).toMatchObject({ status: "ok", legalReady: true });
+    for (const key of Object.keys(legal)) expect(ready).not.toHaveProperty(key);
+    repository.resolveBySlug.mockResolvedValue({ tenantContext: { tenantId: "t" }, name: "Salon", timezone: "Europe/Istanbul", status: "ACTIVE", contactPhone: null, ...legal, kvkkContactEmail: null });
+    await expect(createPublicVitrin(repository).load("salon")).resolves.toMatchObject({ legalReady: false });
   });
 });

@@ -60,14 +60,15 @@ export function phoneDedupeKey(phone: string | null | undefined): string | null 
  * Staff and customer are always kept unchanged. An admin is skipped when their
  * profileId is already present, or when their digits-only phone key matches the
  * staff phone or an earlier admin's. The customer phone is never used for phone dedupe.
+ * WP-10: `customer` is null when the booking has no active WhatsApp opt-in (no customer delivery).
  */
 export function dedupeRecipients(input: Readonly<{
   staff: NotificationRecipient;
-  customer: NotificationRecipient;
+  customer: NotificationRecipient | null;
   admins: ReadonlyArray<NotificationRecipient>;
 }>): ReadonlyArray<NotificationRecipient> {
-  const result: NotificationRecipient[] = [input.staff, input.customer];
-  const profileIds = new Set<string>([input.staff.profileId, input.customer.profileId]);
+  const result: NotificationRecipient[] = input.customer ? [input.staff, input.customer] : [input.staff];
+  const profileIds = new Set<string>(input.customer ? [input.staff.profileId, input.customer.profileId] : [input.staff.profileId]);
   const internalPhoneKeys = new Set<string>();
   const staffKey = phoneDedupeKey(input.staff.phone);
   if (staffKey) internalPhoneKeys.add(staffKey);

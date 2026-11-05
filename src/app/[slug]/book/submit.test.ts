@@ -32,6 +32,11 @@ const input = {
   displayName: "Ayşe",
   email: "ayse@example.test",
   phone: "+905550000000",
+  noticeVersion: "draft-2026-11-04",
+  noticeHash: "a".repeat(64),
+  whatsappOptIn: true,
+  optInVersion: "draft-2026-11-04",
+  optInHash: "b".repeat(64),
 };
 
 beforeEach(() => {
@@ -46,7 +51,7 @@ beforeEach(() => {
 
 describe("submitBooking", () => {
   it("publishes APPOINTMENT_CREATED once with the slug-resolved tenant context on created", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
     bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-1", accessToken: RAW_TOKEN });
 
     // Client-supplied extra tenant fields must not influence the tenant context.
@@ -63,6 +68,11 @@ describe("submitBooking", () => {
       displayName: "Ayşe",
       email: "ayse@example.test",
       phone: "+905550000000",
+      noticeVersion: "draft-2026-11-04",
+      noticeHash: "a".repeat(64),
+      whatsappOptIn: true,
+      optInVersion: "draft-2026-11-04",
+      optInHash: "b".repeat(64),
     });
     expect(publishAppointmentNotification).toHaveBeenCalledTimes(1);
     expect(publishAppointmentNotification).toHaveBeenCalledWith(vitrinTenantContext, "appt-1", "APPOINTMENT_CREATED");
@@ -72,7 +82,7 @@ describe("submitBooking", () => {
   });
 
   it("URL-encodes the slug in statusPath and does not expose the raw accessToken field", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
     bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-2", accessToken: RAW_TOKEN });
 
     const result = await submitBooking({ ...input, slug: "salon a/../x" });
@@ -97,7 +107,7 @@ describe("submitBooking", () => {
     { status: "INVALID_INPUT" },
     { status: "PERSISTENCE_FAILURE" },
   ])("passes through $status without notifying", async (bookingResult) => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
     bookingCreate.mockResolvedValue(bookingResult);
 
     const result = await submitBooking(input);
@@ -109,7 +119,7 @@ describe("submitBooking", () => {
 
 describe("submitBooking inactive salon (WP-07)", () => {
   it("returns TENANT_INACTIVE without rate-limit, booking or notification work", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: false, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: false, legalReady: true, tenantContext: vitrinTenantContext });
 
     await expect(submitBooking(input)).resolves.toEqual({ status: "TENANT_INACTIVE" });
     expect(checkRateLimit).not.toHaveBeenCalled();
@@ -118,7 +128,7 @@ describe("submitBooking inactive salon (WP-07)", () => {
   });
 
   it("passes through an in-transaction TENANT_INACTIVE without notifying", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
     bookingCreate.mockResolvedValue({ status: "TENANT_INACTIVE" });
 
     await expect(submitBooking(input)).resolves.toEqual({ status: "TENANT_INACTIVE" });
@@ -126,9 +136,33 @@ describe("submitBooking inactive salon (WP-07)", () => {
   });
 });
 
+describe("submitBooking legal readiness (WP-10)", () => {
+  it("returns TENANT_LEGAL_INCOMPLETE before rate-limit, booking or notification work", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: false, tenantContext: vitrinTenantContext });
+
+    await expect(submitBooking(input)).resolves.toEqual({ status: "TENANT_LEGAL_INCOMPLETE" });
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(bookingCreate).not.toHaveBeenCalled();
+    expect(publishAppointmentNotification).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { status: "TENANT_LEGAL_INCOMPLETE" },
+    { status: "NOTICE_STALE" },
+    { status: "OPT_IN_REQUIRES_PHONE" },
+    { status: "INVALID_PHONE" },
+  ])("passes through $status without notifying", async (bookingResult) => {
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
+    bookingCreate.mockResolvedValue(bookingResult);
+
+    await expect(submitBooking(input)).resolves.toEqual(bookingResult);
+    expect(publishAppointmentNotification).not.toHaveBeenCalled();
+  });
+});
+
 describe("submitBooking rate limiting (WP-5)", () => {
   it("returns RATE_LIMITED before booking creation or notification", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
     checkRateLimit.mockResolvedValue({ status: "RATE_LIMITED", retryAfterSeconds: 120 });
 
     const result = await submitBooking(input);
@@ -140,7 +174,7 @@ describe("submitBooking rate limiting (WP-5)", () => {
   });
 
   it("checks tenant+IP, global IP and tenant+phone buckets with the slug-resolved tenant, not client input", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
     readClientIp.mockResolvedValue("203.0.113.7");
     bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-1" });
 
@@ -156,7 +190,7 @@ describe("submitBooking rate limiting (WP-5)", () => {
   });
 
   it("passes a null IP subject through (limiter skips IP buckets) and still checks the phone", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
     bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-1" });
 
     await submitBooking(input);
@@ -177,7 +211,7 @@ describe("submitBooking rate limiting (WP-5)", () => {
   });
 
   it("keeps the ALLOWED path unchanged (create + notify once)", async () => {
-    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext: vitrinTenantContext });
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext });
     bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-2", accessToken: "tok-2" });
 
     const result = await submitBooking(input);

@@ -2,10 +2,14 @@ import type { StaffAppointmentsRepository } from "../application/staff-appointme
 import type { AppointmentRecord } from "../domain/appointment";
 import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma-tenant-context";
 import { withPrismaTenantContext } from "./prisma-tenant-context";
+import { toBookingContact } from "../domain/appointment-contact";
+
+type ContactRow = { displayName: string; phone: string | null; email: string | null; whatsappOptIn: boolean; optOutAt: Date | null };
+const contactSelect = { displayName: true, phone: true, email: true, whatsappOptIn: true, optOutAt: true } as const;
 
 type Tx = PrismaTenantTransactionClient & {
   appointment: {
-    findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown> }): Promise<AppointmentRecord[]>;
+    findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown>; include: { contact: { select: typeof contactSelect } } }): Promise<Array<AppointmentRecord & { contact: ContactRow | null }>>;
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<AppointmentRecord | null>;
   };
   staff: {
@@ -16,7 +20,7 @@ type Tx = PrismaTenantTransactionClient & {
 export function createPrismaStaffAppointmentsRepository(prisma: PrismaTenantClient): StaffAppointmentsRepository {
   return {
     async listForStaff(tenantContext, staffId, range) {
-      return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
+      const rows = await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
         tx.appointment.findMany({
           where: {
             tenantId: tenantContext.tenantId,
@@ -25,8 +29,11 @@ export function createPrismaStaffAppointmentsRepository(prisma: PrismaTenantClie
             endAt: { gt: range.startAt },
           },
           orderBy: { startAt: "asc" },
+          include: { contact: { select: contactSelect } },
         }),
       );
+      // Only the snapshot fields leave persistence (no notice/opt-in evidence columns).
+      return rows.map(({ contact, ...appointment }) => ({ ...appointment, bookingContact: toBookingContact(contact) }));
     },
     async findById(tenantContext, appointmentId) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>

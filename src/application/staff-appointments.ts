@@ -1,9 +1,13 @@
 import type { ApplicationIdentity } from "../domain/auth-identity";
 import type { AppointmentRecord, AppointmentStatus } from "../domain/appointment";
 import type { TenantContext } from "../domain/tenant-context";
+import type { BookingContact } from "../domain/appointment-contact";
+
+/** WP-10: staff list row with the booking's contact snapshot (read-only; null for pre-WP-10 bookings). */
+export type StaffAppointmentListItem = AppointmentRecord & Readonly<{ bookingContact: BookingContact | null }>;
 
 export type StaffAppointmentsRepository = Readonly<{
-  listForStaff(tenantContext: TenantContext, staffId: string, range: { startAt: Date; endAt: Date }): Promise<ReadonlyArray<AppointmentRecord>>;
+  listForStaff(tenantContext: TenantContext, staffId: string, range: { startAt: Date; endAt: Date }): Promise<ReadonlyArray<StaffAppointmentListItem>>;
   findById(tenantContext: TenantContext, appointmentId: string): Promise<AppointmentRecord | null>;
 }>;
 
