@@ -193,3 +193,25 @@ describe("prisma calendar crm repository", () => {
     expect(customerNote.findMany).not.toHaveBeenCalled();
   });
 });
+
+describe("prisma calendar crm repository: customer list", () => {
+  it("excludes salon team members (memberships or staff record) from customers", async () => {
+    const profile = { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn() };
+    const transaction = {
+      $executeRaw: vi.fn().mockResolvedValue(0),
+      tenantMembership: { findUnique: vi.fn() },
+      appointment: { findMany: vi.fn().mockResolvedValue([]) },
+      profile,
+      customerNote: { findMany: vi.fn(), create: vi.fn() },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (value: typeof transaction) => Promise<unknown>) => callback(transaction)),
+    } as unknown as PrismaTenantClient;
+
+    await createPrismaCalendarCrmRepository(prisma).listCustomers({ tenantId: "t" as never }, "ayşe");
+
+    const where = profile.findMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ tenantId: "t", memberships: { none: {} }, staff: { is: null } });
+    expect(where.OR).toHaveLength(3);
+  });
+});

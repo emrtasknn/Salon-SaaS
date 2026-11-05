@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
+import { createNextSupabaseBrowserClient } from "../../infrastructure/auth/supabase-browser-client";
 
 import { releaseWebPushSubscription } from "../pwa/push-permission";
 

@@ -118,6 +118,10 @@ export function createPrismaCalendarCrmRepository(
         const profiles = await tx.profile.findMany({
           where: {
             tenantId: tenantContext.tenantId,
+            // Customers only: salon team members (any tenant membership or a staff
+            // record) are not customers and must not appear in the CRM list.
+            memberships: { none: {} },
+            staff: { is: null },
             ...(normalized
               ? {
                   OR: [
