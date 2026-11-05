@@ -216,6 +216,20 @@ describe("Prisma notification repository", () => {
       },
     );
 
+    it("names the customer by the booking contact snapshot in staff/admin messages (WP-10 follow-up)", async () => {
+      const contact = { ...appointmentRow.contact, displayName: "Ayşe (randevu)" } as unknown as typeof appointmentRow.contact;
+      const { repository } = setup([adminMembership("admin-1", "+905550000011")], { ...appointmentRow, contact });
+      const created = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CREATED");
+      const staffEntry = created.find((r) => r.profileId === "staff-1");
+      const adminEntry = created.find((r) => r.profileId === "admin-1");
+      expect(staffEntry?.templateParameters[0]).toBe("Ayşe (randevu)");
+      expect(staffEntry?.body).toContain("Ayşe (randevu)");
+      expect(adminEntry?.templateParameters[0]).toBe("Ayşe (randevu)");
+      // Recipients and routing are unchanged: same profiles, customer still on the snapshot phone.
+      expect(created.map((r) => r.profileId)).toEqual(["staff-1", "customer-1", "admin-1"]);
+      expect(created.find((r) => r.profileId === "customer-1")?.phone).toBe("+905550000002");
+    });
+
     it("sends the customer message to the contact-snapshot phone, never Profile.phone (WP-10)", async () => {
       const { repository } = setup([]);
       const created = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CREATED");
