@@ -148,9 +148,10 @@ export function InstallPrompt() {
 
   return (
     <>
-      <div aria-hidden="true" className="h-[calc(4.5rem+env(safe-area-inset-bottom))] shrink-0" />
+      <div aria-hidden="true" data-install-banner-spacer="" className="h-[calc(4.5rem+env(safe-area-inset-bottom))] shrink-0" />
       <section
         aria-label="Uygulamayı yükle"
+        data-install-banner=""
         className="glass fixed inset-x-0 bottom-0 z-40 border-t px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-ink"
       >
         <div className="mx-auto flex max-w-3xl items-center gap-2 sm:gap-3">
