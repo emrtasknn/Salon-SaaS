@@ -47,8 +47,33 @@ describe("prisma calendar crm repository", () => {
         },
         customerProfile: { select: { displayName: true } },
         service: { select: { name: true } },
+        contact: { select: { displayName: true, phone: true, email: true, whatsappOptIn: true, optOutAt: true } },
       },
     });
+  });
+
+  it("maps the booking contact snapshot (or null) into calendar rows (WP-10)", async () => {
+    const base = {
+      id: "a1", tenantId: "t", staffId: "s", serviceId: "svc", customerProfileId: "c", status: "CONFIRMED" as const,
+      startAt: new Date("2026-10-05T07:00:00Z"), endAt: new Date("2026-10-05T08:00:00Z"),
+      staff: { profile: { displayName: "Staff" } }, customerProfile: { displayName: "Profile Name" }, service: { name: "Cut" },
+    };
+    const rows = [
+      { ...base, contact: { displayName: "Entered Name", phone: "+905551112233", email: "e@example.com", whatsappOptIn: true, optOutAt: null } },
+      { ...base, id: "a2", contact: null },
+    ];
+    const transaction = {
+      $executeRaw: vi.fn().mockResolvedValue(0),
+      tenantMembership: { findUnique: vi.fn() },
+      appointment: { findMany: vi.fn().mockResolvedValue(rows) },
+    };
+    const prisma = { $transaction: vi.fn(async (callback: (value: typeof transaction) => Promise<unknown>) => callback(transaction)) } as unknown as PrismaTenantClient;
+    const result = await createPrismaCalendarCrmRepository(prisma).listAppointments({ tenantId: "t" as never }, {
+      startAt: new Date("2026-10-05T00:00:00Z"), endAt: new Date("2026-10-06T00:00:00Z"),
+    });
+    expect(result[0].bookingContact).toEqual({ displayName: "Entered Name", phone: "+905551112233", email: "e@example.com", whatsapp: "OPTED_IN" });
+    expect(result[0].customerDisplayName).toBe("Profile Name");
+    expect(result[1].bookingContact).toBeNull();
   });
 
   it("loads tenant-scoped service and staff names for customer history", async () => {

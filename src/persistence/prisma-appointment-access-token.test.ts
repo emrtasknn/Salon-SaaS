@@ -8,7 +8,9 @@ const NOW = new Date("2026-11-05T06:00:00.000Z");
 const START = new Date("2026-11-05T10:00:00.000Z");
 const END = new Date("2026-11-05T10:45:00.000Z");
 
-function makeTransaction(options: { token?: { appointmentId: string } | null; updateCount?: number } = {}) {
+type ContactState = { whatsappOptIn: boolean; optOutAt: Date | null } | null;
+
+function makeTransaction(options: { token?: { appointmentId: string } | null; updateCount?: number; contact?: ContactState; optOutCount?: number } = {}) {
   return {
     $executeRaw: vi.fn().mockResolvedValue(0),
     tenantMembership: { findUnique: vi.fn() },
@@ -20,6 +22,10 @@ function makeTransaction(options: { token?: { appointmentId: string } | null; up
     service: { findUnique: vi.fn().mockResolvedValue({ name: "Saç Kesimi" }) },
     staff: { findUnique: vi.fn().mockResolvedValue({ profileId: "profile-a" }) },
     profile: { findUnique: vi.fn().mockResolvedValue({ displayName: "Ali" }) },
+    appointmentContact: {
+      findUnique: vi.fn().mockResolvedValue(options.contact === undefined ? null : options.contact),
+      updateMany: vi.fn().mockResolvedValue({ count: options.optOutCount ?? 0 }),
+    },
   };
 }
 
@@ -45,7 +51,10 @@ describe("prisma appointment access token repository", () => {
     expect(transaction.staff.findUnique.mock.calls[0][0].where).toEqual({ tenantId_id: { tenantId: "tenant-a", id: "staff-a" } });
     expect(transaction.profile.findUnique.mock.calls[0][0].where).toEqual({ tenantId_id: { tenantId: "tenant-a", id: "profile-a" } });
     // Minimal fields only: no customer PII.
-    expect(details).toEqual({ appointmentId: "appt-a", status: "PENDING", startAt: START, endAt: END, serviceName: "Saç Kesimi", staffName: "Ali" });
+    expect(details).toEqual({ appointmentId: "appt-a", status: "PENDING", startAt: START, endAt: END, serviceName: "Saç Kesimi", staffName: "Ali", whatsapp: "NONE" });
+    expect(transaction.appointmentContact.findUnique).toHaveBeenCalledWith({
+      where: { tenantId_appointmentId: { tenantId: "tenant-a", appointmentId: "appt-a" } }, select: { whatsappOptIn: true, optOutAt: true },
+    });
   });
 
   it("returns null without reading the appointment when no usable token exists", async () => {
@@ -103,5 +112,38 @@ describe("prisma appointment access token repository", () => {
       return tx.updateStatus("appt-a", "PENDING", "CANCELLED");
     });
     for (const method of ["update", "updateMany", "delete", "deleteMany"]) expect(tokenModel[method]).not.toHaveBeenCalled();
+  });
+});
+
+describe("WhatsApp state and opt-out (WP-10)", () => {
+  it.each([
+    [null, "NONE"],
+    [{ whatsappOptIn: false, optOutAt: null }, "NONE"],
+    [{ whatsappOptIn: true, optOutAt: null }, "OPTED_IN"],
+    [{ whatsappOptIn: true, optOutAt: NOW }, "OPTED_OUT"],
+  ] as const)("contact %j -> %s on the status view", async (contact, state) => {
+    const transaction = makeTransaction({ contact });
+    await expect(createPrismaAppointmentAccessTokenRepository(makePrisma(transaction)).findDetailsByTokenHash(TENANT, HASH, NOW))
+      .resolves.toMatchObject({ whatsapp: state });
+  });
+
+  it("sets optOutAt only where opted in and not yet opted out, tenant-scoped under the GUC", async () => {
+    const transaction = makeTransaction({ optOutCount: 1 });
+    await expect(createPrismaAppointmentAccessTokenRepository(makePrisma(transaction)).stopWhatsAppByTokenHash(TENANT, HASH, NOW)).resolves.toBe("stopped");
+    expect(tenantGucValue(transaction)).toBe("tenant-a");
+    expect(transaction.appointmentAccessToken.findFirst).toHaveBeenCalledWith({ where: usableTokenWhere, select: { appointmentId: true } });
+    expect(transaction.appointmentContact.updateMany).toHaveBeenCalledWith({
+      where: { tenantId: "tenant-a", appointmentId: "appt-a", whatsappOptIn: true, optOutAt: null }, data: { optOutAt: NOW },
+    });
+  });
+
+  it("is idempotent: already_stopped / not_opted_in / not_found", async () => {
+    const stopped = makeTransaction({ contact: { whatsappOptIn: true, optOutAt: NOW } });
+    await expect(createPrismaAppointmentAccessTokenRepository(makePrisma(stopped)).stopWhatsAppByTokenHash(TENANT, HASH, NOW)).resolves.toBe("already_stopped");
+    const none = makeTransaction({ contact: null });
+    await expect(createPrismaAppointmentAccessTokenRepository(makePrisma(none)).stopWhatsAppByTokenHash(TENANT, HASH, NOW)).resolves.toBe("not_opted_in");
+    const noToken = makeTransaction({ token: null });
+    await expect(createPrismaAppointmentAccessTokenRepository(makePrisma(noToken)).stopWhatsAppByTokenHash(TENANT, HASH, NOW)).resolves.toBe("not_found");
+    expect(noToken.appointmentContact.updateMany).not.toHaveBeenCalled();
   });
 });

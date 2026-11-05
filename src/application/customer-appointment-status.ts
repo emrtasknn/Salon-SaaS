@@ -6,6 +6,7 @@ import {
   hashAppointmentAccessToken,
 } from "../domain/appointment-access-token";
 import type { TenantContext } from "../domain/tenant-context";
+import type { WhatsAppConsentState } from "../domain/appointment-contact";
 import type { StatusLinkRateLimiter } from "./status-link-rate-limit";
 
 // WP-06: customer status link (view + self-cancel). The tenant is resolved from the
@@ -17,8 +18,16 @@ export type CustomerAppointmentView = Readonly<{
   status: AppointmentStatus; canCancel: boolean; cancelDeadlineIso: string;
 }>;
 
+export type CustomerWhatsAppState = WhatsAppConsentState;
+
+/** WP-10: status-link WhatsApp opt-out (contract StopWhatsAppResult). */
+export type CustomerStopWhatsAppResult = Readonly<{
+  status: "stopped" | "already_stopped" | "not_opted_in" | "not_found" | "rate_limited";
+}>;
+
 export type CustomerAppointmentLoadResult =
-  | { status: "ok"; appointment: CustomerAppointmentView }
+  /** WP-10: `whatsapp` = opt-in state of this booking's contact snapshot (NONE without a record). */
+  | { status: "ok"; appointment: CustomerAppointmentView; whatsapp: CustomerWhatsAppState }
   | { status: "NOT_FOUND" } | { status: "RATE_LIMITED" };
 
 export type CustomerCancelResult =
@@ -31,6 +40,7 @@ export type StatusLinkTenant = Readonly<{ tenantContext: TenantContext; name: st
 export type CustomerAppointmentDetails = Readonly<{
   appointmentId: string; status: AppointmentStatus; startAt: Date; endAt: Date;
   serviceName: string; staffName: string;
+  whatsapp: CustomerWhatsAppState;
 }>;
 
 export type CustomerAppointmentState = Readonly<{ status: AppointmentStatus; startAt: Date }>;
@@ -47,6 +57,12 @@ export type CustomerAppointmentCancelTx = Readonly<{
 export type CustomerAppointmentStatusRepository = Readonly<{
   findDetailsByTokenHash(tenantContext: TenantContext, tokenHash: string, now: Date): Promise<CustomerAppointmentDetails | null>;
   inCancelTransaction<T>(tenantContext: TenantContext, operation: (tx: CustomerAppointmentCancelTx) => Promise<T>): Promise<T>;
+  /**
+   * WP-10: in one tenant-scoped tx, resolves the usable token and sets AppointmentContact.optOutAt = now
+   * where whatsappOptIn and optOutAt IS NULL (idempotent).
+   */
+  stopWhatsAppByTokenHash(tenantContext: TenantContext, tokenHash: string, now: Date):
+    Promise<"stopped" | "already_stopped" | "not_opted_in" | "not_found">;
 }>;
 
 export type CustomerAppointmentStatusDependencies = Readonly<{
@@ -56,6 +72,8 @@ export type CustomerAppointmentStatusDependencies = Readonly<{
   now?: () => Date;
   /** Structured success log; never receives the token. */
   logCancelled?: (event: Readonly<{ tenantId: string; appointmentId: string; actorKind: "customer_token" }>) => void;
+  /** Structured WhatsApp opt-out log; never receives the token. */
+  logWhatsAppStopped?: (event: Readonly<{ tenantId: string; actorKind: "customer_token" }>) => void;
 }>;
 
 type Resolved = { tenant: StatusLinkTenant; tokenHash: string } | { status: "NOT_FOUND" } | { status: "RATE_LIMITED" };
@@ -121,6 +139,7 @@ export function createCustomerAppointmentStatus(dependencies: CustomerAppointmen
           canCancel: canCustomerCancel(details.status, details.startAt, at),
           cancelDeadlineIso: customerCancelDeadline(details.startAt).toISOString(),
         },
+        whatsapp: details.whatsapp,
       };
     },
 
@@ -156,6 +175,21 @@ export function createCustomerAppointmentStatus(dependencies: CustomerAppointmen
         return { status: "CANCELLED" };
       }
       return outcome;
+    },
+
+    /** WP-10: customer WhatsApp opt-out via the status link (same token resolution + limiter as cancel). */
+    async stopWhatsApp(slug: unknown, token: unknown): Promise<CustomerStopWhatsAppResult> {
+      const resolved = await resolve(slug, token);
+      if ("status" in resolved) return { status: resolved.status === "RATE_LIMITED" ? "rate_limited" : "not_found" };
+      const outcome = await dependencies.repository.stopWhatsAppByTokenHash(resolved.tenant.tenantContext, resolved.tokenHash, now());
+      if (outcome === "not_found") {
+        const missed = await miss();
+        return { status: missed.status === "RATE_LIMITED" ? "rate_limited" : "not_found" };
+      }
+      if (outcome === "stopped") {
+        dependencies.logWhatsAppStopped?.({ tenantId: resolved.tenant.tenantContext.tenantId, actorKind: "customer_token" });
+      }
+      return { status: outcome };
     },
   };
 }

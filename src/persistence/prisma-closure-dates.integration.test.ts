@@ -10,6 +10,7 @@ import { createPrismaClosureDateRepository } from "./prisma-closure-dates";
 import { createPrismaPublicAvailabilityRepository } from "./prisma-public-availability";
 import { createPrismaPublicBookingRepository } from "./prisma-public-booking";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
+import { TENANT_LEGAL_COLUMNS_SQL, TENANT_LEGAL_VALUES, shownLegalHashes } from "../test/legal-fixtures";
 
 // WP-08: two-tenant integration test for "ClosureDate" (RLS, constraints, closure create/delete,
 // closure re-check inside the public and on-behalf booking transactions, closure-vs-booking race).
@@ -120,9 +121,10 @@ describeDatabase("ClosureDate tenant isolation + booking re-check integration (W
   const seedTenant = async (fixture: Fixture, label: string) => {
     const p = db();
     await p.query(
-      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, '${TZ}', now(), now())`,
-      [fixture.tenantId, fixture.slug, `Closure Salon ${label}`],
+      // WP-10: KVKK legal fields set so public bookings reach the closure re-check.
+      `INSERT INTO "Tenant" ("id", "slug", "name", "timezone", ${TENANT_LEGAL_COLUMNS_SQL}, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, '${TZ}', $4, $5, $6, now(), now())`,
+      [fixture.tenantId, fixture.slug, `Closure Salon ${label}`, ...TENANT_LEGAL_VALUES],
     );
     await p.query(
       `INSERT INTO "Profile" ("id", "tenantId", "displayName", "createdAt", "updatedAt")
@@ -159,6 +161,8 @@ describeDatabase("ClosureDate tenant isolation + booking re-check integration (W
     await p.query(`DELETE FROM "${TABLE}" WHERE "tenantId" = $1`, [fixture.tenantId]);
     await p.query('DELETE FROM "AppointmentAccessToken" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [fixture.tenantId]);
+    // WP-10: both create paths write an AppointmentContact (FK to Appointment is RESTRICT).
+    await p.query('DELETE FROM "AppointmentContact" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "WorkingHours" WHERE "tenantId" = $1', [fixture.tenantId]);
     await p.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [fixture.tenantId]);
@@ -202,6 +206,8 @@ describeDatabase("ClosureDate tenant isolation + booking re-check integration (W
     serviceId: fixture.serviceId, staffId: fixture.staffId, startAt,
     displayName: "Public Guest", email: `guest-${randomUUID()}@example.com`, phone: null,
     accessTokenHash: generateAppointmentAccessToken().tokenHash,
+    // WP-10: notice hash of this tenant's seeded name/legal fields (fixture tenantId -> label).
+    ...shownLegalHashes(`Closure Salon ${fixture === tenantA ? "A" : "B"}`),
   });
 
   const createClosure = (fixture: Fixture, date: string, confirmExistingAppointments = false) =>

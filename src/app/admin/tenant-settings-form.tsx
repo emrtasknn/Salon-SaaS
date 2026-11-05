@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import type { TenantLegalErrorCode, TenantLegalFields } from "../legal-consent-contract";
 import { updateTenantSettingsAction } from "./settings-actions";
 
 type TenantSettingsView = Readonly<{
@@ -10,7 +11,15 @@ type TenantSettingsView = Readonly<{
   contactPhone: string | null;
   status: "ACTIVE" | "INACTIVE";
   timezone: string;
+  /** WP-10: salon legal fields used in the KVKK notice. */
+  legal: TenantLegalFields;
 }>;
+
+const legalErrorMessages: Record<TenantLegalErrorCode, string> = {
+  INVALID_LEGAL_NAME: "Ticari unvanı kontrol edin.",
+  INVALID_LEGAL_ADDRESS: "Adresi kontrol edin.",
+  INVALID_KVKK_EMAIL: "KVKK başvuru e-postası geçersiz. Örn. kvkk@salonunuz.com",
+};
 
 const errorMessages: Record<string, string> = {
   INVALID_TENANT_NAME: "Salon adını kontrol edin.",
@@ -18,6 +27,7 @@ const errorMessages: Record<string, string> = {
     "Telefon numarası geçersiz. Ülke koduyla girin, örn. +905551234567.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
   PERSISTENCE_FAILURE: "Ayarlar kaydedilemedi. Lütfen tekrar deneyin.",
+  ...legalErrorMessages,
 };
 
 const inputClassName =
@@ -30,6 +40,11 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
 
   const nameInvalid = feedback?.code === "INVALID_TENANT_NAME";
   const phoneInvalid = feedback?.code === "INVALID_CONTACT_PHONE";
+  const legalNameInvalid = feedback?.code === "INVALID_LEGAL_NAME";
+  const legalAddressInvalid = feedback?.code === "INVALID_LEGAL_ADDRESS";
+  const kvkkEmailInvalid = feedback?.code === "INVALID_KVKK_EMAIL";
+  const legal = settings.legal;
+  const legalComplete = Boolean(legal.legalName && legal.legalAddress && legal.kvkkContactEmail);
 
   return (
     <section
@@ -52,7 +67,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
       </div>
 
       <form
-        key={`${settings.name}|${settings.contactPhone ?? ""}`}
+        key={`${settings.name}|${settings.contactPhone ?? ""}|${legal.legalName ?? ""}|${legal.legalAddress ?? ""}|${legal.kvkkContactEmail ?? ""}`}
         className="mt-4 grid gap-4 sm:grid-cols-2"
         action={(formData) =>
           startTransition(async () => {
@@ -114,6 +129,86 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
             Örn. +905551234567. Müşteriler salon sayfasında bu numaraya WhatsApp&apos;tan yazabilir. Boş bırakırsanız WhatsApp bağlantısı gösterilmez.
           </p>
         </div>
+
+        <fieldset className="grid gap-4 border-t border-zinc-200 pt-4 sm:col-span-2 sm:grid-cols-2" aria-describedby="tenant-legal-help">
+          <legend className="text-base font-semibold">Yasal bilgiler (KVKK)</legend>
+          <div id="tenant-legal-help" className="space-y-2 text-xs text-zinc-600 sm:col-span-2">
+            <p>
+              Bu bilgiler müşterilere gösterilen aydınlatma metninde veri sorumlusu olarak yer alır. Üç alan da
+              doldurulana kadar online randevu kapalı kalır.
+            </p>
+            <p
+              className={`inline-block rounded-md border px-2 py-1 font-medium ${
+                legalComplete
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                  : "border-amber-300 bg-amber-50 text-amber-900"
+              }`}
+            >
+              {legalComplete ? "Yasal bilgiler tamam." : "Eksik yasal bilgi var: online randevu kapalı."}
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="tenant-legal-name" className="text-sm font-medium">
+              Ticari unvan
+            </label>
+            <input
+              id="tenant-legal-name"
+              name="legalName"
+              autoComplete="organization"
+              defaultValue={legal.legalName ?? ""}
+              readOnly={!canEdit}
+              aria-invalid={legalNameInvalid}
+              aria-describedby={
+                legalNameInvalid ? "tenant-legal-name-help tenant-settings-feedback" : "tenant-legal-name-help"
+              }
+              className={inputClassName}
+            />
+            <p id="tenant-legal-name-help" className="text-xs text-zinc-500">
+              Vergi levhasındaki ad veya şahıs işletmesinde ad soyad.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="tenant-kvkk-email" className="text-sm font-medium">
+              KVKK başvuru e-postası
+            </label>
+            <input
+              id="tenant-kvkk-email"
+              name="kvkkContactEmail"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              defaultValue={legal.kvkkContactEmail ?? ""}
+              readOnly={!canEdit}
+              aria-invalid={kvkkEmailInvalid}
+              aria-describedby={
+                kvkkEmailInvalid ? "tenant-kvkk-email-help tenant-settings-feedback" : "tenant-kvkk-email-help"
+              }
+              className={inputClassName}
+            />
+            <p id="tenant-kvkk-email-help" className="text-xs text-zinc-500">
+              Müşteriler kişisel verileriyle ilgili başvurularını bu adrese gönderir.
+            </p>
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <label htmlFor="tenant-legal-address" className="text-sm font-medium">
+              Adres
+            </label>
+            <textarea
+              id="tenant-legal-address"
+              name="legalAddress"
+              rows={3}
+              autoComplete="street-address"
+              defaultValue={legal.legalAddress ?? ""}
+              readOnly={!canEdit}
+              aria-invalid={legalAddressInvalid}
+              aria-describedby={legalAddressInvalid ? "tenant-settings-feedback" : undefined}
+              className={inputClassName}
+            />
+          </div>
+        </fieldset>
 
         <dl className="grid gap-4 text-sm sm:col-span-2 sm:grid-cols-2">
           <div>

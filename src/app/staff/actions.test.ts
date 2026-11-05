@@ -35,6 +35,7 @@ const input = {
   startAt: "2026-11-09T06:00:00.000Z",
   customer: { kind: "guest" as const, displayName: "Guest", phone: "+905551112233" },
   notifyCustomer: true,
+  whatsappVerbalOptIn: false,
 };
 const ownStaff = { id: "own-staff", tenantId: sessionTenant.tenantId, profileId: "profile-1", status: "ACTIVE" };
 
@@ -61,7 +62,7 @@ describe("createStaffAppointment (WP-08)", () => {
     const [, identity, tenantContext, passed] = runtime.createOnBehalf.mock.calls[0] as unknown as [unknown, unknown, unknown, unknown];
     expect(identity).toMatchObject({ state: "authenticated", subjectId: "user-1", profileId: "profile-1" });
     expect(tenantContext).toBe(sessionTenant);
-    expect(passed).toEqual({ serviceId: "svc", staffId: "own-staff", startAt: input.startAt, customer: input.customer, notifyCustomer: true });
+    expect(passed).toEqual({ serviceId: "svc", staffId: "own-staff", startAt: input.startAt, customer: input.customer, notifyCustomer: true, whatsappVerbalOptIn: false });
   });
 
   it.each(["TENANT_ADMIN", "SUPER_ADMIN", "CUSTOMER"])("rejects a %s membership with FORBIDDEN (staff flow is STAFF-only)", async (role) => {

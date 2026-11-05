@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createPrismaBookingRepository } from "./prisma-booking-engine";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
 import { addDaysToDateIso, localWallTimeToUtc } from "../domain/availability";
+import { STAFF_VERBAL_OPTIN, staffVerbalOptInHash } from "../domain/legal-notice";
 
 function nextMondayIso(): string {
   const date = new Date();
@@ -39,6 +40,7 @@ function makeTx(overrides: Readonly<{ tenantStatus?: string | null; closures?: s
     },
     appointment: { findMany: vi.fn().mockResolvedValue(overrides.conflicts ?? []), create: vi.fn().mockResolvedValue({ id: "a1" }), updateMany: vi.fn() },
     appointmentAccessToken: { create: vi.fn().mockResolvedValue({ id: "tok" }) },
+    appointmentContact: { create: vi.fn().mockResolvedValue({ id: "ac" }) },
   };
 }
 
@@ -123,7 +125,7 @@ describe("prisma booking repository create-on-behalf (WP-08)", () => {
   it("inserts with the requested initial status, in-tx endAt, and a token row", async () => {
     const tx = makeTx();
     await expect(createPrismaBookingRepository(prismaFor(tx)).createAppointment({ tenantId: "t" as never }, baseInput))
-      .resolves.toEqual({ status: "created", appointmentId: "a1", customerPhone: "+905551112233" });
+      .resolves.toEqual({ status: "created", appointmentId: "a1", customerWhatsAppOptIn: false });
     const endAt = new Date(nineAm.getTime() + 75 * 60_000);
     expect(tx.appointment.create).toHaveBeenCalledWith({ data: {
       tenantId: "t", staffId: "s", serviceId: "svc", customerProfileId: "new-guest", startAt: nineAm, endAt, status: "CONFIRMED",
@@ -240,5 +242,54 @@ describe("prisma booking repository create-on-behalf QA additions (WP-08)", () =
     tx.closureDate.findMany.mockRejectedValue(new Error("boom"));
     await expect(createPrismaBookingRepository(prismaFor(tx)).createAppointment({ tenantId: "t" as never }, baseInput)).resolves.toBe("persistence_failure");
     expect(tx.appointment.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("prisma booking repository contact snapshot (WP-10)", () => {
+  const optIn = { whatsappVerbalOptIn: true, recordedByProfileId: "acting-profile" };
+
+  it("writes a STAFF contact snapshot without notice fields or opt-in by default", async () => {
+    const tx = makeTx();
+    await createPrismaBookingRepository(prismaFor(tx)).createAppointment({ tenantId: "t" as never }, baseInput);
+    expect(tx.appointmentContact.create).toHaveBeenCalledWith({
+      data: {
+        tenantId: "t", appointmentId: "a1", source: "STAFF", displayName: "Guest", email: null, phone: "+905551112233",
+        whatsappOptIn: false, optInVersion: null, optInHash: null, optInAt: null, optInRecordedByProfileId: null,
+      },
+      select: { id: true },
+    });
+    expect(tx.appointment.create.mock.invocationCallOrder[0]).toBeLessThan(tx.appointmentContact.create.mock.invocationCallOrder[0]);
+  });
+
+  it("records a verbal opt-in with the template version/hash and the acting profile", async () => {
+    const tx = makeTx();
+    await expect(createPrismaBookingRepository(prismaFor(tx)).createAppointment({ tenantId: "t" as never }, { ...baseInput, contact: optIn }))
+      .resolves.toEqual({ status: "created", appointmentId: "a1", customerWhatsAppOptIn: true });
+    const { data } = tx.appointmentContact.create.mock.calls[0][0];
+    expect(data).toMatchObject({
+      whatsappOptIn: true, optInVersion: STAFF_VERBAL_OPTIN.version, optInHash: staffVerbalOptInHash(), optInRecordedByProfileId: "acting-profile",
+    });
+    expect(data.optInAt).toBeInstanceOf(Date);
+    expect(data).not.toHaveProperty("noticeVersion");
+  });
+
+  it("snapshots an existing profile's current data, normalizing the phone and dropping invalid values", async () => {
+    const tx = makeTx({ existingProfile: { id: "c1", displayName: " Ayşe ", email: "not-an-email", phone: "0555 111 22 33" } });
+    await createPrismaBookingRepository(prismaFor(tx)).createAppointment({ tenantId: "t" as never }, { ...baseInput, customer: { kind: "existing", profileId: "c1" }, contact: optIn });
+    expect(tx.appointmentContact.create.mock.calls[0][0].data).toMatchObject({ displayName: "Ayşe", email: null, phone: "+905551112233", whatsappOptIn: true });
+  });
+
+  it("existing customer without a valid phone + verbal opt-in -> opt_in_requires_phone, nothing written", async () => {
+    const tx = makeTx({ existingProfile: { id: "c1", displayName: "C", email: null, phone: null } });
+    await expect(createPrismaBookingRepository(prismaFor(tx)).createAppointment({ tenantId: "t" as never }, { ...baseInput, customer: { kind: "existing", profileId: "c1" }, contact: optIn }))
+      .resolves.toBe("opt_in_requires_phone");
+    expect(tx.appointment.create).not.toHaveBeenCalled();
+    expect(tx.appointmentContact.create).not.toHaveBeenCalled();
+  });
+
+  it("fails the booking when the contact insert fails", async () => {
+    const tx = makeTx();
+    tx.appointmentContact.create.mockRejectedValueOnce(new Error("check violation"));
+    await expect(createPrismaBookingRepository(prismaFor(tx)).createAppointment({ tenantId: "t" as never }, baseInput)).resolves.toBe("persistence_failure");
   });
 });

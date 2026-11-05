@@ -80,22 +80,25 @@ function parseStartAt(value: unknown): Date | null {
 }
 
 /**
- * Creates via the booking engine and, on success with notifyCustomer and a customer phone,
- * publishes APPOINTMENT_CONFIRMED through the existing pipeline (owner decision b).
+ * Creates via the booking engine and, on success with notifyCustomer and a recorded WhatsApp opt-in
+ * (WP-10: verbal opt-in with an E.164 phone), publishes APPOINTMENT_CONFIRMED through the existing
+ * pipeline (owner decision b). Without an opt-in record the customer is never messaged.
  */
 export async function createOnBehalf(
   engine: Engine, identity: ApplicationIdentity, tenantContext: TenantContext,
-  input: Readonly<{ serviceId: unknown; staffId?: unknown; startAt: unknown; customer: unknown; notifyCustomer: unknown }>,
+  input: Readonly<{ serviceId: unknown; staffId?: unknown; startAt: unknown; customer: unknown; notifyCustomer: unknown; whatsappVerbalOptIn?: unknown }>,
 ): Promise<CreateAppointmentResult> {
   const startAt = parseStartAt(input.startAt);
   if (!startAt || typeof input.notifyCustomer !== "boolean") return { status: "INVALID_INPUT" };
+  if (input.whatsappVerbalOptIn !== undefined && typeof input.whatsappVerbalOptIn !== "boolean") return { status: "INVALID_INPUT" };
   const result = await engine.createOnBehalf(identity, tenantContext, {
     serviceId: input.serviceId, staffId: input.staffId, startAt, customer: input.customer,
+    whatsappVerbalOptIn: input.whatsappVerbalOptIn === true,
   });
   switch (result.status) {
     case "CREATED": {
       let notified = false;
-      if (input.notifyCustomer && result.customerPhone) {
+      if (input.notifyCustomer && result.customerWhatsAppOptIn) {
         const published = await publishAppointmentNotification(tenantContext, result.appointmentId, "APPOINTMENT_CONFIRMED");
         // WP-09 B1: only a WhatsApp delivery reaches the customer; staff/admin Web Push never counts.
         notified = published.status === "processed" && published.results.some((r) => r.channel === "WHATSAPP" && r.status === "SENT");

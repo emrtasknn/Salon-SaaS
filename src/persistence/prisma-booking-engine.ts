@@ -11,6 +11,8 @@ import { appointmentAccessTokenExpiry } from "../domain/appointment-access-token
 import { addDaysToDateIso, calculateAvailability, isSlotOnClosedDate, localDayUtcRange, utcToLocalDateAndMinute } from "../domain/availability";
 import { closureDateFromDb, closureDateToDb } from "../domain/closure-date";
 import { readTenantStatusForShare, type TenantStatusQueryTransaction } from "./tenant-status-guard";
+import { STAFF_VERBAL_OPTIN, staffVerbalOptInHash } from "../domain/legal-notice";
+import { normalizeE164Phone } from "../domain/tenant";
 
 type ProfileRow = { id: string; displayName: string; email: string | null; phone: string | null };
 
@@ -50,7 +52,32 @@ type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & Closure
   appointmentAccessToken: {
     create(args: { data: { tenantId: string; appointmentId: string; tokenHash: string; expiresAt: Date }; select: { id: true } }): Promise<{ id: string }>;
   };
+  appointmentContact: {
+    create(args: { data: {
+      tenantId: string; appointmentId: string; source: "STAFF";
+      displayName: string; email: string | null; phone: string | null;
+      whatsappOptIn: boolean; optInVersion: string | null; optInHash: string | null; optInAt: Date | null;
+      optInRecordedByProfileId: string | null;
+    }; select: { id: true } }): Promise<{ id: string }>;
+  };
 };
+
+// AppointmentContact column rules (see migration 20261106100000): name VARCHAR(160) non-blank,
+// email shape, E.164 phone. Legacy profile values that do not fit are dropped from the snapshot.
+const CONTACT_NAME_MAX = 160;
+const CONTACT_EMAIL = /^[^@\s]+@[^@\s]+$/;
+
+/** WP-10: contact snapshot of the customer as entered (guest) or as currently stored (existing profile). */
+export function contactSnapshot(customer: ProfileRow): { displayName: string; email: string | null; phone: string | null } {
+  const name = customer.displayName.trim().slice(0, CONTACT_NAME_MAX).trim();
+  const email = customer.email?.trim() ?? "";
+  const phone = normalizeE164Phone(customer.phone);
+  return {
+    displayName: name || "Müşteri",
+    email: email && email.length <= 254 && CONTACT_EMAIL.test(email) ? email : null,
+    phone: phone.ok ? phone.value : null,
+  };
+}
 
 function activeConflict(status: AppointmentStatus): boolean {
   return status !== "CANCELLED" && status !== "REJECTED";
@@ -161,8 +188,12 @@ export function createPrismaBookingRepository(prisma: PrismaTenantClient): Booki
           if (input.customer.kind === "existing") {
             const existing = await tx.profile.findUnique({ where: { tenantId_id: { tenantId, id: input.customer.profileId } } });
             if (!existing) return "customer_not_found";
+            // WP-10: checked before any write (a returned value commits the tx).
+            if (input.contact?.whatsappVerbalOptIn === true && contactSnapshot(existing).phone === null) return "opt_in_requires_phone";
             customer = existing;
           } else {
+            // WP-10: same pre-write check for guests (guest phone is E.164-validated upstream).
+            if (input.contact?.whatsappVerbalOptIn === true && !input.customer.phone) return "opt_in_requires_phone";
             if (input.customer.email) {
               // Never silently attach to an existing profile: the caller must choose it explicitly.
               const match = await tx.profile.findFirst({ where: { tenantId, email: { equals: input.customer.email, mode: "insensitive" } } });
@@ -184,7 +215,23 @@ export function createPrismaBookingRepository(prisma: PrismaTenantClient): Booki
             data: { tenantId, appointmentId: appointment.id, tokenHash: input.accessTokenHash, expiresAt: appointmentAccessTokenExpiry(endAt) },
             select: { id: true },
           });
-          return { status: "created" as const, appointmentId: appointment.id, customerPhone: customer.phone };
+          // WP-10: contact snapshot in the same tx; staff-created bookings carry no notice record.
+          const snapshot = contactSnapshot(customer);
+          const requested = input.contact?.whatsappVerbalOptIn === true;
+          const optIn = requested && snapshot.phone !== null;
+          if (requested && !optIn) throw new Error("verbal opt-in without phone");
+          await tx.appointmentContact.create({
+            data: {
+              tenantId, appointmentId: appointment.id, source: "STAFF", ...snapshot,
+              whatsappOptIn: optIn,
+              optInVersion: optIn ? STAFF_VERBAL_OPTIN.version : null,
+              optInHash: optIn ? staffVerbalOptInHash() : null,
+              optInAt: optIn ? new Date() : null,
+              optInRecordedByProfileId: optIn ? input.contact?.recordedByProfileId ?? null : null,
+            },
+            select: { id: true },
+          });
+          return { status: "created" as const, appointmentId: appointment.id, customerWhatsAppOptIn: optIn };
         });
       } catch { return "persistence_failure"; }
     },

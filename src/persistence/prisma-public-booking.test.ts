@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createPrismaPublicBookingRepository } from "./prisma-public-booking";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
 import { localWallTimeToUtc } from "../domain/availability";
+import { CUSTOMER_NOTICE, WHATSAPP_OPTIN, customerNoticeHash, whatsAppOptInHash } from "../domain/legal-notice";
 
 function nextMondayIso(): string {
   const date = new Date();
@@ -11,25 +12,32 @@ function nextMondayIso(): string {
   return date.toISOString().slice(0, 10);
 }
 
+const legalTenant = {
+  id: "tenant-a", timezone: "Europe/Istanbul", name: "Salon A", contactPhone: null,
+  legalName: "Salon A Ltd. Şti.", legalAddress: "Moda Cd. 1, Kadıköy", kvkkContactEmail: "kvkk@salon-a.example",
+};
+
 function makeTransaction(overrides: Readonly<{
   service?: unknown;
   staff?: unknown;
   profile?: unknown;
   tenantStatus?: string | null;
   closures?: string[];
+  tenant?: Record<string, unknown>;
 }> = {}) {
   const tenantStatus = overrides.tenantStatus !== undefined ? overrides.tenantStatus : "ACTIVE";
   return {
     $executeRaw: vi.fn().mockResolvedValue(0),
     $queryRaw: vi.fn().mockResolvedValue(tenantStatus === null ? [] : [{ status: tenantStatus }]),
     tenantMembership: { findUnique: vi.fn() },
-    tenant: { findUnique: vi.fn().mockResolvedValue({ id: "tenant-a", timezone: "Europe/Istanbul" }) },
+    tenant: { findUnique: vi.fn().mockResolvedValue({ ...legalTenant, ...(overrides.tenant ?? {}) }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([{ id: "wh", tenantId: "tenant-a", dayOfWeek: 1, openMinute: 540, closeMinute: 1080 }]) },
     service: { findUnique: vi.fn().mockResolvedValue(overrides.service !== undefined ? overrides.service : { id: "svc-a", durationMinutes: 60, bufferMinutes: 15, active: true }) },
     staff: { findUnique: vi.fn().mockResolvedValue(overrides.staff !== undefined ? overrides.staff : { id: "staff-a", status: "ACTIVE" }) },
     profile: { findUnique: vi.fn().mockResolvedValue(overrides.profile !== undefined ? overrides.profile : { id: "c" }), create: vi.fn() },
     appointment: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: "a" }) },
     appointmentAccessToken: { create: vi.fn().mockResolvedValue({ id: "t" }) },
+    appointmentContact: { create: vi.fn().mockResolvedValue({ id: "ac" }) },
     closureDate: { findMany: vi.fn().mockResolvedValue((overrides.closures ?? []).map((d) => ({ date: new Date(`${d}T00:00:00.000Z`) }))) },
   };
 }
@@ -41,6 +49,7 @@ function makePrisma(transaction: ReturnType<typeof makeTransaction>) {
 }
 
 const validInput = {
+  shownNoticeHash: customerNoticeHash(legalTenant),
   serviceId: "svc-a",
   staffId: "staff-a",
   startAt: localWallTimeToUtc(nextMondayIso(), 9 * 60, "Europe/Istanbul"),
@@ -262,5 +271,91 @@ describe("public booking QA additions (WP-08)", () => {
     await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, { ...validInput, startAt })).resolves.toBe("slot_unavailable");
     expect(transaction.appointment.create).not.toHaveBeenCalled();
     expect(transaction.appointmentAccessToken.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("WP-10 contact snapshot and notice record", () => {
+  it("returns tenant_legal_incomplete (no writes) when a legal field is missing in the tx re-read", async () => {
+    for (const missing of ["legalName", "legalAddress", "kvkkContactEmail"]) {
+      const transaction = makeTransaction({ tenant: { [missing]: null } });
+      await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput))
+        .resolves.toBe("tenant_legal_incomplete");
+      expect(transaction.profile.create).not.toHaveBeenCalled();
+      expect(transaction.appointment.create).not.toHaveBeenCalled();
+      expect(transaction.appointmentContact.create).not.toHaveBeenCalled();
+    }
+  });
+
+  it("re-reads the tenant after the FOR SHARE status read", async () => {
+    const transaction = makeTransaction();
+    await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput);
+    expect(transaction.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(transaction.tenant.findUnique.mock.invocationCallOrder[0]);
+  });
+
+  it("inserts a PUBLIC_FORM contact with the current notice version/hash and no opt-in by default", async () => {
+    const transaction = makeTransaction();
+    await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput);
+    expect(transaction.appointmentContact.create).toHaveBeenCalledOnce();
+    const { data } = transaction.appointmentContact.create.mock.calls[0][0];
+    expect(data).toMatchObject({
+      tenantId: "tenant-a", appointmentId: "a", source: "PUBLIC_FORM",
+      displayName: "Customer", email: "c@example.com", phone: null,
+      noticeVersion: CUSTOMER_NOTICE.version, noticeHash: customerNoticeHash(legalTenant),
+      whatsappOptIn: false, optInVersion: null, optInHash: null, optInAt: null,
+    });
+    expect(data.noticeHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(data.noticeShownAt).toBeInstanceOf(Date);
+    expect(data).not.toHaveProperty("optInRecordedByProfileId");
+    expect(transaction.appointment.create.mock.invocationCallOrder[0]).toBeLessThan(transaction.appointmentContact.create.mock.invocationCallOrder[0]);
+  });
+
+  it("records the WhatsApp opt-in with version, hash and time when opted in", async () => {
+    const transaction = makeTransaction();
+    await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, { ...validInput, phone: "+905551112233", whatsappOptIn: true, shownOptInHash: whatsAppOptInHash(legalTenant) });
+    const { data } = transaction.appointmentContact.create.mock.calls[0][0];
+    expect(data).toMatchObject({ phone: "+905551112233", whatsappOptIn: true, optInVersion: WHATSAPP_OPTIN.version, optInHash: whatsAppOptInHash(legalTenant) });
+    expect(data.optInAt).toEqual(data.noticeShownAt);
+  });
+
+  it("never updates an existing profile from public input", async () => {
+    const transaction = makeTransaction({ profile: { id: "existing" } });
+    (transaction.profile as Record<string, unknown>).update = vi.fn();
+    await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, { ...validInput, displayName: "Someone Else", phone: "+905559999999" });
+    expect(transaction.profile.create).not.toHaveBeenCalled();
+    expect((transaction.profile as Record<string, ReturnType<typeof vi.fn>>).update).not.toHaveBeenCalled();
+    expect(transaction.appointment.create.mock.calls[0][0].data.customerProfileId).toBe("existing");
+    expect(transaction.appointmentContact.create.mock.calls[0][0].data).toMatchObject({ displayName: "Someone Else", phone: "+905559999999" });
+  });
+
+  it("fails the whole booking when the contact insert fails", async () => {
+    const transaction = makeTransaction();
+    transaction.appointmentContact.create.mockRejectedValueOnce(new Error("check violation"));
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("persistence_failure");
+  });
+
+  it("returns notice_stale (no writes) when the shown notice hash differs: same version, legal field changed since page load", async () => {
+    const shownBeforeEdit = customerNoticeHash({ ...legalTenant, legalAddress: "Eski adres 1" });
+    const transaction = makeTransaction();
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, { ...validInput, shownNoticeHash: shownBeforeEdit }))
+      .resolves.toBe("notice_stale");
+    expect(transaction.profile.create).not.toHaveBeenCalled();
+    expect(transaction.appointment.create).not.toHaveBeenCalled();
+    expect(transaction.appointmentContact.create).not.toHaveBeenCalled();
+  });
+
+  it("returns notice_stale for a missing shown notice hash", async () => {
+    const transaction = makeTransaction();
+    const { shownNoticeHash: _omit, ...withoutHash } = validInput;
+    void _omit;
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, withoutHash)).resolves.toBe("notice_stale");
+    expect(transaction.appointment.create).not.toHaveBeenCalled();
+  });
+
+  it("returns notice_stale when opted in with an outdated opt-in hash (salon name changed)", async () => {
+    const transaction = makeTransaction();
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, {
+      ...validInput, phone: "+905551112233", whatsappOptIn: true, shownOptInHash: whatsAppOptInHash({ name: "Old Salon Name" }),
+    })).resolves.toBe("notice_stale");
+    expect(transaction.appointmentContact.create).not.toHaveBeenCalled();
   });
 });

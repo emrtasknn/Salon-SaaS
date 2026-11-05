@@ -59,6 +59,7 @@ const createErrors: Record<string, string> = {
   CUSTOMER_NOT_FOUND: "Seçilen müşteri bulunamadı. Müşteriyi yeniden arayın.",
   INVALID_INPUT: "Bilgileri kontrol edin. Telefonu ülke koduyla girin, örn. +905551234567.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
+  OPT_IN_REQUIRES_PHONE: "WhatsApp izni için müşterinin telefon numarası gerekli. Telefonu girin veya izin kutusunun işaretini kaldırın.",
 };
 
 const inputClassName =
@@ -111,6 +112,8 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [notify, setNotify] = useState(true);
+  // WP-10: staff-recorded verbal WhatsApp opt-in. Unchecked by default; requires a phone.
+  const [verbalOptIn, setVerbalOptIn] = useState(false);
 
   const [error, setError] = useState("");
   const [emailExists, setEmailExists] = useState<CustomerSearchResultView | null>(null);
@@ -164,6 +167,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
     setGuestPhone("");
     setGuestEmail("");
     setNotify(true);
+    setVerbalOptIn(false);
     setError("");
     setEmailExists(null);
   }
@@ -239,7 +243,9 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
     }
     const phone = guestPhone.trim();
     const email = guestEmail.trim();
-    const notifyCustomer = notify && (existing ? Boolean(existing.phone) : phone !== "");
+    const customerHasPhone = existing ? Boolean(existing.phone) : phone !== "";
+    const notifyCustomer = notify && customerHasPhone;
+    const whatsappVerbalOptIn = verbalOptIn && customerHasPhone;
     const chosenDate = date;
 
     startSubmit(async () => {
@@ -254,6 +260,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
               ? { kind: "existing", profileId: existing.profileId }
               : { kind: "guest", displayName: guestName.trim(), ...(phone ? { phone } : {}), ...(email ? { email } : {}) },
             notifyCustomer,
+            whatsappVerbalOptIn,
           });
         } else {
           result = await variant.create({
@@ -261,6 +268,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
             startAt: slot.startAt,
             customer: { kind: "guest", displayName: guestName.trim(), ...(phone ? { phone } : {}) },
             notifyCustomer,
+            whatsappVerbalOptIn,
           });
         }
       } catch {
@@ -583,7 +591,10 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                         inputMode="tel"
                         autoComplete="off"
                         value={guestPhone}
-                        onChange={(e) => setGuestPhone(e.target.value)}
+                        onChange={(e) => {
+                          setGuestPhone(e.target.value);
+                          if (e.target.value.trim() === "") setVerbalOptIn(false);
+                        }}
                         aria-describedby={`${fieldId}-phone-hint`}
                         className={inputClassName}
                       />
@@ -626,8 +637,27 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                   </label>
                   <p id={`${fieldId}-notify-hint`} className="text-xs text-zinc-500">
                     {hasPhone
-                      ? "Randevu onay mesajı müşterinin telefonuna gönderilir."
+                      ? "Randevu onay mesajı WhatsApp ile, yalnızca müşterinin izni kayıtlıysa gönderilir."
                       : "Bildirim için müşterinin telefon numarası gerekli."}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="flex min-h-11 items-start gap-2 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={verbalOptIn && hasPhone}
+                      disabled={!hasPhone}
+                      onChange={(e) => setVerbalOptIn(e.target.checked)}
+                      aria-describedby={`${fieldId}-optin-hint`}
+                      className="mt-0.5 h-4 w-4 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+                    />
+                    <span className={hasPhone ? "" : "text-zinc-500"}>{options.verbalOptIn.label}</span>
+                  </label>
+                  <p id={`${fieldId}-optin-hint`} className="text-xs text-zinc-500">
+                    {hasPhone
+                      ? "Yalnızca müşteri izin verdiyse işaretleyin. Kaydı sizin adınıza tutulur."
+                      : "İzin kaydı için müşterinin telefon numarası gerekli."}
                   </p>
                 </div>
               </fieldset>

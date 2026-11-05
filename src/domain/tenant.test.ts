@@ -9,6 +9,10 @@ import {
   createTenantName,
   createTenantTimezone,
   normalizeTenantSlug,
+  createTenantLegalName,
+  createTenantLegalAddress,
+  createTenantKvkkContactEmail,
+  normalizeE164Phone,
 } from "./tenant";
 
 describe("tenant domain", () => {
@@ -118,5 +122,56 @@ describe("tenant contact phone (WP-07)", () => {
     expect(isTenantStatus("INACTIVE")).toBe(true);
     expect(isTenantStatus("active")).toBe(false);
     expect(isTenantStatus(undefined)).toBe(false);
+  });
+});
+
+describe("tenant legal fields (WP-10)", () => {
+  it("trims and accepts valid values; empty or missing clears to null", () => {
+    expect(createTenantLegalName("  Ada Güzellik Ltd. Şti. ")).toEqual({ ok: true, value: "Ada Güzellik Ltd. Şti." });
+    expect(createTenantLegalAddress(" Moda Cd. 1 ")).toEqual({ ok: true, value: "Moda Cd. 1" });
+    expect(createTenantKvkkContactEmail(" kvkk@ada.example ")).toEqual({ ok: true, value: "kvkk@ada.example" });
+    for (const empty of ["", " \t ", null, undefined]) {
+      expect(createTenantLegalName(empty)).toEqual({ ok: true, value: null });
+      expect(createTenantLegalAddress(empty)).toEqual({ ok: true, value: null });
+      expect(createTenantKvkkContactEmail(empty)).toEqual({ ok: true, value: null });
+    }
+  });
+
+  it("enforces the VARCHAR caps (200 / 500 / 254)", () => {
+    expect(createTenantLegalName("a".repeat(200)).ok).toBe(true);
+    expect(createTenantLegalName("a".repeat(201))).toMatchObject({ ok: false, error: { code: "INVALID_LEGAL_NAME" } });
+    expect(createTenantLegalAddress("a".repeat(500)).ok).toBe(true);
+    expect(createTenantLegalAddress("a".repeat(501))).toMatchObject({ ok: false, error: { code: "INVALID_LEGAL_ADDRESS" } });
+    expect(createTenantKvkkContactEmail(`${"a".repeat(240)}@example.com`).ok).toBe(true);
+    expect(createTenantKvkkContactEmail(`${"a".repeat(243)}@example.com`)).toMatchObject({ ok: false, error: { code: "INVALID_KVKK_EMAIL" } });
+  });
+
+  it("rejects control characters, non-strings and malformed e-mails", () => {
+    expect(createTenantLegalName("Ada\u0000")).toMatchObject({ ok: false, error: { code: "INVALID_LEGAL_NAME" } });
+    expect(createTenantLegalName("Ada\tLtd")).toMatchObject({ ok: false });
+    expect(createTenantLegalName(42)).toMatchObject({ ok: false });
+    for (const bad of ["kvkk", "kvkk@", "@ada.example", "kvkk@@ada.example", "kv kk@ada.example", "kvkk@ada"]) {
+      expect(createTenantKvkkContactEmail(bad)).toMatchObject({ ok: false, error: { code: "INVALID_KVKK_EMAIL" } });
+    }
+  });
+
+  it("flattens address line breaks to a comma", () => {
+    expect(createTenantLegalAddress("Moda Cd. 1\r\n  Kadıköy\nİstanbul")).toEqual({ ok: true, value: "Moda Cd. 1, Kadıköy, İstanbul" });
+  });
+
+  it("accepted values satisfy the DB CHECK shapes", () => {
+    const trimmedNonBlank = (v: string) => /\S/.test(v) && !/^\s|\s$/.test(v);
+    for (const raw of [" a ", "Ada\n Ltd", "x"]) {
+      const result = createTenantLegalAddress(raw);
+      expect(result.ok && result.value !== null && trimmedNonBlank(result.value)).toBe(true);
+    }
+    const email = createTenantKvkkContactEmail("kvkk@ada.example");
+    expect(email.ok && /^[^@\s]+@[^@\s]+$/.test(email.value ?? "")).toBe(true);
+  });
+
+  it("normalizeE164Phone reuses the contact phone rules", () => {
+    expect(normalizeE164Phone("0555 111 22 33")).toEqual({ ok: true, value: "+905551112233" });
+    expect(normalizeE164Phone("")).toEqual({ ok: true, value: null });
+    expect(normalizeE164Phone("+90555").ok).toBe(false);
   });
 });

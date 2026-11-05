@@ -13,6 +13,7 @@ type Tx = PrismaTenantTransactionClient & {
     customerProfile: { id: string; displayName: string; phone: string | null };
     staff: { profile: { id: string; displayName: string; phone: string | null } };
     service: { name: string };
+    contact: { phone: string | null; whatsappOptIn: boolean; optOutAt: Date | null } | null;
   } | null> };
   tenantMembership: {
     findMany(args: { where: { tenantId: string; role: "TENANT_ADMIN" }; include: { profile: true }; orderBy: { profileId: "asc" } }): Promise<Array<{
@@ -33,12 +34,16 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         const appointment = await tx.appointment.findUnique({
           where: { tenantId_id: { tenantId: tenantContext.tenantId, id: appointmentId } },
-          include: { customerProfile: true, staff: { include: { profile: true } }, service: true },
+          include: { customerProfile: true, staff: { include: { profile: true } }, service: true, contact: true },
         });
         if (!appointment) return [];
         const tenant = await tx.tenant.findUnique({ where: { id: tenantContext.tenantId } });
         if (!tenant) return [];
-        const customer = { profileId: appointment.customerProfile.id, displayName: appointment.customerProfile.displayName, phone: appointment.customerProfile.phone };
+        // WP-10: customer WhatsApp goes only to the booking's contact-snapshot phone, and only with an
+        // active opt-in record. Never falls back to Profile.phone (no opt-in record -> no customer delivery).
+        const contact = appointment.contact;
+        const customerPhone = contact && contact.whatsappOptIn && contact.optOutAt === null && contact.phone ? contact.phone : null;
+        const customer = { profileId: appointment.customerProfile.id, displayName: appointment.customerProfile.displayName, phone: customerPhone };
         const staff = { profileId: appointment.staff.profile.id, displayName: appointment.staff.profile.displayName, phone: appointment.staff.profile.phone };
         const serviceName = appointment.service.name;
         const time = new Intl.DateTimeFormat("tr-TR", { timeZone: tenant.timezone, dateStyle: "short", timeStyle: "short" }).format(appointment.startAt);
@@ -47,7 +52,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
           const staffBody = `Yeni randevu talebi: ${customer.displayName} — ${serviceName} — ${time}. Onay bekliyor.`;
           const staffParameters = [customer.displayName, serviceName, time];
           const staffRecipient: NotificationRecipient = { profileId: staff.profileId, displayName: staff.displayName, phone: staff.phone, templateKey: "appointment-created-staff", body: staffBody, templateParameters: staffParameters };
-          const customerRecipient: NotificationRecipient = { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [serviceName, time, staff.displayName] };
+          const customerRecipient: NotificationRecipient | null = customer.phone === null ? null : { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [serviceName, time, staff.displayName] };
           // Tenant id comes from the trusted server context; explicit filter is defence in depth on top of RLS.
           const adminMemberships = await tx.tenantMembership.findMany({
             where: { tenantId: tenantContext.tenantId, role: "TENANT_ADMIN" },
@@ -60,6 +65,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
           return dedupeRecipients({ staff: staffRecipient, customer: customerRecipient, admins });
         }
 
+        if (customer.phone === null) return [];
         return [{
           profileId: customer.profileId,
           displayName: customer.displayName,

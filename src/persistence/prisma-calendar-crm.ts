@@ -5,6 +5,10 @@ import type {
   PrismaTenantTransactionClient,
 } from "./prisma-tenant-context";
 import { withPrismaTenantContext } from "./prisma-tenant-context";
+import { toBookingContact, type BookingContact } from "../domain/appointment-contact";
+
+type ContactRow = { displayName: string; phone: string | null; email: string | null; whatsappOptIn: boolean; optOutAt: Date | null };
+const contactSelect = { displayName: true, phone: true, email: true, whatsappOptIn: true, optOutAt: true } as const;
 
 type CalendarAppointmentRecord = AppointmentRecord & {
   staff: {
@@ -18,12 +22,14 @@ type CalendarAppointmentRecord = AppointmentRecord & {
   service: {
     name: string;
   };
+  contact: ContactRow | null;
 };
 
 type CalendarAppointmentResult = AppointmentRecord & {
   staffDisplayName: string;
   customerDisplayName: string;
   serviceName: string;
+  bookingContact: BookingContact | null;
 };
 
 type CustomerHistoryAppointmentRecord = AppointmentRecord & {
@@ -55,6 +61,7 @@ type Tx = PrismaTenantTransactionClient & {
         service?: {
           select: { name: true };
         };
+        contact?: { select: typeof contactSelect };
       };
     }): Promise<Array<AppointmentRecord | CalendarAppointmentRecord>>;
   };
@@ -195,6 +202,7 @@ export function createPrismaCalendarCrmRepository(
               service: {
                 select: { name: true },
               },
+              contact: { select: contactSelect },
             },
           });
 
@@ -221,6 +229,7 @@ export function createPrismaCalendarCrmRepository(
               staffDisplayName: related.staff.profile.displayName,
               customerDisplayName: related.customerProfile.displayName,
               serviceName: related.service.name,
+              bookingContact: toBookingContact(related.contact),
             };
           });
         },

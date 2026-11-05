@@ -3,6 +3,7 @@ import type { AppointmentRecord, AppointmentStatus } from "../domain/appointment
 import { calculateAvailability, isSlotOnClosedDate, utcToLocalDateAndMinute } from "../domain/availability";
 import { generateAppointmentAccessToken } from "../domain/appointment-access-token";
 import { createTenantContactPhone, type TenantStatus } from "../domain/tenant";
+import { STAFF_VERBAL_OPTIN, renderStaffVerbalOptIn } from "../domain/legal-notice";
 import type { TenantContext } from "../domain/tenant-context";
 import type { ServiceRecord } from "../domain/service";
 import type { StaffRecord } from "../domain/staff";
@@ -27,10 +28,19 @@ export type CreateCustomerInput =
 export type ExistingCustomerView = Readonly<{ profileId: string; displayName: string; phone: string | null; email: string | null }>;
 
 export type CreateAppointmentPersistenceResult =
-  | Readonly<{ status: "created"; appointmentId: string; customerPhone: string | null }>
+  /** `customerWhatsAppOptIn`: the contact snapshot has a WhatsApp opt-in with a phone (customer may be notified). */
+  | Readonly<{ status: "created"; appointmentId: string; customerWhatsAppOptIn: boolean }>
   | Readonly<{ status: "email_exists"; existing: ExistingCustomerView }>
   | "conflict" | "slot_unavailable" | "closed_date" | "customer_not_found"
-  | "invalid_resource" | "tenant_inactive" | "persistence_failure";
+  | "invalid_resource" | "tenant_inactive" | "persistence_failure"
+  /** WP-10: verbal opt-in requested but the chosen customer has no E.164 phone (nothing written). */
+  | "opt_in_requires_phone";
+
+/**
+ * WP-10: AppointmentContact(source STAFF) written in the create tx. With `whatsappVerbalOptIn`
+ * the STAFF_VERBAL_OPTIN version/hash and the server-derived recorder profile are stored.
+ */
+export type CreateContactInput = Readonly<{ whatsappVerbalOptIn: boolean; recordedByProfileId: string }>;
 
 export type CreateOptions = Readonly<{
   timezone: string;
@@ -53,6 +63,8 @@ export type BookingDataRepository = Readonly<{
     customer: CreateCustomerInput;
     initialStatus: Extract<AppointmentStatus, "PENDING" | "CONFIRMED">;
     accessTokenHash: string;
+    /** Absent = contact snapshot without opt-in. */
+    contact?: CreateContactInput;
   }>): Promise<CreateAppointmentPersistenceResult>;
   transition(tenantContext: TenantContext, appointmentId: string, expectedFrom: AppointmentStatus, to: AppointmentStatus):
     Promise<"updated" | "not_found" | "invalid_transition" | "persistence_failure">;
@@ -144,7 +156,8 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
       if (!scope) return { status: "FORBIDDEN" as const };
       const options = await dependencies.repository.getCreateOptions(tenantContext, { staffId: scope.kind === "staff" ? scope.staffId : null });
       if (!options) return { status: "FORBIDDEN" as const };
-      return { status: "OK" as const, options };
+      // WP-10: verbal opt-in checkbox text comes from the versioned template, never from the client.
+      return { status: "OK" as const, options: { ...options, verbalOptIn: { version: STAFF_VERBAL_OPTIN.version, label: renderStaffVerbalOptIn() } } };
     },
 
     /** WP-08: slots for a staff/admin-created appointment (same availability rule as booking). */
@@ -179,6 +192,8 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
      */
     async createOnBehalf(identity: ApplicationIdentity, tenantContext: TenantContext, input: Readonly<{
       serviceId: unknown; staffId?: unknown; startAt: unknown; customer: unknown;
+      /** WP-10: staff recorded a verbal WhatsApp opt-in from the customer (absent = false). */
+      whatsappVerbalOptIn?: unknown;
     }>) {
       const scope = await dependencies.authorizer.resolveCreateScope(identity, tenantContext);
       if (!scope) return { status: "FORBIDDEN" as const };
@@ -190,6 +205,11 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
       if (!staffId || !serviceId || !customer || !(input.startAt instanceof Date) || Number.isNaN(input.startAt.getTime())) {
         return { status: "INVALID_INPUT" as const };
       }
+      if (input.whatsappVerbalOptIn !== undefined && typeof input.whatsappVerbalOptIn !== "boolean") return { status: "INVALID_INPUT" as const };
+      const whatsappVerbalOptIn = input.whatsappVerbalOptIn === true;
+      // Recorder is the acting user's own profile (server-derived identity), never client input.
+      if (identity.state !== "authenticated") return { status: "FORBIDDEN" as const };
+      if (whatsappVerbalOptIn && customer.kind === "guest" && customer.phone === null) return { status: "OPT_IN_REQUIRES_PHONE" as const };
       const startAt = input.startAt;
 
       let context: BookingContext | null;
@@ -212,16 +232,18 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
       const { token, tokenHash } = generateAppointmentAccessToken();
       const result = await dependencies.repository.createAppointment(tenantContext, {
         staffId, serviceId, startAt, customer, initialStatus: "CONFIRMED", accessTokenHash: tokenHash,
+        contact: { whatsappVerbalOptIn, recordedByProfileId: identity.profileId },
       });
       if (typeof result === "object") {
         if (result.status === "created") {
-          return { status: "CREATED" as const, appointmentId: result.appointmentId, customerPhone: result.customerPhone, accessToken: token };
+          return { status: "CREATED" as const, appointmentId: result.appointmentId, customerWhatsAppOptIn: result.customerWhatsAppOptIn, accessToken: token };
         }
         return { status: "EMAIL_EXISTS" as const, existing: result.existing };
       }
       if (result === "conflict" || result === "slot_unavailable") return { status: "SLOT_UNAVAILABLE" as const };
       if (result === "closed_date") return { status: "CLOSED_DATE" as const };
       if (result === "customer_not_found") return { status: "CUSTOMER_NOT_FOUND" as const };
+      if (result === "opt_in_requires_phone") return { status: "OPT_IN_REQUIRES_PHONE" as const };
       if (result === "invalid_resource") return { status: "INVALID_RESOURCE" as const };
       if (result === "tenant_inactive") return { status: "TENANT_INACTIVE" as const };
       return { status: "PERSISTENCE_FAILURE" as const };

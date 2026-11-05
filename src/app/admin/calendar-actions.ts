@@ -190,5 +190,6 @@ export async function createAdminAppointment(input: AdminCreateAppointmentInput)
   if (typeof input !== "object" || input === null) return { status: "INVALID_INPUT" };
   return createOnBehalf(createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext, {
     serviceId: input.serviceId, staffId: input.staffId, startAt: input.startAt, customer: input.customer, notifyCustomer: input.notifyCustomer,
+    whatsappVerbalOptIn: input.whatsappVerbalOptIn,
   });
 }

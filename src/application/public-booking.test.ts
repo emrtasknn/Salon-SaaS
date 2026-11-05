@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { hashAppointmentAccessToken } from "../domain/appointment-access-token";
 import { createPublicBooking } from "./public-booking";
+import { CUSTOMER_NOTICE, WHATSAPP_OPTIN } from "../domain/legal-notice";
 
 const tenant = { tenantId: "tenant-a" as never };
 const validInput = {
   serviceId: "svc-a", staffId: "staff-a", startAt: new Date("2026-10-05T06:00:00Z"),
-  displayName: " Customer ", email: "c@example.com", phone: "+90555",
+  displayName: " Customer ", email: "c@example.com", phone: "0555 111 22 33",
+  noticeVersion: CUSTOMER_NOTICE.version, noticeHash: "a".repeat(64), whatsappOptIn: false, optInVersion: null, optInHash: null,
 };
 
 describe("public booking", () => {
@@ -49,5 +51,73 @@ describe("public booking", () => {
   it("maps tenant_inactive to TENANT_INACTIVE without returning a token (WP-07)", async () => {
     const repository = { create: vi.fn().mockResolvedValue("tenant_inactive") };
     await expect(createPublicBooking(repository).create(tenant, validInput)).resolves.toEqual({ status: "TENANT_INACTIVE" });
+  });
+
+  it("normalizes the phone to E.164 and passes no opt-in by default (WP-10)", async () => {
+    const repository = { create: vi.fn().mockResolvedValue({ status: "created", appointmentId: "appointment-a" }) };
+    await createPublicBooking(repository).create(tenant, validInput);
+    expect(repository.create.mock.calls[0][1]).toMatchObject({ displayName: "Customer", phone: "+905551112233", whatsappOptIn: false });
+  });
+
+  it("empty phone becomes null; a non-normalizable phone is INVALID_PHONE (WP-10)", async () => {
+    const repository = { create: vi.fn().mockResolvedValue({ status: "created", appointmentId: "appointment-a" }) };
+    await createPublicBooking(repository).create(tenant, { ...validInput, phone: "  " });
+    expect(repository.create.mock.calls[0][1].phone).toBeNull();
+    await expect(createPublicBooking(repository).create(tenant, { ...validInput, phone: "+90555" })).resolves.toEqual({ status: "INVALID_PHONE" });
+    expect(repository.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a stale or missing notice version, and a stale opt-in version, as NOTICE_STALE (WP-10)", async () => {
+    const repository = { create: vi.fn() };
+    const booking = createPublicBooking(repository);
+    await expect(booking.create(tenant, { ...validInput, noticeVersion: "v0" })).resolves.toEqual({ status: "NOTICE_STALE" });
+    await expect(booking.create(tenant, { ...validInput, noticeVersion: undefined })).resolves.toEqual({ status: "NOTICE_STALE" });
+    await expect(booking.create(tenant, { ...validInput, whatsappOptIn: true, optInVersion: "v0", optInHash: "b".repeat(64) })).resolves.toEqual({ status: "NOTICE_STALE" });
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it("opt-in requires a phone (OPT_IN_REQUIRES_PHONE) and passes the opt-in when valid (WP-10)", async () => {
+    const repository = { create: vi.fn().mockResolvedValue({ status: "created", appointmentId: "appointment-a" }) };
+    const booking = createPublicBooking(repository);
+    await expect(booking.create(tenant, { ...validInput, phone: "", whatsappOptIn: true, optInVersion: WHATSAPP_OPTIN.version, optInHash: "b".repeat(64) }))
+      .resolves.toEqual({ status: "OPT_IN_REQUIRES_PHONE" });
+    expect(repository.create).not.toHaveBeenCalled();
+    await booking.create(tenant, { ...validInput, whatsappOptIn: true, optInVersion: WHATSAPP_OPTIN.version, optInHash: "b".repeat(64) });
+    expect(repository.create.mock.calls[0][1]).toMatchObject({ phone: "+905551112233", whatsappOptIn: true, shownNoticeHash: "a".repeat(64), shownOptInHash: "b".repeat(64) });
+  });
+
+  it("rejects a non-boolean opt-in flag and malformed email as INVALID_INPUT (WP-10)", async () => {
+    const repository = { create: vi.fn() };
+    const booking = createPublicBooking(repository);
+    await expect(booking.create(tenant, { ...validInput, whatsappOptIn: "true" })).resolves.toEqual({ status: "INVALID_INPUT" });
+    await expect(booking.create(tenant, { ...validInput, email: "no-at-sign" })).resolves.toEqual({ status: "INVALID_INPUT" });
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it("maps tenant_legal_incomplete to TENANT_LEGAL_INCOMPLETE (WP-10)", async () => {
+    const repository = { create: vi.fn().mockResolvedValue("tenant_legal_incomplete") };
+    await expect(createPublicBooking(repository).create(tenant, validInput)).resolves.toEqual({ status: "TENANT_LEGAL_INCOMPLETE" });
+  });
+
+  it("requires well-formed shown hashes (64 lowercase hex) -> else INVALID_INPUT (WP-10)", async () => {
+    const repository = { create: vi.fn() };
+    const booking = createPublicBooking(repository);
+    for (const noticeHash of [undefined, "", "A".repeat(64), "a".repeat(63), "g".repeat(64)]) {
+      await expect(booking.create(tenant, { ...validInput, noticeHash })).resolves.toEqual({ status: "INVALID_INPUT" });
+    }
+    await expect(booking.create(tenant, { ...validInput, whatsappOptIn: true, optInVersion: WHATSAPP_OPTIN.version, optInHash: null }))
+      .resolves.toEqual({ status: "INVALID_INPUT" });
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it("ignores an opt-in hash when not opted in and passes null (WP-10)", async () => {
+    const repository = { create: vi.fn().mockResolvedValue({ status: "created", appointmentId: "appointment-a" }) };
+    await createPublicBooking(repository).create(tenant, { ...validInput, optInHash: "zz" });
+    expect(repository.create.mock.calls[0][1]).toMatchObject({ whatsappOptIn: false, shownNoticeHash: "a".repeat(64), shownOptInHash: null });
+  });
+
+  it("maps notice_stale (shown text differs from the text in force) to NOTICE_STALE (WP-10)", async () => {
+    const repository = { create: vi.fn().mockResolvedValue("notice_stale") };
+    await expect(createPublicBooking(repository).create(tenant, validInput)).resolves.toEqual({ status: "NOTICE_STALE" });
   });
 });

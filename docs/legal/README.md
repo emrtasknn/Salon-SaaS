@@ -45,6 +45,8 @@ Birincil kaynaktan teyit edilenler: aydınlatma içeriği ve katmanlı sunum (Ku
 
 ## Uygulamaya yansıyacak teknik ihtiyaçlar (WP-10 ve sonrası)
 
+> **2026-11-05:** İlk dört madde ve profil eşleştirme (yanlış alıcı) sorunu WP-10 kodunda çözüldü (taslak metinlerle, sürümlü). Kalanlar: saklama/silme işi, rate limit temizliği, salon verisi dışa aktarma, WhatsApp şablonlarına salon adı, durum bağlantısı iptali, WhatsApp alıcısında personel aktiflik kontrolü, istek loglarında token.
+
 - `Tenant` üzerinde: ticari unvan, adres, KVKK başvuru e-postası (aydınlatma için zorunlu; boşken randevu formu kapalı).
 - Randevu kaydında: aydınlatma metni sürümü + hash + zaman; WhatsApp izni + metin sürümü + zaman + geri alma zamanı.
 - WhatsApp izni geri alma yolu (önerilen: durum bağlantısında düğme).

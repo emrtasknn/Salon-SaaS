@@ -1,4 +1,5 @@
 import type { CustomerAppointmentCancelTx, CustomerAppointmentStatusRepository } from "../application/customer-appointment-status";
+import { whatsAppStateOf } from "../domain/appointment-contact";
 import type { AppointmentStatus } from "../domain/appointment";
 import type { TenantContext } from "../domain/tenant-context";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
@@ -28,7 +29,18 @@ type Tx = PrismaTenantTransactionClient & {
   profile: {
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } }; select: { displayName: true } }): Promise<{ displayName: string } | null>;
   };
+  appointmentContact: {
+    findUnique(args: {
+      where: { tenantId_appointmentId: { tenantId: string; appointmentId: string } };
+      select: { whatsappOptIn: true; optOutAt: true };
+    }): Promise<{ whatsappOptIn: boolean; optOutAt: Date | null } | null>;
+    updateMany(args: {
+      where: { tenantId: string; appointmentId: string; whatsappOptIn: true; optOutAt: null };
+      data: { optOutAt: Date };
+    }): Promise<{ count: number }>;
+  };
 };
+
 
 const appointmentSelect = { id: true, status: true, startAt: true, endAt: true, serviceId: true, staffId: true } as const;
 
@@ -49,9 +61,13 @@ export function createPrismaAppointmentAccessTokenRepository(prisma: PrismaTenan
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         const appointment = await findTokenAppointment(tx, tenantId, tokenHash, now);
         if (!appointment) return null;
-        const [service, staff] = await Promise.all([
+        const [service, staff, contact] = await Promise.all([
           tx.service.findUnique({ where: { tenantId_id: { tenantId, id: appointment.serviceId } }, select: { name: true } }),
           tx.staff.findUnique({ where: { tenantId_id: { tenantId, id: appointment.staffId } }, select: { profileId: true } }),
+          tx.appointmentContact.findUnique({
+            where: { tenantId_appointmentId: { tenantId, appointmentId: appointment.id } },
+            select: { whatsappOptIn: true, optOutAt: true },
+          }),
         ]);
         const profile = staff
           ? await tx.profile.findUnique({ where: { tenantId_id: { tenantId, id: staff.profileId } }, select: { displayName: true } })
@@ -59,8 +75,26 @@ export function createPrismaAppointmentAccessTokenRepository(prisma: PrismaTenan
         if (!service || !profile) return null;
         return {
           appointmentId: appointment.id, status: appointment.status, startAt: appointment.startAt, endAt: appointment.endAt,
-          serviceName: service.name, staffName: profile.displayName,
+          serviceName: service.name, staffName: profile.displayName, whatsapp: whatsAppStateOf(contact),
         };
+      });
+    },
+
+    async stopWhatsAppByTokenHash(tenantContext, tokenHash, now) {
+      const tenantId = tenantContext.tenantId;
+      return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
+        const appointment = await findTokenAppointment(tx, tenantId, tokenHash, now);
+        if (!appointment) return "not_found" as const;
+        const updated = await tx.appointmentContact.updateMany({
+          where: { tenantId, appointmentId: appointment.id, whatsappOptIn: true, optOutAt: null },
+          data: { optOutAt: now },
+        });
+        if (updated.count === 1) return "stopped" as const;
+        const contact = await tx.appointmentContact.findUnique({
+          where: { tenantId_appointmentId: { tenantId, appointmentId: appointment.id } },
+          select: { whatsappOptIn: true, optOutAt: true },
+        });
+        return whatsAppStateOf(contact) === "OPTED_OUT" ? "already_stopped" as const : "not_opted_in" as const;
       });
     },
 

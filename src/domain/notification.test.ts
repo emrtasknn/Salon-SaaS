@@ -101,3 +101,11 @@ describe("dedupeRecipients", () => {
     expect(dedupeRecipients({ staff, customer, admins: [] })).toEqual([staff, customer]);
   });
 });
+
+describe("dedupeRecipients without a customer recipient (WP-10)", () => {
+  it("returns staff then admins when the booking has no active WhatsApp opt-in", () => {
+    const staff = recipient("staff-1", "+905550000001");
+    const result = dedupeRecipients({ staff, customer: null, admins: [recipient("admin-1", "+905550000011"), recipient("admin-2", "+905550000001")] });
+    expect(result.map((r) => r.profileId)).toEqual(["staff-1", "admin-1"]);
+  });
+});

@@ -8,6 +8,7 @@ import type { WebPushSender } from "../domain/web-push";
 import { createPrismaNotificationRepository } from "./prisma-notification";
 import { createPrismaPushNotificationRepository, createPrismaPushSubscriptionRepository } from "./prisma-push-subscription";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
+import { publicContactInsert } from "../test/legal-fixtures";
 
 const databaseUrl = process.env.DATABASE_URL;
 const describeDatabase = databaseUrl ? describe : describe.skip;
@@ -233,6 +234,11 @@ describeDatabase("Prisma notification tenant admin recipients integration (WP-02
        VALUES ($1, $2, $3, $4, $5, 'PENDING', now() + interval '1 day', now() + interval '1 day 30 minutes', now(), now())`,
       [f.appointmentId, f.tenantId, f.staffId, f.serviceId, f.customerProfileId],
     );
+    // WP-10: the customer is a WhatsApp recipient only with an opt-in contact snapshot.
+    await pool.query(...publicContactInsert({
+      tenantId: f.tenantId, appointmentId: f.appointmentId, tenantName: "Notification Admins Tenant",
+      displayName: "Admins Customer", phone: `${phonePrefix}02`, optIn: true,
+    }));
   }
 
   beforeAll(async () => {
@@ -249,6 +255,7 @@ describeDatabase("Prisma notification tenant admin recipients integration (WP-02
     for (const f of [tenantA, tenantB]) {
       try {
         await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [f.tenantId]);
+        await pool.query('DELETE FROM "AppointmentContact" WHERE "tenantId" = $1', [f.tenantId]);
         await pool.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [f.tenantId]);
         await pool.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [f.tenantId]);
         await pool.query('DELETE FROM "Service" WHERE "tenantId" = $1', [f.tenantId]);
@@ -469,6 +476,11 @@ describeDatabase("Prisma notification Web Push routing integration (WP-09)", () 
         [id, f.tenantId, staffId, f.serviceId, f.customerProfileId],
       );
     }
+    // WP-10: the "active" appointment's customer opted in to WhatsApp (contact phone = profile phone here).
+    await p.query(...publicContactInsert({
+      tenantId: f.tenantId, appointmentId: f.appointments.active, tenantName: "Notification Push Tenant",
+      displayName: "Push Customer Ayşe", phone: `${phonePrefix}01`, optIn: true,
+    }));
     // Every recipient candidate except adminNoSub gets an active subscription via the real repository upsert.
     const subscriptions = createPrismaPushSubscriptionRepository(client());
     for (const profileId of [f.adminProfileId, f.adminStaffProfileId, f.activeStaffProfileId, f.inactiveStaffProfileId, f.removedStaffProfileId]) {
@@ -541,6 +553,7 @@ describeDatabase("Prisma notification Web Push routing integration (WP-09)", () 
         // PushSubscription before Profile/Tenant: its FKs are ON DELETE RESTRICT.
         await pool.query('DELETE FROM "PushSubscription" WHERE "tenantId" = $1', [f.tenantId]);
         await pool.query('DELETE FROM "NotificationDelivery" WHERE "tenantId" = $1', [f.tenantId]);
+        await pool.query('DELETE FROM "AppointmentContact" WHERE "tenantId" = $1', [f.tenantId]);
         await pool.query('DELETE FROM "Appointment" WHERE "tenantId" = $1', [f.tenantId]);
         await pool.query('DELETE FROM "Staff" WHERE "tenantId" = $1', [f.tenantId]);
         await pool.query('DELETE FROM "Service" WHERE "tenantId" = $1', [f.tenantId]);

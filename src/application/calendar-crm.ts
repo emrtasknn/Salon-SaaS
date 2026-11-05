@@ -1,12 +1,15 @@
 import type { ApplicationIdentity } from "../domain/auth-identity";
 import type { TenantContext } from "../domain/tenant-context";
 import type { AppointmentRecord } from "../domain/appointment";
+import type { BookingContact } from "../domain/appointment-contact";
 
 export type CalendarAppointment = AppointmentRecord &
   Readonly<{
     staffDisplayName: string;
     customerDisplayName: string;
     serviceName: string;
+    /** WP-10: contact snapshot entered for this booking (read-only); null for pre-WP-10 bookings. */
+    bookingContact: BookingContact | null;
   }>;
 
 export type CalendarRepository = Readonly<{

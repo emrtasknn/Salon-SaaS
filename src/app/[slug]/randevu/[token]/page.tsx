@@ -6,6 +6,8 @@ import type { AppointmentStatus } from "../../../../domain/appointment";
 import type { CustomerAppointmentView } from "../../../../application/customer-appointment-status";
 import { loadCustomerAppointment } from "./data";
 import { CancelForm } from "./cancel-form";
+import { WhatsAppOptOutForm } from "./whatsapp-optout-form";
+import type { CustomerWhatsAppState } from "../../../legal-consent-contract";
 
 export const metadata: Metadata = {
   title: "Randevu durumu",
@@ -77,10 +79,12 @@ function AppointmentDetails({
   slug,
   token,
   appointment,
+  whatsapp,
 }: {
   slug: string;
   token: string;
   appointment: CustomerAppointmentView;
+  whatsapp: CustomerWhatsAppState;
 }) {
   const { timeZone, status } = appointment;
   const isOpen = status === "PENDING" || status === "CONFIRMED";
@@ -130,6 +134,20 @@ function AppointmentDetails({
             Online iptal, randevudan 2 saat önce kapanır. Değişiklik için lütfen salonla iletişime geçin.
           </p>
         )}
+
+        {whatsapp === "OPTED_IN" && (
+          <section aria-labelledby="whatsapp-title" className="space-y-2 border-t pt-5">
+            <h2 id="whatsapp-title" className="text-sm font-medium">WhatsApp bildirimleri</h2>
+            <p className="text-xs text-zinc-600">Bu randevuyla ilgili bilgilendirmeler WhatsApp üzerinden gönderiliyor.</p>
+            <WhatsAppOptOutForm slug={slug} token={token} />
+          </section>
+        )}
+
+        {whatsapp === "OPTED_OUT" && (
+          <p role="status" className="border-t pt-5 text-sm text-zinc-600">
+            WhatsApp bildirimleri kapalı.
+          </p>
+        )}
       </section>
     </Shell>
   );
@@ -144,7 +162,7 @@ export default async function CustomerAppointmentStatusPage({
   const result = await loadCustomerAppointment(slug, token);
 
   if (result.status === "ok") {
-    return <AppointmentDetails slug={slug} token={token} appointment={result.appointment} />;
+    return <AppointmentDetails slug={slug} token={token} appointment={result.appointment} whatsapp={result.whatsapp} />;
   }
   if (result.status === "RATE_LIMITED") {
     return <Unavailable message="Çok fazla deneme, lütfen biraz sonra tekrar deneyin." />;
