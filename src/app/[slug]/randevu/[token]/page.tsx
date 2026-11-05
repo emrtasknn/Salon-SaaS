@@ -9,6 +9,7 @@ import { CancelForm } from "./cancel-form";
 import { WhatsAppOptOutForm } from "./whatsapp-optout-form";
 import type { CustomerWhatsAppState } from "../../../legal-consent-contract";
 import { appointmentStatusBadge, badgeBase } from "../../../_ui/styles";
+import { BackLink } from "../../../_ui/back-link";
 
 export const metadata: Metadata = {
   title: "Randevu durumu",
@@ -49,17 +50,20 @@ function formatTime(iso: string, timeZone: string) {
   }).format(new Date(iso));
 }
 
-function Shell({ children }: { children: ReactNode }) {
+function Shell({ slug, children }: { slug: string; children: ReactNode }) {
   return (
     <main className="min-h-screen bg-canvas">
-      <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">{children}</div>
+      <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
+        <BackLink href={`/${encodeURIComponent(slug)}`} label="Salon sayfası" className="mb-3" />
+        {children}
+      </div>
     </main>
   );
 }
 
-function Unavailable({ message }: { message: string }) {
+function Unavailable({ slug, message }: { slug: string; message: string }) {
   return (
-    <Shell>
+    <Shell slug={slug}>
       <section className="space-y-3">
         <h1 className="text-large-title">Randevu durumu</h1>
         <p role="status" className="inset-group p-4 text-body text-ink-muted">{message}</p>
@@ -92,7 +96,7 @@ function AppointmentDetails({
   const isOpen = status === "PENDING" || status === "CONFIRMED";
 
   return (
-    <Shell>
+    <Shell slug={slug}>
       <div className="space-y-7">
         <header>
           <p className="text-subhead font-medium text-ink-muted">{appointment.salonName}</p>
@@ -163,7 +167,7 @@ export default async function CustomerAppointmentStatusPage({
     return <AppointmentDetails slug={slug} token={token} appointment={result.appointment} whatsapp={result.whatsapp} />;
   }
   if (result.status === "RATE_LIMITED") {
-    return <Unavailable message="Çok fazla deneme, lütfen biraz sonra tekrar deneyin." />;
+    return <Unavailable slug={slug} message="Çok fazla deneme, lütfen biraz sonra tekrar deneyin." />;
   }
-  return <Unavailable message="Bu bağlantı geçersiz veya süresi dolmuş." />;
+  return <Unavailable slug={slug} message="Bu bağlantı geçersiz veya süresi dolmuş." />;
 }

@@ -7,6 +7,7 @@ import { getPrisma } from "../../../infrastructure/prisma-runtime";
 import { loadPublicLegalView } from "../legal-data";
 import { PublicBookingForm } from "./form";
 import { buttonSecondary } from "../../_ui/styles";
+import { BackLink } from "../../_ui/back-link";
 import { SalonLocationLink } from "../../_ui/salon-location-link";
 
 function todayInTimeZone(timeZone: string) {
@@ -38,7 +39,8 @@ export default async function BookingPage({
   if (!vitrin.active) {
     return (
       <main className="min-h-screen bg-canvas">
-        <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">
+        <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
+          <BackLink href={`/${encodeURIComponent(slug)}`} label="Salon sayfası" className="mb-3" />
           <section className="inset-group space-y-4 p-6">
             <h1 className="text-title">{vitrin.name}</h1>
             <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
@@ -66,7 +68,8 @@ export default async function BookingPage({
   if (!legal || !legal.ready) {
     return (
       <main className="min-h-screen bg-canvas">
-        <div className="mx-auto max-w-xl px-4 pb-10 pt-8 sm:px-6">
+        <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
+          <BackLink href={`/${encodeURIComponent(slug)}`} label="Salon sayfası" className="mb-3" />
           <section className="inset-group space-y-4 p-6">
             <h1 className="text-title">{vitrin.name}</h1>
             {vitrin.location && <SalonLocationLink location={vitrin.location} />}
