@@ -7,6 +7,7 @@ import {
 } from "../domain/appointment-access-token";
 import type { TenantContext } from "../domain/tenant-context";
 import type { WhatsAppConsentState } from "../domain/appointment-contact";
+import { isCalendarEligible } from "../domain/calendar-event";
 import type { StatusLinkRateLimiter } from "./status-link-rate-limit";
 
 // WP-06: customer status link (view + self-cancel). The tenant is resolved from the
@@ -16,6 +17,8 @@ export type CustomerAppointmentView = Readonly<{
   salonName: string; serviceName: string; staffName: string;
   startAtIso: string; endAtIso: string; timeZone: string;
   status: AppointmentStatus; canCancel: boolean; cancelDeadlineIso: string;
+  /** Add-to-calendar: stable event UID, salon public address (null when unset), open + not started. */
+  calendarUid: string; salonAddress: string | null; calendarEligible: boolean;
 }>;
 
 export type CustomerWhatsAppState = WhatsAppConsentState;
@@ -35,7 +38,11 @@ export type CustomerCancelResult =
   | { status: "CUTOFF_PASSED" } | { status: "NOT_CANCELLABLE" }
   | { status: "NOT_FOUND" } | { status: "RATE_LIMITED" };
 
-export type StatusLinkTenant = Readonly<{ tenantContext: TenantContext; name: string; timezone: string }>;
+export type StatusLinkTenant = Readonly<{
+  tenantContext: TenantContext; name: string; timezone: string;
+  /** Customer-facing salon address (already public on the salon page). */
+  publicAddress?: string | null;
+}>;
 
 export type CustomerAppointmentDetails = Readonly<{
   appointmentId: string; status: AppointmentStatus; startAt: Date; endAt: Date;
@@ -138,6 +145,9 @@ export function createCustomerAppointmentStatus(dependencies: CustomerAppointmen
           status: details.status,
           canCancel: canCustomerCancel(details.status, details.startAt, at),
           cancelDeadlineIso: customerCancelDeadline(details.startAt).toISOString(),
+          calendarUid: `${details.appointmentId}@salon-saas`,
+          salonAddress: resolved.tenant.publicAddress?.trim() || null,
+          calendarEligible: isCalendarEligible(details.status, details.startAt, at),
         },
         whatsapp: details.whatsapp,
       };

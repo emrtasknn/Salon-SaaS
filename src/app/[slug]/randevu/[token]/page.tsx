@@ -8,7 +8,9 @@ import { loadCustomerAppointment } from "./data";
 import { CancelForm } from "./cancel-form";
 import { WhatsAppOptOutForm } from "./whatsapp-optout-form";
 import type { CustomerWhatsAppState } from "../../../legal-consent-contract";
-import { appointmentStatusBadge, badgeBase } from "../../../_ui/styles";
+import { appointmentStatusBadge, badgeBase, buttonSecondary } from "../../../_ui/styles";
+import { buildGoogleCalendarUrl, type CalendarEvent } from "../../../../domain/calendar-event";
+import { customerCalendarEvent } from "./calendar";
 import { BackLink } from "../../../_ui/back-link";
 
 export const metadata: Metadata = {
@@ -81,16 +83,66 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
   );
 }
 
+function CalendarIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4.5" width="14" height="12.5" rx="2.5" />
+      <path d="M3 8.5h14M7 2.75v3.5M13 2.75v3.5" />
+    </svg>
+  );
+}
+
+function AddToCalendar({
+  slug,
+  token,
+  event,
+  pending,
+}: {
+  slug: string;
+  token: string;
+  event: CalendarEvent;
+  pending: boolean;
+}) {
+  const icsHref = `/${encodeURIComponent(slug)}/randevu/${encodeURIComponent(token)}/takvim.ics`;
+  return (
+    <section aria-labelledby="calendar-title" className="space-y-2">
+      <h2 id="calendar-title" className="group-label">Takvime ekle</h2>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <a href={icsHref} download="randevu.ics" rel="nofollow" className={`${buttonSecondary} w-full`}>
+          <CalendarIcon />
+          Apple Takvim
+        </a>
+        <a
+          href={buildGoogleCalendarUrl(event)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${buttonSecondary} w-full`}
+        >
+          <CalendarIcon />
+          Google Takvim
+        </a>
+      </div>
+      {pending && (
+        <p className="px-4 text-footnote text-ink-muted">
+          Randevunuz henüz onaylanmadı; onay durumunu bu sayfadan takip edin.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function AppointmentDetails({
   slug,
   token,
   appointment,
   whatsapp,
+  calendarEvent,
 }: {
   slug: string;
   token: string;
   appointment: CustomerAppointmentView;
   whatsapp: CustomerWhatsAppState;
+  calendarEvent: CalendarEvent | null;
 }) {
   const { timeZone, status } = appointment;
   const isOpen = status === "PENDING" || status === "CONFIRMED";
@@ -120,6 +172,10 @@ function AppointmentDetails({
             </span>
           </DetailRow>
         </dl>
+
+        {calendarEvent && (
+          <AddToCalendar slug={slug} token={token} event={calendarEvent} pending={status === "PENDING"} />
+        )}
 
         {isOpen && appointment.canCancel && (
           <div className="space-y-2">
@@ -164,7 +220,16 @@ export default async function CustomerAppointmentStatusPage({
   const result = await loadCustomerAppointment(slug, token);
 
   if (result.status === "ok") {
-    return <AppointmentDetails slug={slug} token={token} appointment={result.appointment} whatsapp={result.whatsapp} />;
+    const calendarEvent = await customerCalendarEvent(slug, token, result.appointment);
+    return (
+      <AppointmentDetails
+        slug={slug}
+        token={token}
+        appointment={result.appointment}
+        whatsapp={result.whatsapp}
+        calendarEvent={calendarEvent}
+      />
+    );
   }
   if (result.status === "RATE_LIMITED") {
     return <Unavailable slug={slug} message="Çok fazla deneme, lütfen biraz sonra tekrar deneyin." />;

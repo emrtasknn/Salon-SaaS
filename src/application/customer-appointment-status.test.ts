@@ -15,7 +15,7 @@ const END = new Date("2026-11-05T10:45:00.000Z");
 type Row = { tenantId: string; appointmentId: string; tokenHash: string; revoked: boolean; expiresAt: Date; status: AppointmentStatus; startAt: Date };
 
 const tenants: Record<string, StatusLinkTenant> = {
-  "salon-a": { tenantContext: { tenantId: "tenant-a" as never }, name: "Salon A", timezone: "Europe/Istanbul" },
+  "salon-a": { tenantContext: { tenantId: "tenant-a" as never }, name: "Salon A", timezone: "Europe/Istanbul", publicAddress: " Bağdat Cad. 1, İstanbul " },
   "salon-b": { tenantContext: { tenantId: "tenant-b" as never }, name: "Salon B", timezone: "Europe/Istanbul" },
 };
 
@@ -70,6 +70,7 @@ describe("customer appointment status — view", () => {
         salonName: "Salon A", serviceName: "Saç Kesimi", staffName: "Ali",
         startAtIso: START.toISOString(), endAtIso: END.toISOString(), timeZone: "Europe/Istanbul",
         status: "CONFIRMED", canCancel: true, cancelDeadlineIso: "2026-11-05T08:00:00.000Z",
+        calendarUid: "appt-a@salon-saas", salonAddress: "Bağdat Cad. 1, İstanbul", calendarEligible: true,
       },
     });
     expect(hits).toEqual(["status.view"]);
@@ -80,6 +81,18 @@ describe("customer appointment status — view", () => {
     const { service, token } = setup({ now: new Date("2026-11-05T08:00:00.000Z") });
     const result = await service.view("salon-a", token);
     expect(result.status === "ok" && result.appointment.canCancel).toBe(false);
+  });
+
+  it("marks the calendar ineligible once started or when no longer open", async () => {
+    const started = setup({ now: START });
+    const startedResult = await started.service.view("salon-a", started.token);
+    expect(startedResult.status === "ok" && startedResult.appointment.calendarEligible).toBe(false);
+    const cancelled = setup({ status: "CANCELLED" });
+    const cancelledResult = await cancelled.service.view("salon-a", cancelled.token);
+    expect(cancelledResult.status === "ok" && cancelledResult.appointment.calendarEligible).toBe(false);
+    const other = setup();
+    const otherResult = await other.service.view("salon-b", other.token);
+    expect(otherResult.status).toBe("NOT_FOUND");
   });
 
   it("returns RATE_LIMITED before any lookup", async () => {
