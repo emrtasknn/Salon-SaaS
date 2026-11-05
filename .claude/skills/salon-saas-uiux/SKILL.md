@@ -24,6 +24,15 @@ The PWA uses Apple's design language as its visual reference. Before any visual/
 `references/apple-design-rules.md` (type scale, contrast, touch targets, inset-grouped lists, glass
 material limits, motion, safe areas) and use the tokens in `src/app/globals.css` and `src/app/_ui/`.
 
+Fixed rules for signed-in screens (owner decision 2026-11-05):
+- Every screen starts with `PageHeader` (`src/app/_ui/page-header.tsx`): one sticky glass layer holding the
+  breadcrumb, the page title and the right-hand accessory (notification bell, page actions). Nothing else
+  sits above it, and no second sticky bar is stacked under it; calendar navigation goes in its toolbar row.
+- Shared controls come from `src/components/ui/` (Button, Input, Breadcrumb, Notice, motion icons) and
+  `src/app/_ui/` (StatusToggle, TimeSelect, ThemeToggle). Times of day are picked in quarter hours.
+- Haptics via `haptic()` from `src/lib/haptics.ts` only: `selection` for toggles/tabs/steppers, `success`,
+  `warning`, `error` for action outcomes. Never as the only feedback.
+
 ## Execution
 
 ### 1. Discover

@@ -24,6 +24,14 @@ export function isAppointmentStatus(value: unknown): value is AppointmentStatus 
     value === "CANCELLED" || value === "COMPLETED";
 }
 
+/**
+ * Owner decision 2026-11-05: an open appointment (PENDING or CONFIRMED) may be moved to another
+ * start time by the same staff member. Status is unchanged; terminal appointments never move.
+ */
+export function canRescheduleAppointment(status: AppointmentStatus): boolean {
+  return status === "PENDING" || status === "CONFIRMED";
+}
+
 export function canTransitionAppointment(from: AppointmentStatus, to: AppointmentStatus): boolean {
   return transitions[from].includes(to);
 }

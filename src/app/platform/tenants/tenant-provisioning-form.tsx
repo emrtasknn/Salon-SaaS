@@ -2,8 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { buttonPrimary, card, field, statusNote } from "../../_ui/styles";
+import { card, field, statusNote } from "../../_ui/styles";
 import { createTenantAction } from "./actions";
+import { Button } from "@/components/ui/button";
 
 const labelClass = "block text-subhead font-medium text-ink";
 
@@ -141,9 +142,9 @@ export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: 
         </div>
       </fieldset>
 
-      <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className={`${buttonPrimary} w-full`}>
+      <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} variant="primary" className="w-full">
         {isSubmitting ? "Oluşturuluyor..." : "Salon oluştur"}
-      </button>
+      </Button>
 
       {message !== "" ? <p role="status" className={statusNote}>{message}</p> : null}
     </form>

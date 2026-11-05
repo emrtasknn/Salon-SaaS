@@ -33,6 +33,7 @@ const repository = {
   getCreateOptions: vi.fn(),
   createAppointment: vi.fn(),
   transition: vi.fn(),
+  rescheduleAppointment: vi.fn(),
 };
 const authorizer = {
   authorize: vi.fn(),
@@ -47,6 +48,9 @@ beforeEach(() => {
   repository.getCreateOptions.mockResolvedValue({ timezone: "Europe/Istanbul", services: [], staff: [] });
   repository.createAppointment.mockResolvedValue({ status: "created", appointmentId: "a1", customerWhatsAppOptIn: false });
   repository.transition.mockResolvedValue("updated");
+  repository.rescheduleAppointment.mockImplementation(async (_t: unknown, input: { startAt: Date }) => ({
+    status: "rescheduled", startAt: input.startAt, endAt: new Date(input.startAt.getTime() + 75 * 60_000),
+  }));
   authorizer.authorize.mockResolvedValue(true);
   authorizer.authorizeStaffDecision.mockResolvedValue(true);
   authorizer.resolveCreateScope.mockResolvedValue({ kind: "admin" });
@@ -330,5 +334,66 @@ describe("verbal WhatsApp opt-in (WP-10)", () => {
   it("create options carry the verbal opt-in template label/version", async () => {
     const result = await engine().createOptions(identity, tenant);
     expect(result).toMatchObject({ status: "OK", options: { verbalOptIn: { version: STAFF_VERBAL_OPTIN.version, label: renderStaffVerbalOptIn() } } });
+  });
+});
+
+describe("booking engine reschedule (owner decision 2026-11-05)", () => {
+  const tenAm = localWallTimeToUtc(availabilityDate, 10 * 60, "Europe/Istanbul");
+  const appointment = { id: "a1", tenantId: "t", staffId: "staff", serviceId: "svc", customerProfileId: "c",
+    startAt: nineAm, endAt: new Date(nineAm.getTime() + 75 * 60_000), status: "CONFIRMED" as const };
+
+  it("lets an admin move an open appointment to a free slot (own old slot is not a conflict)", async () => {
+    repository.getBookingContext.mockResolvedValue(bookingContext({ appointments: [appointment] }));
+    const result = await engine().reschedule(identity, tenant, appointment, tenAm);
+    expect(result).toMatchObject({ status: "RESCHEDULED", startAt: tenAm });
+    expect(repository.rescheduleAppointment).toHaveBeenCalledWith(tenant, {
+      appointmentId: "a1", staffId: "staff", serviceId: "svc", expectedStartAt: nineAm, startAt: tenAm,
+    });
+  });
+
+  it("lets staff move only their own appointments", async () => {
+    authorizer.resolveCreateScope.mockResolvedValue({ kind: "staff", staffId: "other-staff" });
+    expect(await engine().reschedule(identity, tenant, appointment, tenAm)).toEqual({ status: "FORBIDDEN" });
+    authorizer.resolveCreateScope.mockResolvedValue({ kind: "staff", staffId: "staff" });
+    expect((await engine().reschedule(identity, tenant, appointment, tenAm)).status).toBe("RESCHEDULED");
+  });
+
+  it("rejects callers without a create scope (e.g. inactive staff, customers)", async () => {
+    authorizer.resolveCreateScope.mockResolvedValue(null);
+    expect(await engine().reschedule(identity, tenant, appointment, tenAm)).toEqual({ status: "FORBIDDEN" });
+    expect(repository.rescheduleAppointment).not.toHaveBeenCalled();
+  });
+
+  it("never moves terminal appointments", async () => {
+    for (const status of ["CANCELLED", "REJECTED", "COMPLETED"] as const) {
+      expect(await engine().reschedule(identity, tenant, { ...appointment, status }, tenAm)).toEqual({ status: "INVALID_STATUS" });
+    }
+  });
+
+  it("refuses a start that overlaps another appointment", async () => {
+    const other = { ...appointment, id: "a2", startAt: tenAm, endAt: new Date(tenAm.getTime() + 75 * 60_000) };
+    repository.getBookingContext.mockResolvedValue(bookingContext({ appointments: [appointment, other] }));
+    expect(await engine().reschedule(identity, tenant, appointment, tenAm)).toEqual({ status: "SLOT_UNAVAILABLE" });
+  });
+
+  it("refuses times outside working hours and closed days", async () => {
+    const tenPm = localWallTimeToUtc(availabilityDate, 22 * 60, "Europe/Istanbul");
+    expect(await engine().reschedule(identity, tenant, appointment, tenPm)).toEqual({ status: "SLOT_UNAVAILABLE" });
+    repository.getBookingContext.mockResolvedValue(bookingContext({ closedDates: [availabilityDate] }));
+    expect(await engine().reschedule(identity, tenant, appointment, tenAm)).toEqual({ status: "CLOSED_DATE" });
+  });
+
+  it("maps a concurrent change in the transaction to STALE", async () => {
+    repository.rescheduleAppointment.mockResolvedValue("stale");
+    expect(await engine().reschedule(identity, tenant, appointment, tenAm)).toEqual({ status: "STALE" });
+  });
+
+  it("treats the same start as a no-op without writing", async () => {
+    expect((await engine().reschedule(identity, tenant, appointment, nineAm)).status).toBe("RESCHEDULED");
+    expect(repository.rescheduleAppointment).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed input", async () => {
+    expect(await engine().reschedule(identity, tenant, appointment, "10:00")).toEqual({ status: "INVALID_INPUT" });
   });
 });

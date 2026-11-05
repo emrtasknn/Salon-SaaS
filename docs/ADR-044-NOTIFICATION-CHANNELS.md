@@ -179,6 +179,11 @@ Phases 2 and 3 can share one migration if approved together; otherwise each ship
 3. Web Push recipients for `APPOINTMENT_CREATED`: **assigned staff + all TENANT_ADMIN profiles** of the tenant.
 4. Status-link expiry: **`endAt + 7 days`**.
 5. Status link: read-only plus customer self-cancel in MVP (amended 2026-11-04); reschedule via link deferred.
+   Amendment 2026-11-05 (owner decision, PR #183): staff/admin can move an open appointment (PENDING/CONFIRMED)
+   in the day calendar (admin: any; active staff: own). Same staff/service, slot + closure + conflict re-check
+   under the create advisory lock. **No customer notification yet**: needs a new `NotificationEventType`
+   (`APPOINTMENT_RESCHEDULED`) and a per-reschedule idempotency key (migration), applied to staging and pilot
+   before the code ships; WhatsApp template deferred by the owner. Staff see the change in-app (updatedAt).
 6. Subscription revocation: after **5** consecutive transient failures (plus immediately on `404`/`410`).
 
 Consequence: with Option A, the `IN_APP` enum value and `InAppNotification` table are **not** part of the migration (§7 step 1 adds `WEB_PUSH` only).

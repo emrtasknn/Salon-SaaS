@@ -5,10 +5,12 @@
 // platform access, and every server action re-checks it.
 
 import { AccountLinks } from "../../_ui/account-links";
+import { PageHeader } from "../../_ui/page-header";
 import { useId, useRef, useState } from "react";
-import { buttonPrimary, buttonSecondary, statusNote } from "../../_ui/styles";
+import { statusNote } from "../../_ui/styles";
 import { TenantProvisioningForm } from "./tenant-provisioning-form";
 import { TenantStatusList } from "./tenant-status-list";
+import { Button } from "@/components/ui/button";
 
 type TenantRow = Readonly<{
   id: string;
@@ -36,13 +38,17 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
 
   return (
     <main className="min-h-screen bg-canvas">
-      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6 sm:py-12">
-        <header className="flex items-center justify-between gap-3">
-          <h1 className="text-large-title text-ink">Salonlar</h1>
-          <button ref={triggerRef} type="button" onClick={openSheet} aria-haspopup="dialog" className={buttonPrimary}>
+      <PageHeader
+        title="Salonlar"
+        eyebrow="Platform yönetimi"
+        widthClassName="max-w-3xl"
+        accessory={
+          <Button ref={triggerRef} type="button" onClick={openSheet} aria-haspopup="dialog" variant="primary">
             Yeni salon
-          </button>
-        </header>
+          </Button>
+        }
+      />
+      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
         <AccountLinks />
 
         <p role="status" aria-live="polite" className={notice !== "" ? statusNote : "sr-only"}>{notice}</p>
@@ -70,9 +76,9 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
           <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-headline text-ink focus:outline-none">
             Yeni salon
           </h2>
-          <button type="button" onClick={closeSheet} className={buttonSecondary}>
+          <Button type="button" onClick={closeSheet} variant="secondary">
             Kapat
-          </button>
+          </Button>
         </div>
         <div className="space-y-4 bg-canvas px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <p className="text-subhead text-ink-muted">Salonu ve ilk tenant admin hesabını oluşturun.</p>

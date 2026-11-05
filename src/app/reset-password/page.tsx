@@ -1,11 +1,11 @@
-import { BackLink } from "../_ui/back-link";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { ResetPasswordForm } from "./reset-password-form";
 
 export default function ResetPasswordPage() {
   return (
     <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-md px-6 pt-4">
-        <BackLink href="/login" label="Giriş" />
+        <Breadcrumb items={[{ label: "Giriş", href: "/login" }, { label: "Yeni şifre" }]} />
       </div>
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center px-6 pb-16 pt-6">
         <p className="text-sm font-medium text-ink-muted">RandevuN</p>

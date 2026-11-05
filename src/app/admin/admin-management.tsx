@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-
-import { BackLink } from "../_ui/back-link";
+import { House } from "lucide-react";
+import { PageHeader } from "../_ui/page-header";
 import { statusNote } from "../_ui/styles";
 import { listAdminData } from "./actions";
 
@@ -64,17 +64,15 @@ export function AdminSubpage({
 }) {
   return (
     <main className="min-h-screen bg-canvas text-ink">
-      <div className="mx-auto w-full max-w-xl px-4 pb-10 pt-4 sm:px-6">
-        <BackLink href="/admin" label="Yönetim" />
-        <h1 className="mt-2 text-large-title">{title}</h1>
-        {feedback && (
-          // Sticky so the result of a save further down the page stays in view.
-          <p role="status" className={`${statusNote} sticky top-[max(0.5rem,env(safe-area-inset-top))] z-10 mt-4`}>
+      <PageHeader title={title} breadcrumb={[{ label: "Yönetim", href: "/admin", icon: House }, { label: title }]}>
+        {feedback ? (
+          // Inside the fixed top layer so the result of a save further down the page stays in view.
+          <p role="status" className={`${statusNote} w-full py-2.5`}>
             {feedback}
           </p>
-        )}
-        <div className="mt-6 space-y-8">{children}</div>
-      </div>
+        ) : null}
+      </PageHeader>
+      <div className="mx-auto w-full max-w-xl space-y-8 px-4 pb-10 pt-6 sm:px-6">{children}</div>
     </main>
   );
 }

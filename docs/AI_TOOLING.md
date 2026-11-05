@@ -152,3 +152,12 @@ Cloud environment settings (owner creates it once at claude.ai/code → environm
 Rules in cloud sessions are the same as local (`CLAUDE.md`, `AGENTS.md`): lint, typecheck, targeted `npx vitest run`, build; integration tests run only in GitHub Actions CI; no migrations, deploys or merges without owner approval. Work lands as branches + PRs; the owner merges from the GitHub app. Task briefs for cloud sessions are kept as GitHub issues so they can be started from the phone ("work on issue #N").
 
 Not available in cloud: the desktop app's Supabase/Vercel connectors, the local Playwright MCP and the built-in browser. Staging/Vercel steps stay with the owner or a desktop session.
+
+## UI component sources — added 2026-11-05
+
+- **BoardUI skill**: `.claude/skills/boardui/` (installed with `npx boardui@0.5.9 skill`; update with `--force`). Use it as a catalog/reference only. Do **not** run `npx boardui init` here: it installs BoardUI's own token system (`styles/theme.css`, `.dark` class) which conflicts with `globals.css` tokens and `data-theme`.
+- **BoardUI MCP**: `boardui` in `.mcp.json` (`npx -y boardui@0.5.9 mcp`, pinned). Free component source is also at `https://www.boardui.com/r/<name>.json`.
+- **Amicro**: the `@amicro` shadcn registry rejects automated requests (HTTP 429) and the `btn-*` buttons are not in it. Take source from the MIT GitHub repo (`src/data/buttons.tsx`, `src/components/AnimatedButton.tsx`).
+- `components.json` exists only for future `npx shadcn add @<registry>/<item>` calls; `cssVariables` is off so it does not touch `globals.css`. Review every file such a command writes.
+- Rule: vendored code goes to `src/components/ui/`, restyled with RandevuN tokens (no raw palette, no `dark:`), merged with `cx()` from `src/lib/utils.ts`. Credit new sources in `THIRD_PARTY_NOTICES.md`.
+- Candidate next sources (not installed): ui.wensity.com free components (MIT, shadcn registry `@wensity/<slug>`), e.g. KPI card with sparkline, activity grid, multi-step wizard.

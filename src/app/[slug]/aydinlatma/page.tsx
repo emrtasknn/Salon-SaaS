@@ -1,11 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BackLink } from "../../_ui/back-link";
-import { buttonSecondary } from "../../_ui/styles";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { loadFullNotice } from "../legal-data";
+import { ButtonLink } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Aydınlatma Metni",
@@ -22,7 +21,7 @@ export default async function FullNoticePage({ params }: { params: Promise<{ slu
   return (
     <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-2xl p-4 sm:p-8">
-        <BackLink href={`/${encodeURIComponent(slug)}/book`} label="Randevu sayfası" className="mb-3" />
+        <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu", href: `/${encodeURIComponent(slug)}/book` }, { label: "Aydınlatma metni" }]} />
         <article aria-labelledby="notice-title" className="space-y-5 rounded-2xl border bg-surface p-5 shadow-sm sm:p-6">
           <header className="space-y-2">
             <p className="text-sm text-ink-muted">{notice.salonName}</p>
@@ -47,9 +46,9 @@ export default async function FullNoticePage({ params }: { params: Promise<{ slu
           </div>
 
           <footer className="border-t pt-5">
-            <Link href={`/${encodeURIComponent(slug)}/book`} className={buttonSecondary}>
+            <ButtonLink href={`/${encodeURIComponent(slug)}/book`} variant="secondary">
               Randevu sayfasına dön
-            </Link>
+            </ButtonLink>
           </footer>
         </article>
       </div>

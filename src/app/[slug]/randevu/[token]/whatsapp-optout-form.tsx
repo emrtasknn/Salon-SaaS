@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { StopWhatsAppResult } from "../../../legal-consent-contract";
 import { stopWhatsAppByToken } from "./actions";
-import { buttonPrimary, buttonSecondary, statusNote } from "../../../_ui/styles";
+import { statusNote } from "../../../_ui/styles";
+import { Button } from "@/components/ui/button";
 
 const resultMessages: Record<StopWhatsAppResult["status"], string> = {
   stopped: "WhatsApp bildirimleri durduruldu. Bu randevu için WhatsApp mesajı gönderilmeyecek.",
@@ -40,38 +41,38 @@ export function WhatsAppOptOutForm({ slug, token }: { slug: string; token: strin
   return (
     <div className="space-y-3">
       {!confirming ? (
-        <button
+        <Button
           type="button"
           onClick={() => {
             setMessage("");
             setConfirming(true);
           }}
-          className={`${buttonSecondary} w-full`}
+          variant="secondary" className="w-full"
         >
           WhatsApp bildirimlerini durdur
-        </button>
+        </Button>
       ) : (
         <div role="group" aria-labelledby="whatsapp-stop-confirm-title" className="space-y-3 rounded-control bg-surface-muted p-4">
           <p id="whatsapp-stop-confirm-title" className="text-subhead font-medium text-ink">
             Bu randevuyla ilgili WhatsApp bildirimlerini durdurmak istiyor musunuz? Randevunuz iptal edilmez.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <button
+            <Button
               type="button"
               disabled={busy}
               onClick={stop}
-              className={`${buttonPrimary} flex-1`}
+              variant="primary" className="flex-1"
             >
               {busy ? "Durduruluyor…" : "Evet, durdur"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               disabled={busy}
               onClick={() => setConfirming(false)}
-              className={`${buttonSecondary} flex-1`}
+              variant="secondary" className="flex-1"
             >
               Vazgeç
-            </button>
+            </Button>
           </div>
         </div>
       )}

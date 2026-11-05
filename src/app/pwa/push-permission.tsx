@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Bell, BellOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MorphIcon } from "@/components/ui/motion-icons";
 import {
   getWebPushConfigAction,
   subscribeWebPushAction,
@@ -17,6 +20,7 @@ import {
   toSubscribeInput,
   type PushPermission,
 } from "./push-state";
+import { haptic } from "@/lib/haptics";
 
 /*
  * WP-09 Web Push opt-in. UI-only: the server derives tenant/profile from the
@@ -134,13 +138,7 @@ type Props = {
 };
 
 function BellIcon({ off = false }: { off?: boolean }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-      {off && <path d="M3 3l18 18" />}
-    </svg>
-  );
+  return <MorphIcon icon={off ? BellOff : Bell} iconKey={off ? "off" : "on"} className="size-5" />;
 }
 
 export function PushPermission({ bindingKey, className = "" }: Props) {
@@ -274,6 +272,7 @@ export function PushPermission({ bindingKey, className = "" }: Props) {
       if (result.status === "subscribed") {
         writeStorage(PUSH_OPT_OUT_KEY, null);
         writeStorage(PUSH_BINDING_MARKER_KEY, bindingKey);
+        haptic("success");
         setView({ kind: "on", message: "Bildirimler açıldı." });
         return;
       }
@@ -385,25 +384,14 @@ export function PushPermission({ bindingKey, className = "" }: Props) {
 
       <div className="flex shrink-0 items-center gap-1">
         {view.kind === "off" && (
-          <button
-            type="button"
-            onClick={enable}
-            disabled={busy}
-            aria-busy={busy}
-            className="pressable focus-ring tap-target inline-flex items-center rounded-control bg-action px-3 text-subhead font-semibold text-on-action hover:bg-action-hover disabled:cursor-wait disabled:opacity-60"
-          >
+          <Button type="button" onClick={enable} pending={busy} size="small" className="min-h-11">
             {busy ? "Açılıyor…" : "Bildirimleri aç"}
-          </button>
+          </Button>
         )}
         {(view.kind === "off" || view.kind === "install-hint") && (
-          <button
-            type="button"
-            onClick={later}
-            disabled={busy}
-            className="focus-ring tap-target inline-flex items-center rounded-control px-3 text-subhead font-medium text-ink-muted hover:bg-surface-muted"
-          >
+          <Button type="button" variant="ghost" size="small" onClick={later} disabled={busy} className="min-h-11 text-ink-muted">
             Daha sonra
-          </button>
+          </Button>
         )}
       </div>
     </section>

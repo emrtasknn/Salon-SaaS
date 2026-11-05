@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { themeInitScript } from "./_ui/theme";
 import { InstallPrompt } from "./pwa/install-prompt";
 import { ServiceWorkerRegistrar } from "./pwa/service-worker-registrar";
 
-// Typography uses the platform system font stack (see --font-sans in globals.css);
-// no web font is downloaded.
+// Typography: Inter, self-hosted by next/font at build time (no runtime request to Google).
+// latin-ext covers Turkish letters (ğ, ş, ı, İ). --font-sans in globals.css falls back to the system stack.
+const inter = Inter({ subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-inter" });
 
 export const metadata: Metadata = {
   applicationName: "RandevuN",
@@ -42,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="tr" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="tr" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         {/* Sets <html data-theme> before first paint (no flash of the wrong theme). No CSP is configured. */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />

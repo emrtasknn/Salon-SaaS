@@ -14,9 +14,10 @@ import {
   useSyncExternalStore,
   useTransition,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { appointmentStatusBadge, buttonSecondary } from "./styles";
+import { appointmentStatusBadge } from "./styles";
 import {
   computeRange,
   formatMinute,
@@ -33,6 +34,8 @@ import {
   type CalendarViewKind,
   type MinuteRange,
 } from "./timeline-layout";
+import { Button } from "@/components/ui/button";
+import { haptic } from "@/lib/haptics";
 
 export const appointmentStatusLabels: Record<string, string> = {
   PENDING: "Bekliyor",
@@ -136,7 +139,10 @@ export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (
             key={value}
             type="button"
             aria-pressed={selected}
-            onClick={() => onChange(value)}
+            onClick={() => {
+              haptic("selection");
+              onChange(value);
+            }}
             className={`pressable focus-ring tap-target rounded-[10px] px-3.5 text-subhead font-semibold sm:px-4 ${
               selected ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink"
             }`}
@@ -225,17 +231,17 @@ export function DateStepper({
   const todayVisible = today >= showsToday.startDate && today <= showsToday.endDate && (view !== "month" || today.slice(0, 7) === date.slice(0, 7));
   return (
     <div className="flex items-center gap-1.5">
-      <button type="button" aria-label={previousLabel} disabled={disabled} onClick={() => onChange(stepDate(view, date, -1))} className={stepButton}>
+      <button type="button" aria-label={previousLabel} disabled={disabled} onClick={() => { haptic("selection"); onChange(stepDate(view, date, -1)); }} className={stepButton}>
         <span aria-hidden="true" className="text-headline">‹</span>
       </button>
       {children}
-      <button type="button" aria-label={nextLabel} disabled={disabled} onClick={() => onChange(stepDate(view, date, 1))} className={stepButton}>
+      <button type="button" aria-label={nextLabel} disabled={disabled} onClick={() => { haptic("selection"); onChange(stepDate(view, date, 1)); }} className={stepButton}>
         <span aria-hidden="true" className="text-headline">›</span>
       </button>
       <button
         type="button"
         disabled={disabled || date === today || (view !== "day" && view !== "list" && todayVisible)}
-        onClick={() => onChange(today)}
+        onClick={() => { haptic("selection"); onChange(today); }}
         className={`${stepButton} px-3.5 text-subhead font-medium`}
       >
         Bugün
@@ -311,6 +317,196 @@ const statusBarExtra: Record<string, string> = {
   CANCELLED: "border border-status-cancelled/30",
 };
 
+/* ------------------------------------------------------------------------------------------ */
+/* Appointment block with long-press drag-to-move (day view only).                             */
+/* ------------------------------------------------------------------------------------------ */
+
+/** Drag snaps to quarter hours (same as the booking slot interval). */
+export const MOVE_STEP_MINUTES = 15;
+const LONG_PRESS_MS = 400;
+const LONG_PRESS_SLOP_PX = 8;
+const AUTOSCROLL_EDGE_PX = 48;
+const AUTOSCROLL_STEP_PX = 10;
+
+/** Pixel shift → snapped minute shift, clamped to the visible grid. */
+export function snapDeltaMinutes(dyPx: number, hourPx: number, minDelta: number, maxDelta: number, step = MOVE_STEP_MINUTES) {
+  const raw = Math.round(((dyPx / hourPx) * 60) / step) * step;
+  const lower = Math.ceil(minDelta / step) * step;
+  const upper = Math.floor(maxDelta / step) * step;
+  return Math.min(Math.max(raw, lower), upper) || 0;
+}
+
+function shiftTime(value: Date | string, minutes: number) {
+  return new Date(new Date(value).getTime() + minutes * 60_000);
+}
+
+type PressState = { x: number; y: number; scroll: number; timer: number | null; active: boolean };
+
+function GridBlock({
+  item,
+  fillClassName,
+  inactive,
+  label,
+  style,
+  onSelect,
+  move,
+  pending,
+}: {
+  item: GridItem;
+  fillClassName: string;
+  inactive: boolean;
+  label: string;
+  style: CSSProperties;
+  onSelect: (id: string, trigger: HTMLElement) => void;
+  move?: { onMove: (id: string, deltaMinutes: number) => void; minDelta: number; maxDelta: number };
+  pending: boolean;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const [delta, setDelta] = useState(0);
+  const [dropFrame, setDropFrame] = useState(false);
+  const press = useRef<PressState | null>(null);
+  const suppressClick = useRef(false);
+  const ref = useRef<HTMLButtonElement>(null);
+
+  // The drop changes `top` (parent preview) and clears the drag offset in one render; skip the
+  // `top` transition for that frame so the block does not jump back and forth.
+  useEffect(() => {
+    if (!dropFrame) return;
+    const frame = requestAnimationFrame(() => setDropFrame(false));
+    return () => cancelAnimationFrame(frame);
+  }, [dropFrame]);
+
+  // While dragging, stop the grid/page from panning (iOS ignores touch-action set mid-gesture).
+  useEffect(() => {
+    const element = ref.current;
+    if (!dragging || !element) return;
+    const block = (event: TouchEvent) => event.preventDefault();
+    element.addEventListener("touchmove", block, { passive: false });
+    return () => element.removeEventListener("touchmove", block);
+  }, [dragging]);
+
+  const scroller = () => ref.current?.closest<HTMLElement>("[data-time-scroller]") ?? null;
+
+  function reset() {
+    if (press.current?.timer) window.clearTimeout(press.current.timer);
+    press.current = null;
+    setDragging(false);
+    setDelta(0);
+  }
+
+  function onPointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!move || event.button !== 0) return;
+    const target = event.currentTarget;
+    const pointerId = event.pointerId;
+    press.current = {
+      x: event.clientX,
+      y: event.clientY,
+      scroll: scroller()?.scrollTop ?? 0,
+      active: false,
+      timer: window.setTimeout(() => {
+        if (!press.current) return;
+        press.current.active = true;
+        try {
+          target.setPointerCapture(pointerId);
+        } catch {
+          // Pointer already released.
+        }
+        setDragging(true);
+        haptic("medium");
+      }, LONG_PRESS_MS),
+    };
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    const current = press.current;
+    if (!current || !move) return;
+    if (!current.active) {
+      // Moving before the long press completes is a scroll, not a drag.
+      if (Math.hypot(event.clientX - current.x, event.clientY - current.y) > LONG_PRESS_SLOP_PX) reset();
+      return;
+    }
+    const grid = scroller();
+    if (grid) {
+      const bounds = grid.getBoundingClientRect();
+      if (event.clientY < bounds.top + AUTOSCROLL_EDGE_PX) grid.scrollTop -= AUTOSCROLL_STEP_PX;
+      else if (event.clientY > bounds.bottom - AUTOSCROLL_EDGE_PX) grid.scrollTop += AUTOSCROLL_STEP_PX;
+    }
+    const dy = event.clientY - current.y + ((grid?.scrollTop ?? 0) - current.scroll);
+    const next = snapDeltaMinutes(dy, HOUR_PX, move.minDelta, move.maxDelta);
+    if (next !== delta) {
+      haptic("selection");
+      setDelta(next);
+    }
+  }
+
+  function onPointerUp() {
+    const current = press.current;
+    if (!current) return;
+    if (current.active) {
+      suppressClick.current = true;
+      if (delta !== 0 && move) {
+        setDropFrame(true);
+        move.onMove(item.id, delta);
+      }
+    }
+    reset();
+  }
+
+  const preview = dragging && delta !== 0;
+  const time = formatTimeRange(
+    preview ? shiftTime(item.startAt, delta) : item.startAt,
+    preview ? shiftTime(item.endAt, delta) : item.endAt,
+  );
+  const offsetPx = (delta / 60) * HOUR_PX;
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={(event) => {
+        if (suppressClick.current) {
+          suppressClick.current = false;
+          return;
+        }
+        onSelect(item.id, event.currentTarget);
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={reset}
+      onContextMenu={move ? (event) => event.preventDefault() : undefined}
+      aria-label={`${time}, ${item.title}, ${item.detail}${item.ariaExtra ? `, ${item.ariaExtra}` : ""}, ${label}. Ayrıntıları aç${
+        move ? "; saatini değiştirmek için basılı tutup sürükleyin" : ""
+      }`}
+      data-dragging={dragging ? "" : undefined}
+      className={`focus-ring absolute flex min-w-11 flex-col items-start overflow-hidden rounded-[10px] px-2 py-1 text-left hover:brightness-[0.97] focus-visible:z-[7] motion-reduce:!transition-none ${
+        move ? "select-none [-webkit-touch-callout:none]" : ""
+      } ${dragging ? "z-[8] cursor-grabbing shadow-raised ring-2 ring-focus" : "z-[6]"} ${
+        pending ? "outline-2 outline-offset-2 outline-dashed outline-focus" : ""
+      } ${fillClassName}`}
+      style={{
+        ...style,
+        transform: dragging ? `translateY(${offsetPx}px) scale(1.03)` : undefined,
+        transition: dropFrame
+          ? "none"
+          : dragging
+            ? "transform 90ms var(--ease-out), box-shadow 150ms var(--ease-out)"
+            : "top 320ms cubic-bezier(0.34, 1.56, 0.64, 1), transform 150ms var(--ease-out), filter 150ms",
+      }}
+    >
+      <span aria-hidden="true" className="block w-full truncate text-caption font-semibold tabular-nums">
+        {time} · {label}
+      </span>
+      <span aria-hidden="true" className={`block w-full truncate text-footnote font-medium ${inactive ? "line-through" : ""}`}>
+        {item.title}
+      </span>
+      <span aria-hidden="true" className="block w-full truncate text-caption">
+        {item.detail}
+      </span>
+    </button>
+  );
+}
+
 export function TimeGrid({
   caption,
   cornerLabel,
@@ -318,6 +514,9 @@ export function TimeGrid({
   items,
   onSelect,
   minColumnRem = 9,
+  canMove,
+  onMove,
+  pendingId,
 }: {
   caption: string;
   cornerLabel?: string;
@@ -325,6 +524,12 @@ export function TimeGrid({
   items: ReadonlyArray<GridItem>;
   onSelect: (id: string, trigger: HTMLElement) => void;
   minColumnRem?: number;
+  /** Day view drag-to-move: which blocks may be moved (UI hint; the server decides). */
+  canMove?: (item: GridItem) => boolean;
+  /** Called on drop with the snapped shift in minutes (never 0). */
+  onMove?: (id: string, deltaMinutes: number) => void;
+  /** Block waiting for the move confirmation (shown with a dashed outline). */
+  pendingId?: string | null;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const captionId = useId();
@@ -390,7 +595,7 @@ export function TimeGrid({
       <h2 id={captionId} className="sr-only">
         {caption}
       </h2>
-      <div ref={scrollerRef} className="max-h-[70dvh] overflow-auto overscroll-contain">
+      <div ref={scrollerRef} data-time-scroller className="max-h-[70dvh] overflow-auto overscroll-contain">
         <div style={{ minWidth: `calc(3.5rem + ${columns.length} * ${minColumnRem}rem)` } as CSSProperties}>
           {/* Column headers: sticky to the top of the scroller. */}
           <div className="sticky top-0 z-20 flex border-b border-separator bg-surface">
@@ -484,37 +689,31 @@ export function TimeGrid({
                     const { top, height } = placeVertical({ startMin, endMin }, range, HOUR_PX, MIN_BAR_PX);
                     const { lane, laneCount } = lanes.get(item.id) ?? { lane: 0, laneCount: 1 };
                     const label = appointmentStatusLabels[item.status] ?? item.status;
-                    const time = formatTimeRange(item.startAt, item.endAt);
                     const inactive = item.status === "REJECTED" || item.status === "CANCELLED";
                     const fill = item.colorClass
                       ? `${item.colorClass} border-l-4 text-ink ${item.status === "PENDING" ? "border-y border-r border-dashed border-y-status-pending border-r-status-pending" : ""}`
                       : `${appointmentStatusBadge[item.status] ?? "bg-surface-muted text-ink"} ${statusBarExtra[item.status] ?? "border border-separator"}`;
                     return (
                       <li key={item.id}>
-                        <button
-                          type="button"
-                          onClick={(event) => onSelect(item.id, event.currentTarget)}
-                          aria-label={`${time}, ${item.title}, ${item.detail}${item.ariaExtra ? `, ${item.ariaExtra}` : ""}, ${label}. Ayrıntıları aç`}
-                          className={`focus-ring absolute z-[6] flex min-w-11 flex-col items-start overflow-hidden rounded-[10px] px-2 py-1 text-left transition-[filter] duration-150 hover:brightness-[0.97] focus-visible:z-[7] motion-reduce:transition-none ${fill} ${
-                            inactive ? "opacity-80" : ""
-                          }`}
+                        <GridBlock
+                          item={item}
+                          fillClassName={`${fill} ${inactive ? "opacity-80" : ""}`}
+                          inactive={inactive}
+                          label={label}
                           style={{
                             top: GRID_PAD_PX + top + 1,
                             height: height - 2,
                             left: `calc(${(lane / laneCount) * 100}% + 2px)`,
                             width: `calc(${100 / laneCount}% - 4px)`,
                           }}
-                        >
-                          <span aria-hidden="true" className="block w-full truncate text-caption font-semibold tabular-nums">
-                            {time} · {label}
-                          </span>
-                          <span aria-hidden="true" className={`block w-full truncate text-footnote font-medium ${inactive ? "line-through" : ""}`}>
-                            {item.title}
-                          </span>
-                          <span aria-hidden="true" className="block w-full truncate text-caption">
-                            {item.detail}
-                          </span>
-                        </button>
+                          onSelect={onSelect}
+                          move={
+                            onMove && canMove?.(item)
+                              ? { onMove, minDelta: range.startMin - startMin, maxDelta: range.endMin - endMin }
+                              : undefined
+                          }
+                          pending={pendingId === item.id}
+                        />
                       </li>
                     );
                   })}
@@ -545,17 +744,26 @@ export type TimelineItem = Readonly<{
   service: string;
 }>;
 
+/** Only open appointments can be moved (owner decision 2026-11-05); the server re-checks. */
+const MOVABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
+const canMoveGridItem = (item: GridItem) => MOVABLE_STATUSES.has(item.status);
+
 export function DayTimeline({
   date,
   rows,
   items,
   onSelect,
+  onMove,
+  pendingId,
 }: {
   date: string;
   /** One column per staff member. */
   rows: ReadonlyArray<TimelineColumn>;
   items: ReadonlyArray<TimelineItem>;
   onSelect: (id: string, trigger: HTMLElement) => void;
+  /** Enables long-press drag-to-move; receives the snapped shift in minutes. */
+  onMove?: (id: string, deltaMinutes: number) => void;
+  pendingId?: string | null;
 }) {
   const columns = useMemo(() => rows.map((row) => ({ id: row.id, date, label: row.label })), [rows, date]);
   const gridItems = useMemo(
@@ -571,7 +779,18 @@ export function DayTimeline({
       })),
     [items],
   );
-  return <TimeGrid caption={`${formatLongDate(date)} gün görünümü`} columns={columns} items={gridItems} onSelect={onSelect} minColumnRem={rows.length > 1 ? 9 : 12} />;
+  return (
+    <TimeGrid
+      caption={`${formatLongDate(date)} gün görünümü`}
+      columns={columns}
+      items={gridItems}
+      onSelect={onSelect}
+      minColumnRem={rows.length > 1 ? 9 : 12}
+      canMove={onMove ? canMoveGridItem : undefined}
+      onMove={onMove}
+      pendingId={pendingId}
+    />
+  );
 }
 
 /* ------------------------------------------------------------------------------------------ */
@@ -627,9 +846,9 @@ export function AppointmentSheet({
         <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-headline tabular-nums focus:outline-none">
           {title}
         </h2>
-        <button type="button" onClick={() => dialogRef.current?.close()} className={buttonSecondary}>
+        <Button type="button" onClick={() => dialogRef.current?.close()} variant="secondary">
           Kapat
-        </button>
+        </Button>
       </div>
       <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">{children}</div>
     </dialog>

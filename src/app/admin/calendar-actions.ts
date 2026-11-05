@@ -21,7 +21,7 @@ import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import type { AppointmentRecord, AppointmentStatus } from "../../domain/appointment";
 import type { NotificationEventType } from "../../domain/notification";
 import { publishAppointmentNotification } from "../notification-runtime";
-import { createOnBehalf, createOnBehalfBookingEngine, listSlotsOnBehalf, readCreateOptions } from "../appointment-create-runtime";
+import { createOnBehalf, createOnBehalfBookingEngine, listSlotsOnBehalf, readCreateOptions, rescheduleOnBehalf, type RescheduleView } from "../appointment-create-runtime";
 import type {
   AdminCreateAppointmentInput, CreateAppointmentResult, CreateOptionsView, CustomerSearchResultView, LocalDateIso, SlotListResult,
 } from "../appointment-create-contract";
@@ -198,4 +198,14 @@ export async function createAdminAppointment(input: AdminCreateAppointmentInput)
     serviceId: input.serviceId, staffId: input.staffId, startAt: input.startAt, customer: input.customer, notifyCustomer: input.notifyCustomer,
     whatsappVerbalOptIn: input.whatsappVerbalOptIn,
   });
+}
+
+/** Drag-to-move in the day calendar (owner decision 2026-11-05). No customer notification yet. */
+export async function rescheduleAdminAppointment(appointmentId: string, newStartAtIso: string): Promise<RescheduleView> {
+  const context = await getAdminContext();
+  if (!context) return { status: "FORBIDDEN" };
+  return rescheduleOnBehalf(
+    context.prisma, createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext,
+    appointmentId, newStartAtIso,
+  );
 }

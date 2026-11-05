@@ -1,7 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { BackLink } from "../../_ui/back-link";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { field } from "../../_ui/styles";
+import { House } from "lucide-react";
+import { PageHeader } from "../../_ui/page-header";
 import { getCustomer, getCustomers } from "./actions";
 
 export default async function CustomerPage({
@@ -27,11 +31,14 @@ export default async function CustomerPage({
     }
 
     return (
-      <main className="min-h-screen bg-canvas p-4 sm:p-8">
-        <div className="mx-auto max-w-4xl">
-          <BackLink href="/admin/customers" label="Müşteriler" />
-          <h1 className="mt-4 text-3xl font-semibold">{result.customer.displayName}</h1>
-          <p className="mt-1 text-sm text-ink-muted">
+      <main className="min-h-screen bg-canvas">
+        <PageHeader
+          title={result.customer.displayName}
+          breadcrumb={[{ label: "Yönetim", href: "/admin", icon: House }, { label: "Müşteriler", href: "/admin/customers" }, { label: result.customer.displayName }]}
+          widthClassName="max-w-4xl"
+        />
+        <div className="mx-auto max-w-4xl p-4 sm:p-8">
+          <p className="text-subhead text-ink-muted">
             {result.customer.email ?? "E-posta yok"} · {result.customer.phone ?? "Telefon yok"}
           </p>
 
@@ -82,25 +89,24 @@ export default async function CustomerPage({
   }
 
   return (
-    <main className="min-h-screen bg-canvas p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-semibold">Müşteriler</h1>
-            <p className="mt-1 text-sm text-ink-muted">Müşteri kayıtları, geçmiş ve notlar.</p>
-          </div>
-        </div>
-
-        <form method="get" className="mt-6 flex gap-2">
+    <main className="min-h-screen bg-canvas">
+      <PageHeader
+        title="Müşteriler"
+        eyebrow="Müşteri kayıtları, geçmiş ve notlar"
+        breadcrumb={[{ label: "Yönetim", href: "/admin", icon: House }, { label: "Müşteriler" }]}
+        widthClassName="max-w-5xl"
+      />
+      <div className="mx-auto max-w-5xl p-4 sm:p-8">
+        <form method="get" className="flex gap-2">
           <label className="sr-only" htmlFor="customer-search">Müşteri ara</label>
           <input
             id="customer-search"
             name="q"
             defaultValue={query.q ?? ""}
             placeholder="Ad, e-posta veya telefon ara"
-            className="min-w-0 flex-1 rounded-lg border bg-surface px-3 py-2 text-sm"
+            className={`${field} min-w-0 flex-1`}
           />
-          <button type="submit" className="rounded-lg bg-action px-4 py-2 text-sm text-on-action">Ara</button>
+          <Button type="submit" leadingIcon={Search}>Ara</Button>
         </form>
 
         <section className="mt-6 overflow-hidden rounded-xl border bg-surface">

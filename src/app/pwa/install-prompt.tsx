@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { Download, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   INSTALL_PROMPT_DISMISSED_KEY,
   INSTALL_PROMPT_DISMISSED_VALUE,
@@ -171,25 +173,19 @@ export function InstallPrompt() {
             )}
           </p>
           {variant === "native" ? (
-            <button
-              type="button"
-              onClick={install}
-              disabled={installing}
-              className="pressable focus-ring min-h-11 shrink-0 rounded-control bg-action px-3.5 text-subhead font-semibold text-on-action hover:bg-action-hover disabled:cursor-wait disabled:opacity-60"
-            >
+            <Button type="button" onClick={install} pending={installing} size="small" className="min-h-11 shrink-0" leadingIcon={Download}>
               Uygulamayı yükle
-            </button>
+            </Button>
           ) : null}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            iconOnly
+            leadingIcon={X}
             onClick={dismiss}
             aria-label="Yükleme önerisini kapat"
-            className="pressable focus-ring flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control text-ink-muted hover:bg-ink/5 hover:text-ink"
-          >
-            <span aria-hidden="true" className="text-xl leading-none">
-              ×
-            </span>
-          </button>
+            className="shrink-0 text-ink-muted hover:text-ink"
+          />
         </div>
       </section>
     </>

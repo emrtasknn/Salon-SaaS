@@ -1,5 +1,5 @@
 import type { ApplicationIdentity } from "../domain/auth-identity";
-import type { AppointmentRecord, AppointmentStatus } from "../domain/appointment";
+import { canRescheduleAppointment, type AppointmentRecord, type AppointmentStatus } from "../domain/appointment";
 import { calculateAvailability, isSlotOnClosedDate, utcToLocalDateAndMinute } from "../domain/availability";
 import { generateAppointmentAccessToken } from "../domain/appointment-access-token";
 import { createTenantContactPhone, type TenantStatus } from "../domain/tenant";
@@ -68,7 +68,20 @@ export type BookingDataRepository = Readonly<{
   }>): Promise<CreateAppointmentPersistenceResult>;
   transition(tenantContext: TenantContext, appointmentId: string, expectedFrom: AppointmentStatus, to: AppointmentStatus):
     Promise<"updated" | "not_found" | "invalid_transition" | "persistence_failure">;
+  /**
+   * Moves an open appointment to `startAt` (same staff, same service; endAt recomputed). In one
+   * tenant-context transaction: same advisory lock as create, tenant status FOR SHARE, closures,
+   * working hours, conflict check excluding this appointment, then an update guarded by the
+   * expected staff/start/status (a concurrent change returns "stale").
+   */
+  rescheduleAppointment(tenantContext: TenantContext, input: Readonly<{
+    appointmentId: string; staffId: string; serviceId: string; expectedStartAt: Date; startAt: Date;
+  }>): Promise<RescheduleResult>;
 }>;
+
+export type RescheduleResult =
+  | Readonly<{ status: "rescheduled"; startAt: Date; endAt: Date }>
+  | "stale" | "conflict" | "slot_unavailable" | "closed_date" | "tenant_inactive" | "invalid_resource" | "persistence_failure";
 
 /** WP-08: who may create on behalf of a customer. STAFF scope carries the server-derived staffId. */
 export type AppointmentCreateScope = Readonly<{ kind: "admin" }> | Readonly<{ kind: "staff"; staffId: string }>;
@@ -246,6 +259,55 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
       if (result === "opt_in_requires_phone") return { status: "OPT_IN_REQUIRES_PHONE" as const };
       if (result === "invalid_resource") return { status: "INVALID_RESOURCE" as const };
       if (result === "tenant_inactive") return { status: "TENANT_INACTIVE" as const };
+      return { status: "PERSISTENCE_FAILURE" as const };
+    },
+
+    /**
+     * Owner decision 2026-11-05 (drag-to-move in the day calendar). TENANT_ADMIN may move any open
+     * appointment of the tenant; ACTIVE STAFF only their own (staffId from the server-side scope).
+     * Same staff and service; the new start must be an available slot (this appointment excluded).
+     * No customer notification is sent (no event type for it yet).
+     */
+    async reschedule(identity: ApplicationIdentity, tenantContext: TenantContext, appointment: AppointmentRecord, newStartAt: unknown) {
+      const scope = await dependencies.authorizer.resolveCreateScope(identity, tenantContext);
+      if (!scope) return { status: "FORBIDDEN" as const };
+      if (scope.kind === "staff" && scope.staffId !== appointment.staffId) return { status: "FORBIDDEN" as const };
+      if (!canRescheduleAppointment(appointment.status)) return { status: "INVALID_STATUS" as const };
+      if (!(newStartAt instanceof Date) || Number.isNaN(newStartAt.getTime())) return { status: "INVALID_INPUT" as const };
+      if (newStartAt.getTime() === appointment.startAt.getTime()) {
+        return { status: "RESCHEDULED" as const, startAt: appointment.startAt, endAt: appointment.endAt };
+      }
+
+      let context: BookingContext | null;
+      try {
+        context = await dependencies.repository.getBookingContext(tenantContext, { serviceId: appointment.serviceId, staffId: appointment.staffId, at: newStartAt });
+      } catch { return { status: "INVALID_INPUT" as const }; }
+      if (!context || context.staff.status !== "ACTIVE") return { status: "INVALID_RESOURCE" as const };
+      if (context.tenantStatus !== "ACTIVE") return { status: "TENANT_INACTIVE" as const };
+      const endAt = new Date(newStartAt.getTime() + (context.service.durationMinutes + context.service.bufferMinutes) * 60_000);
+      let dateIso: string;
+      try {
+        dateIso = utcToLocalDateAndMinute(newStartAt, context.timezone).dateIso;
+        if (isSlotOnClosedDate({ startAt: newStartAt, endAt }, context.timezone, context.closedDates)) return { status: "CLOSED_DATE" as const };
+      } catch { return { status: "INVALID_INPUT" as const }; }
+      const available = calculateAvailability({
+        dateIso, timeZone: context.timezone, workingHours: context.workingHours, staffId: context.staff.id,
+        appointments: context.appointments.filter((a) => a.id !== appointment.id),
+        durationMinutes: context.service.durationMinutes, bufferMinutes: context.service.bufferMinutes,
+        now: now(), closedDates: context.closedDates,
+      }).some((slot) => slot.startAt.getTime() === newStartAt.getTime());
+      if (!available) return { status: "SLOT_UNAVAILABLE" as const };
+
+      const result = await dependencies.repository.rescheduleAppointment(tenantContext, {
+        appointmentId: appointment.id, staffId: appointment.staffId, serviceId: appointment.serviceId,
+        expectedStartAt: appointment.startAt, startAt: newStartAt,
+      });
+      if (typeof result === "object") return { status: "RESCHEDULED" as const, startAt: result.startAt, endAt: result.endAt };
+      if (result === "stale") return { status: "STALE" as const };
+      if (result === "conflict" || result === "slot_unavailable") return { status: "SLOT_UNAVAILABLE" as const };
+      if (result === "closed_date") return { status: "CLOSED_DATE" as const };
+      if (result === "tenant_inactive") return { status: "TENANT_INACTIVE" as const };
+      if (result === "invalid_resource") return { status: "INVALID_RESOURCE" as const };
       return { status: "PERSISTENCE_FAILURE" as const };
     },
 

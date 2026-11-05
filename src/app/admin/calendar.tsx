@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import {
   createAdminAppointment,
   getAdminCreateOptions,
   listAdminAppointments,
   listAdminSlots,
+  rescheduleAdminAppointment,
   searchAdminCustomers,
   transitionAdminAppointment,
 } from "./calendar-actions";
+import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { BookingContactSummary } from "../booking-contact-summary";
 import {
@@ -25,9 +27,12 @@ import {
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
 import { dateInZone } from "../_ui/timeline-layout";
-import { appointmentStatusBadge, badgeBase, buttonDestructiveOutline, buttonPrimary, buttonSecondary } from "../_ui/styles";
+import { appointmentStatusBadge, badgeBase, fieldInline, appointmentStatusLabel } from "../_ui/styles";
+import { PageHeader } from "../_ui/page-header";
 import { AdminClosures } from "./closures";
 import type { ClosureListResult, LocalDateIso } from "../appointment-create-contract";
+import { Button, type ButtonVariant } from "@/components/ui/button";
+import { haptic } from "@/lib/haptics";
 
 type AdminTransitionTarget = "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 type ActionKind = "primary" | "destructive" | "secondary";
@@ -50,16 +55,10 @@ function availableActions(status: string): Array<{ to: AdminTransitionTarget; la
   return [];
 }
 
-const listActionClass: Record<ActionKind, string> = {
-  primary: "rounded-lg bg-action px-3 py-2 text-xs text-on-action disabled:opacity-50",
-  destructive: "rounded-lg border border-destructive/40 px-3 py-2 text-xs text-destructive disabled:opacity-50",
-  secondary: "rounded-lg border px-3 py-2 text-xs disabled:opacity-50",
-};
-
-const sheetActionClass: Record<ActionKind, string> = {
-  primary: buttonPrimary,
-  destructive: buttonDestructiveOutline,
-  secondary: buttonSecondary,
+const actionVariant: Record<ActionKind, ButtonVariant> = {
+  primary: "primary",
+  destructive: "danger-outline",
+  secondary: "secondary",
 };
 
 const createVariant = {
@@ -74,14 +73,10 @@ type Props = {
   initialDate: string;
   initialData: Awaited<ReturnType<typeof listAdminAppointments>>;
   closures: Readonly<{ initialData: ClosureListResult; range: Readonly<{ from: LocalDateIso; to: LocalDateIso }> }>;
-};
-
-const labels: Record<string, string> = {
-  PENDING: "Bekliyor",
-  CONFIRMED: "Onaylandı",
-  REJECTED: "Reddedildi",
-  CANCELLED: "İptal",
-  COMPLETED: "Tamamlandı",
+  /** Notification bell, rendered in the fixed top layer. */
+  bell?: ReactNode;
+  /** Appointment to open on load (deep link from a notification); UI selection only. */
+  initialSelectedId?: string | null;
 };
 
 const timeFormatter = new Intl.DateTimeFormat("tr-TR", {
@@ -89,7 +84,7 @@ const timeFormatter = new Intl.DateTimeFormat("tr-TR", {
   minute: "2-digit",
 });
 
-export function AdminCalendar({ initialDate, initialData, closures }: Props) {
+export function AdminCalendar({ initialDate, initialData, closures, bell, initialSelectedId = null }: Props) {
   const [date, setDate] = useState(initialDate);
   const [view, setView] = useCalendarView();
   const { data, stale, busy: loading, refresh } = useCalendarData(listAdminAppointments, view, date, {
@@ -100,8 +95,15 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const [closuresOpen, setClosuresOpen] = useState(false);
+  const move = useAppointmentMove({
+    reschedule: rescheduleAdminAppointment,
+    onDone: (message) => {
+      setFeedback(message);
+      refresh();
+    },
+  });
   const [closureData, setClosureData] = useState(closures.initialData);
   const sheetTrigger = useRef<HTMLElement | null>(null);
   const closuresTrigger = useRef<HTMLButtonElement | null>(null);
@@ -136,8 +138,11 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
     appointmentId: string,
     to: "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED",
   ) {
+    // Immediate tick inside the tap (iOS only allows haptics there); outcome pattern after the result.
+    haptic(to === "REJECTED" || to === "CANCELLED" ? "warning" : "selection");
     startTransition(async () => {
       const result = await transitionAdminAppointment(appointmentId, to);
+      haptic(result.status === "updated" ? (to === "CONFIRMED" || to === "COMPLETED" ? "success" : "light") : "error");
 
       const messages: Record<string, string> = {
         CONFIRMED: "Randevu onaylandı.",
@@ -180,6 +185,13 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
   const loadError = data.status !== "ok" ? "Takvim yüklenemedi." : "";
   // Day and list show only the anchor date (data may still hold a wider range while reloading).
   const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
+  const movableOf = (a: (typeof appointments)[number]) => ({
+    id: a.id,
+    startAt: a.startAt,
+    endAt: a.endAt,
+    title: a.bookingContact?.displayName ?? a.customerDisplayName,
+    detail: `${a.serviceName} · ${a.staffDisplayName}`,
+  });
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const select = (id: string, trigger: HTMLElement) => {
     sheetTrigger.current = trigger;
@@ -188,61 +200,55 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
 
   return (
     <main className="min-h-screen bg-canvas">
-      <div className="mx-auto max-w-5xl p-4 sm:p-6">
-        <header className="mb-4 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-large-title">Randevu takvimi</h1>
-            <p className="mt-1 text-subhead text-ink-muted" aria-live="polite">
-              {formatPeriod(view, date)}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <CreateAppointmentDialog
-              variant={createVariant}
-              initialDate={date}
-              onCreated={onCreated}
-            />
-            <button
-              ref={closuresTrigger}
-              type="button"
-              onClick={() => setClosuresOpen(true)}
-              className={buttonSecondary}
-            >
-              Kapalı günler
-            </button>
-          </div>
-        </header>
-
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <ViewSwitch
-            view={view}
-            onChange={(next) => {
-              setSelectedId(null);
-              setView(next);
+      <PageHeader
+        title="Randevu takvimi"
+        eyebrow={<span aria-live="polite">{formatPeriod(view, date)}</span>}
+        accessory={bell}
+        widthClassName="max-w-5xl"
+      >
+        <ViewSwitch
+          view={view}
+          onChange={(next) => {
+            setSelectedId(null);
+            setView(next);
+          }}
+        />
+        <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
+          <input
+            aria-label="Tarih"
+            type="date"
+            value={date}
+            onChange={(event) => {
+              if (event.target.value) changeDate(event.target.value);
             }}
+            className={`${fieldInline} tabular-nums`}
           />
-          <div className="flex flex-wrap gap-2">
-            <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
-              <input
-                aria-label="Tarih"
-                type="date"
-                value={date}
-                onChange={(event) => {
-                  if (event.target.value) changeDate(event.target.value);
-                }}
-                className="focus-ring tap-target rounded-control border border-field-border bg-surface px-3 text-body tabular-nums text-ink"
-              />
-            </DateStepper>
-            <button
-              type="button"
-              onClick={() => refresh()}
-              disabled={busy}
-              className={buttonSecondary}
-            >
-              {loading ? "Yükleniyor…" : "Yenile"}
-            </button>
-          </div>
+        </DateStepper>
+      </PageHeader>
+      <div className="mx-auto max-w-5xl p-4 sm:p-6">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <CreateAppointmentDialog
+            variant={createVariant}
+            initialDate={date}
+            onCreated={onCreated}
+          />
+          <Button
+            ref={closuresTrigger}
+            type="button"
+            onClick={() => setClosuresOpen(true)}
+            variant="secondary"
+          >
+            Kapalı günler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => refresh()}
+            disabled={busy}
+            variant="secondary"
+            className="ml-auto"
+          >
+            {loading ? "Yükleniyor…" : "Yenile"}
+          </Button>
         </div>
 
         {(feedback || loadError) && (
@@ -282,7 +288,7 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
           <DayTimeline
             date={date}
             rows={staffRows(dayAppointments)}
-            items={dayAppointments.map((a) => ({
+            items={dayAppointments.map((a) => move.preview({
               id: a.id,
               rowId: a.staffId,
               startAt: a.startAt,
@@ -292,6 +298,11 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
               service: a.serviceName,
             }))}
             onSelect={select}
+            pendingId={move.pendingId}
+            onMove={(id, deltaMinutes) => {
+              const a = dayAppointments.find((candidate) => candidate.id === id);
+              if (a) move.propose(movableOf(a), deltaMinutes);
+            }}
           />
         ) : (
           <div className="space-y-3">
@@ -329,20 +340,22 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
                   </div>
 
                   <span className="rounded-full border px-2 py-1 text-xs">
-                    {labels[appointment.status] ?? appointment.status}
+                    {appointmentStatusLabel[appointment.status] ?? appointment.status}
                   </span>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {availableActions(appointment.status).map((action) => (
-                    <button
+                    <Button
                       key={action.to}
+                      type="submit"
+                      size="small"
+                      variant={actionVariant[action.kind]}
                       disabled={busy}
                       onClick={() => transition(appointment.id, action.to)}
-                      className={listActionClass[action.kind]}
                     >
                       {action.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </article>
@@ -363,7 +376,7 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
         {selected && (
           <div className="space-y-4">
             <span className={`${badgeBase} ${appointmentStatusBadge[selected.status] ?? "bg-surface-muted text-ink"}`}>
-              {labels[selected.status] ?? selected.status}
+              {appointmentStatusLabel[selected.status] ?? selected.status}
             </span>
             <DetailList
               entries={[
@@ -381,18 +394,29 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
                 {feedback}
               </p>
             )}
+            {(selected.status === "PENDING" || selected.status === "CONFIRMED") && (
+              <MoveStepButtons
+                disabled={busy || move.saving}
+                onStep={(deltaMinutes) => {
+                  const target = selected;
+                  setSelectedId(null);
+                  move.propose(movableOf(target), deltaMinutes);
+                }}
+              />
+            )}
             {availableActions(selected.status).length > 0 ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 {availableActions(selected.status).map((action) => (
-                  <button
+                  <Button
                     key={action.to}
                     type="button"
+                    variant={actionVariant[action.kind]}
                     disabled={busy}
                     onClick={() => transition(selected.id, action.to)}
-                    className={`${sheetActionClass[action.kind]} sm:flex-1`}
+                    className="sm:flex-1"
                   >
                     {action.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ) : (
@@ -401,6 +425,8 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
           </div>
         )}
       </AppointmentSheet>
+
+      {move.sheet}
 
       <AppointmentSheet
         wide

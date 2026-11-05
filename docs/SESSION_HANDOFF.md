@@ -1,37 +1,52 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-05 — Staging + pilot rollout, RLS runtime role, owner smoke-test fixes, PWA UX.
+2026-11-05 — UI component kit: BoardUI + Amicro components restyled to RandevuN tokens, Inter font.
 
 ## State
-- `main` @ 4b51d53 (#172). Working tree clean.
-- **Pilot is live:** https://salon-saas-pilot-emre-361a.vercel.app (Vercel `salon-saas-pilot`, `dub1`, public). Always use this alias, never a deployment-specific URL (PWA installed from those never updates).
-- **Staging:** Vercel `salon-saas-staging` (Vercel Auth on) + Supabase `salon-saas-test`.
-- Both DBs: all 21 migrations applied, no drift. Runtime connects as **`salon_app`** (NOBYPASSRLS) on both → FORCE RLS active at runtime. Migrations keep `postgres` (GitHub secrets).
-- Environment touched: staging + pilot DB migrations via guarded workflows (owner-approved; pilot without backup by owner decision, test-only data); Vercel projects created; Supabase read-only checks.
+- Branch / commit: `feat/ui-component-kit` (see PR)
+- Environment touched: local only (dev server viewed /login; no data-changing clicks). No DB writes, no migrations.
 
-## Done (PRs)
-- Infra/ops: #150 staging project + Playwright MCP, #158/#163/#167/#169 runbook + evidence, #159/#160 drift print + schema name mapping + CI drift step, #168 guarded pilot workflow (Environment `pilot`, confirm_ref, backup_taken).
-- Security: #166 `salon_app` runtime role (+3 pre-context fixes), #167 Tenant RLS explicit.
-- Features/UX: #151/#154 Apple design pass, #155 staff names, #156 notification names, #157 login/platform design, #161 staff temp password + invite/forgot password + staff routing, #162 notice opt-out wording, #164 tab bar + back links, #165 salon location/maps link (migration), #170 sign-in entry + salons sheet, #171 calendar timeline (Gantt), #172 customers exclude team + platform logout.
+## Done
+- Tooling: BoardUI skill (`.claude/skills/boardui/`), BoardUI MCP pinned in `.mcp.json`, `components.json` (registries only).
+- New: `src/components/ui/{button,input,breadcrumb,notice,motion-icons}.tsx`, `src/lib/utils.ts` (`cx`), `src/app/_ui/status-toggle.tsx`.
+- Bell button with ring animation + count badge (9+) replaces the "Bildirimler N" box.
+- Theme: one morphing button cycling Sistem → Açık → Koyu.
+- Aktif/Pasif: eye switch (role="switch") for staff, services, platform tenants. Admin "Ben de hizmet veriyorum" checkbox styled as a switch.
+- All `buttonPrimary/Secondary/Destructive*` recipes migrated to `<Button>/<ButtonLink>/<ButtonAnchor>`; field recipe restyled (filled look); local ad-hoc input/button classes unified.
+- `BackLink` removed → `<Breadcrumb>` (phones show "‹ Parent").
+- Inter via `next/font` (latin + latin-ext).
 
 ## Validation
-- CI `quality-gates` green on every PR (incl. drift step, salon_app integration test).
-- Owner smoke tests PASS on staging (as postgres and as salon_app) and pilot (platform list, salon pages, admin/staff flows).
+| Check | Command | Result |
+|---|---|---|
+| Lint | `npm run lint` | PASS (3 pre-existing warnings) |
+| Typecheck | `npm run typecheck` | PASS |
+| Unit tests | `npx vitest run src/app src/lib` (DATABASE_URL unset, no integration) | PASS 57 files / 714 tests |
+| Integration | CI | pending |
+| Build | `npm run build` | PASS |
+
+## Round 2 (same PR)
+- Fixed top layer `PageHeader` on all signed-in screens; bell deep links (`?date=&appointment=`) + status colors.
+- Working hours: quarter-hour `TimeSelect`. Haptics (`src/lib/haptics.ts`) + "Titreşim" switch.
+- **Scope change (owner decision 2026-11-05): drag-to-move in the day calendar.** Admin: any open
+  appointment; active staff: own only (create scope). PENDING/CONFIRMED only, same staff/service, slot +
+  closure + conflict re-check under the create advisory lock, stale guard. No migration, **no customer
+  notification** (needs a new event type + Meta template → follow-up). WP-08, ADR-044 (amendment) and
+  docs/tasks/README.md updated.
+- New integration test `src/persistence/prisma-booking-reschedule.integration.test.ts` (CI only).
 
 ## Decisions
-- Staging = separate Supabase project; pilot Vercel separate project; previews off on both.
-- No new UI deps (Lenis/GSAP/liquid-glass skipped; react-bits not copied).
-- Staff initial password set by admin (free Supabase mailer only reaches org members).
-- WhatsApp: pilot starts with it OFF (Meta business-initiated templates are paid; permanent token via System User is free). Push + status link + wa.me cover the pilot.
+- No `boardui init` / BoardUI tokens: components restyled onto existing tokens (dark mode keeps working via `data-theme`).
+- Default button height kept at 44px (BoardUI uses 36px) for touch targets.
+- Notifications rendered inline (`<Notice>`), not floating toasts, so live regions behave as before.
 
-## Open risks / next
-- Legal: owner brings counsel-approved texts → set version v1, drop TASLAK badge; DPA signature before real customers.
-- WhatsApp later: System User token, payment method, templates with salon name, webhook to pilot URL, W11.5 live tests.
-- Timeline limits: only staff with appointments get rows; range 08–21 not from working hours; staff row labelled "Ben".
-- Vercel runtime-log review (§9) pending: needs team access approval link.
-- Backup/restore rehearsal (§8) not done; Supabase Free has no downloadable backups → owner pg_dump.
-- `/reset-password` page still old styling.
+## Open risks
+- Signed-in screens (admin/staff/calendar) not checked visually in this session; needs a look in the preview after sign-in.
+- `npm audit` reports advisories in the dependency tree (not reviewed here).
 
 ## Next task
-- Owner device test on the alias URL (reinstall PWA), then go/no-go (WP-14) once legal is done.
+- Follow-up PR: customer reschedule notification. Migration = `APPOINTMENT_RESCHEDULED` enum value + per-reschedule
+  idempotency key on NotificationDelivery; apply to staging, then pilot (owner approval) **before** merging, since
+  `main` auto-deploys to the pilot Vercel project. WhatsApp template deferred by owner.
+- Visual pass on admin/staff screens (light/dark, 375px). Optional: ui.wensity.com KPI cards for the admin home.

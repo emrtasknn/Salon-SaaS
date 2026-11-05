@@ -51,14 +51,17 @@ describe("PlatformTenantsView", () => {
     }
   });
 
-  it("shows search, count and Aktif/Pasif badges with toggles", () => {
+  it("shows search, count and an Aktif/Pasif switch per salon", () => {
     const html = renderToStaticMarkup(<PlatformTenantsView tenants={tenants} />);
     expect(html).toContain('type="search"');
     expect(html).toContain("3 salon");
     expect(html).toContain("Aktif");
     expect(html).toContain("Pasif");
-    expect(html).toContain("Pasife al");
-    expect(html).toContain("Aktifleştir");
+    expect(html.match(/role="switch"/g)?.length).toBe(3);
+    expect(html).toContain('aria-checked="true"');
+    expect(html).toContain('aria-checked="false"');
+    // The switch submits the existing status form (server action decides).
+    expect(html).toMatch(/<button type="submit" role="switch"/);
   });
 
   it("explains an empty list and points to 'Yeni salon'", () => {
