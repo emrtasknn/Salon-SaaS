@@ -1,40 +1,21 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 
-import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
-import { releaseWebPushSubscription } from "../pwa/push-permission";
-import {
-  createServiceAction,
-  createStaffAction,
-  listAdminData,
-  removeWorkingHoursAction,
-  saveWorkingHoursAction,
-  setStaffStatusAction,
-  toggleServiceAction,
-  updateServiceAction,
-  updateStaffProfileAction,
-} from "./actions";
+import { BackLink } from "../_ui/back-link";
+import { statusNote } from "../_ui/styles";
+import { listAdminData } from "./actions";
 
-type Props = {
-  initialData: Awaited<ReturnType<typeof listAdminData>>;
-  /** WP-07: server-rendered "Salon ayarları" section (tenant from session only). */
-  settings?: ReactNode;
-};
+/*
+ * Shared pieces of the admin settings sub-pages (/admin/staff, /admin/services,
+ * /admin/hours). Presentation only: every action re-checks identity, tenant and
+ * role on the server.
+ */
 
-const days = [
-  "Pazar",
-  "Pazartesi",
-  "Salı",
-  "Çarşamba",
-  "Perşembe",
-  "Cuma",
-  "Cumartesi",
-];
+export type AdminData = Awaited<ReturnType<typeof listAdminData>>;
+export type AdminDataOk = Extract<AdminData, { status: "ok" }>;
 
-function message(status: string) {
+export function message(status: string) {
   const map: Record<string, string> = {
     UNAUTHORIZED: "Bu işlem için yetkiniz yok.",
     INVALID_INPUT: "Bilgileri kontrol edin.",
@@ -47,24 +28,11 @@ function message(status: string) {
   return map[status] ?? "İşlem tamamlandı.";
 }
 
-export function AdminManagement({ initialData, settings }: Props) {
+/** Local copy of the admin data with a server re-read after each successful change. */
+export function useAdminData(initialData: AdminData) {
   const [data, setData] = useState(initialData);
   const [busy, startTransition] = useTransition();
   const [feedback, setFeedback] = useState("");
-
-  const router = useRouter();
-
-  async function handleLogout() {
-    // WP-09: best-effort, time-boxed; never blocks logout.
-    await releaseWebPushSubscription();
-
-    const supabase = createNextSupabaseBrowserClient();
-
-    await supabase.auth.signOut();
-
-    router.replace("/login");
-    router.refresh();
-  }
 
   const refresh = () =>
     startTransition(async () => {
@@ -72,463 +40,40 @@ export function AdminManagement({ initialData, settings }: Props) {
       setData(next);
     });
 
-  if (data.status === "UNAUTHORIZED") {
-    return (
-      <main className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold">Yetkisiz erişim</h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          Bu alan yalnızca işletme yöneticilerine açıktır.
-        </p>
-      </main>
-    );
-  }
+  return { data, busy, startTransition, feedback, setFeedback, refresh };
+}
 
-  const services =
-    data.services.status === "listed" ? data.services.services : [];
-  const hours =
-    data.workingHours.status === "listed" ? data.workingHours.workingHours : [];
-  const staff =
-    data.staff.status === "listed" && data.staff.staff ? data.staff.staff : [];
-
+export function AdminUnauthorized() {
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-900">
-      <div className="mx-auto max-w-6xl p-4 sm:p-6">
-        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-500">Salon-SaaS</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-              İşletme yönetimi
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-              Bugünün operasyonu için personel, hizmet ve çalışma saatlerini
-              yönetin.
-            </p>
-          </div>
-          {/* "Takvim" lives in the area tab bar (admin/layout.tsx); only account actions stay here. */}
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/reset-password"
-              className="inline-flex min-h-11 items-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
-            >
-              Şifremi değiştir
-            </Link>
-            <button
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
-              onClick={refresh}
-              disabled={busy}
-            >
-              {busy ? "Yenileniyor…" : "Yenile"}
-            </button>
-            <button
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
-              onClick={handleLogout}
-            >
-              Çıkış yap
-            </button>
-          </div>
-        </header>
+    <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+      <h1 className="text-title text-ink">Yetkisiz erişim</h1>
+      <p className="mt-2 text-body text-ink-muted">Bu alan yalnızca işletme yöneticilerine açıktır.</p>
+    </main>
+  );
+}
 
+/** Sub-page frame: concrete back link to the hub, large title, status line. */
+export function AdminSubpage({
+  title,
+  feedback,
+  children,
+}: {
+  title: string;
+  feedback?: string;
+  children: ReactNode;
+}) {
+  return (
+    <main className="min-h-screen bg-canvas text-ink">
+      <div className="mx-auto w-full max-w-xl px-4 pb-10 pt-4 sm:px-6">
+        <BackLink href="/admin" label="Yönetim" />
+        <h1 className="mt-2 text-large-title">{title}</h1>
         {feedback && (
-          <p
-            role="status"
-            className="mb-5 rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900 shadow-sm"
-          >
+          // Sticky so the result of a save further down the page stays in view.
+          <p role="status" className={`${statusNote} sticky top-[max(0.5rem,env(safe-area-inset-top))] z-10 mt-4`}>
             {feedback}
           </p>
         )}
-
-        <div className="grid gap-6 lg:grid-cols-3">
-          <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">Personel</h2>
-            <form
-              className="mt-4 space-y-3"
-              action={(formData) =>
-                startTransition(async () => {
-                  const result = await createStaffAction({
-                    displayName: String(formData.get("displayName") ?? ""),
-                    email: String(formData.get("email") ?? ""),
-                    phone: String(formData.get("phone") ?? ""),
-                    password: String(formData.get("password") ?? ""),
-                  });
-                  setFeedback(
-                    result.status === "created"
-                      ? formData.get("password")
-                        ? "Personel oluşturuldu. E-posta ve geçici şifreyi personele iletin; giriş yaptıktan sonra şifresini değiştirebilir."
-                        : "Personel oluşturuldu."
-                      : message(result.status),
-                  );
-                  if (result.status === "created") refresh();
-                })
-              }
-            >
-              <input
-                name="displayName"
-                required
-                placeholder="Ad soyad"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              />
-              <input
-                name="email"
-                type="email"
-                placeholder="E-posta"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              />
-              <input
-                name="phone"
-                type="tel"
-                placeholder="Telefon"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              />
-              <input
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                maxLength={128}
-                aria-label="Geçici şifre (isteğe bağlı)"
-                aria-describedby="staff-password-hint"
-                placeholder="Geçici şifre (isteğe bağlı)"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              />
-              <p id="staff-password-hint" className="text-xs text-zinc-600">
-                En az 8 karakter; e-posta gerekir. Boş bırakırsanız personele davet e-postası gönderilir.
-              </p>
-              <button
-                disabled={busy}
-                className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white"
-              >
-                Personel ekle
-              </button>
-            </form>
-            <div className="mt-5 space-y-2">
-              {staff.length === 0 ? (
-                <p className="text-sm text-zinc-500">Henüz personel yok.</p>
-              ) : (
-                staff.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm"
-                  >
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {item.displayName}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {item.phone || "Telefon belirtilmemiş"}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {item.status === "ACTIVE" ? "Aktif" : "Pasif"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="shrink-0 rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200"
-                        onClick={() =>
-                          startTransition(async () => {
-                            const result = await setStaffStatusAction(
-                              item.id,
-                              item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
-                            );
-                            setFeedback(message(result.status));
-                            if (result.status === "updated") refresh();
-                          })
-                        }
-                      >
-                        {item.status === "ACTIVE"
-                          ? "Pasifleştir"
-                          : "Aktifleştir"}
-                      </button>
-                    </div>
-                    <form
-                      className="space-y-2 border-t border-zinc-200 pt-3"
-                      action={(formData) =>
-                        startTransition(async () => {
-                          const result = await updateStaffProfileAction(
-                            item.id,
-                            {
-                              displayName: String(
-                                formData.get("displayName") ?? "",
-                              ),
-                              phone: String(formData.get("phone") ?? ""),
-                            },
-                          );
-                          setFeedback(
-                            result.status === "updated"
-                              ? "Personel bilgileri güncellendi."
-                              : message(result.status),
-                          );
-                          if (result.status === "updated") refresh();
-                        })
-                      }
-                    >
-                      <input
-                        name="displayName"
-                        required
-                        defaultValue={item.displayName}
-                        aria-label="Personel adı"
-                        placeholder="Ad soyad"
-                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-                      />
-                      <input
-                        name="phone"
-                        type="tel"
-                        defaultValue={item.phone ?? ""}
-                        aria-label="Personel telefonu"
-                        placeholder="Telefon"
-                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-                      />
-                      <button
-                        disabled={busy}
-                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-900 hover:bg-zinc-100"
-                      >
-                        Bilgileri kaydet
-                      </button>
-                    </form>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">Hizmetler</h2>
-            <form
-              className="mt-4 space-y-3"
-              action={(formData) =>
-                startTransition(async () => {
-                  const result = await createServiceAction({
-                    name: String(formData.get("name") ?? ""),
-                    durationMinutes: Number(
-                      formData.get("durationMinutes") ?? 0,
-                    ),
-                    bufferMinutes: Number(formData.get("bufferMinutes") ?? 0),
-                  });
-                  setFeedback(message(result.status));
-                  if (result.status === "created") refresh();
-                })
-              }
-            >
-              <input
-                name="name"
-                required
-                placeholder="Hizmet adı"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              />
-              <input
-                name="durationMinutes"
-                required
-                type="number"
-                min="1"
-                placeholder="Süre (dk)"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              />
-              <input
-                name="bufferMinutes"
-                type="number"
-                min="0"
-                placeholder="Ara (dk)"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              />
-              <button
-                disabled={busy}
-                className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white"
-              >
-                Hizmet ekle
-              </button>
-            </form>
-            <div className="mt-5 space-y-2">
-              {services.length === 0 ? (
-                <p className="text-sm text-zinc-500">Henüz hizmet yok.</p>
-              ) : (
-                services.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm"
-                  >
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{item.name}</p>
-                        <p className="text-xs text-zinc-500">
-                          {item.durationMinutes} dk · {item.bufferMinutes} dk
-                          ara
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {item.active ? "Aktif" : "Pasif"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="shrink-0 rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200"
-                        onClick={() =>
-                          startTransition(async () => {
-                            const result = await toggleServiceAction(
-                              item.id,
-                              !item.active,
-                            );
-                            setFeedback(message(result.status));
-                            if (result.status === "updated") refresh();
-                          })
-                        }
-                      >
-                        {item.active ? "Pasifleştir" : "Aktifleştir"}
-                      </button>
-                    </div>
-                    <form
-                      className="space-y-2 border-t border-zinc-200 pt-3"
-                      action={(formData) =>
-                        startTransition(async () => {
-                          const result = await updateServiceAction(item.id, {
-                            name: String(formData.get("name") ?? ""),
-                            durationMinutes: Number(
-                              formData.get("durationMinutes") ?? 0,
-                            ),
-                            bufferMinutes: Number(
-                              formData.get("bufferMinutes") ?? 0,
-                            ),
-                          });
-                          setFeedback(
-                            result.status === "updated"
-                              ? "Hizmet bilgileri güncellendi."
-                              : message(result.status),
-                          );
-                          if (result.status === "updated") refresh();
-                        })
-                      }
-                    >
-                      <input
-                        name="name"
-                        required
-                        defaultValue={item.name}
-                        aria-label="Hizmet adı"
-                        placeholder="Hizmet adı"
-                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-                      />
-                      <div className="flex gap-2">
-                        <div className="w-1/2">
-                          <input
-                            name="durationMinutes"
-                            required
-                            type="number"
-                            min="1"
-                            defaultValue={item.durationMinutes}
-                            aria-label="Hizmet süresi (dk)"
-                            placeholder="Süre (dk)"
-                            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-                          />
-                        </div>
-                        <div className="w-1/2">
-                          <input
-                            name="bufferMinutes"
-                            type="number"
-                            min="0"
-                            defaultValue={item.bufferMinutes}
-                            aria-label="Ara süresi (dk)"
-                            placeholder="Ara (dk)"
-                            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-                          />
-                        </div>
-                      </div>
-                      <button
-                        disabled={busy}
-                        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-900 hover:bg-zinc-100"
-                      >
-                        Bilgileri kaydet
-                      </button>
-                    </form>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">Çalışma saatleri</h2>
-            <div className="mt-4 space-y-2">
-              {days.map((day, index) => {
-                const item = hours.find((value) => value.dayOfWeek === index);
-                return (
-                  <div
-                    key={day}
-                    className="rounded-lg border border-zinc-300 bg-zinc-50 p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{day}</span>
-                      {item && (
-                        <button
-                          className="rounded px-2 py-1 text-xs font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:bg-zinc-200"
-                          onClick={() =>
-                            startTransition(async () => {
-                              const result =
-                                await removeWorkingHoursAction(index);
-                              setFeedback(message(result.status));
-                              if (result.status === "removed") refresh();
-                            })
-                          }
-                        >
-                          Kaldır
-                        </button>
-                      )}
-                    </div>
-                    <form
-                      className="mt-2 flex gap-2"
-                      action={(formData) =>
-                        startTransition(async () => {
-                          const result = await saveWorkingHoursAction({
-                            dayOfWeek: index,
-                            openMinute: Number(formData.get("openMinute") ?? 0),
-                            closeMinute: Number(
-                              formData.get("closeMinute") ?? 0,
-                            ),
-                          });
-                          setFeedback(
-                            result.status === "INVALID_INPUT"
-                              ? "Çalışma saatlerini kontrol edin (kapanış en geç 23:59 olmalı)."
-                              : message(result.status),
-                          );
-                          if (
-                            result.status === "created" ||
-                            result.status === "updated"
-                          )
-                            refresh();
-                        })
-                      }
-                    >
-                      <input
-                        name="openMinute"
-                        type="number"
-                        min="0"
-                        max="1439"
-                        defaultValue={item?.openMinute ?? 540}
-                        className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-                        aria-label={day + " açılış"}
-                      />
-                      <input
-                        name="closeMinute"
-                        type="number"
-                        min="1"
-                        max="1439"
-                        defaultValue={item?.closeMinute ?? 1080}
-                        className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-                        aria-label={day + " kapanış"}
-                      />
-                      <button
-                        disabled={busy}
-                        className="rounded bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-zinc-800"
-                      >
-                        Kaydet
-                      </button>
-                    </form>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        </div>
-
-        {settings}
+        <div className="mt-6 space-y-8">{children}</div>
       </div>
     </main>
   );

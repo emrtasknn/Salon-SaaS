@@ -159,7 +159,7 @@ export function InstallPrompt() {
             {variant === "native" ? (
               <>
                 <span className="font-medium">Ana ekrana ekle</span>
-                <span className="hidden text-neutral-600 sm:inline"> · Salon-SaaS’ı uygulama gibi aç.</span>
+                <span className="hidden text-neutral-600 sm:inline"> · RandevuN’u uygulama gibi aç.</span>
               </>
             ) : (
               <>
