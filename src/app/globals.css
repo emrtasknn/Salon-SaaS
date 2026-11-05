@@ -221,6 +221,19 @@ body {
   }
 }
 
+/* Timeline detail sheet: short rise-in; skipped when reduced motion is requested. */
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog.sheet-motion[open] {
+    animation: sheet-in var(--duration-slow) var(--ease-out);
+  }
+}
+
 /* On phones, when the app tab bar is present, lift the install banner above it
    instead of covering it (tab bar height: 3.5rem + safe-area padding). */
 @media (max-width: 767.98px) {
