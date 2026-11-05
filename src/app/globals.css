@@ -220,3 +220,11 @@ body {
     backdrop-filter: none;
   }
 }
+
+/* On phones, when the app tab bar is present, lift the install banner above it
+   instead of covering it (tab bar height: 3.5rem + safe-area padding). */
+@media (max-width: 767.98px) {
+  body:has([data-app-tabbar]) [data-install-banner] {
+    bottom: calc(3.5rem + max(0.5rem, env(safe-area-inset-bottom)));
+  }
+}

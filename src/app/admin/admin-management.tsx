@@ -93,7 +93,7 @@ export function AdminManagement({ initialData, settings }: Props) {
   return (
     <main className="min-h-screen bg-zinc-100 text-zinc-900">
       <div className="mx-auto max-w-6xl p-4 sm:p-6">
-        <header className="mb-8 flex items-end justify-between gap-4">
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-zinc-500">Salon-SaaS</p>
             <h1 className="mt-1 text-3xl font-semibold tracking-tight">
@@ -104,13 +104,14 @@ export function AdminManagement({ initialData, settings }: Props) {
               yönetin.
             </p>
           </div>
-          <Link
-            href="/admin/calendar"
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
-          >
-            Randevu takvimi
-          </Link>
-          <div className="flex gap-2">
+          {/* "Takvim" lives in the area tab bar (admin/layout.tsx); only account actions stay here. */}
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/reset-password"
+              className="inline-flex min-h-11 items-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+            >
+              Şifremi değiştir
+            </Link>
             <button
               className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
               onClick={refresh}

@@ -6,6 +6,8 @@ import { useState } from "react";
 
 import { createNextSupabaseBrowserClient } from "@/infrastructure/auth/supabase-browser-client";
 
+import { releaseWebPushSubscription } from "../pwa/push-permission";
+
 import { buttonSecondary } from "./styles";
 
 /** "Change password" (uses the current session on /reset-password) and "Log out" for signed-in users. */
@@ -16,6 +18,8 @@ export function AccountLinks() {
   async function logout() {
     setBusy(true);
     try {
+      // Same as admin logout (WP-09): best-effort, time-boxed; stops push to this device.
+      await releaseWebPushSubscription();
       await createNextSupabaseBrowserClient().auth.signOut();
     } finally {
       router.replace("/login");
