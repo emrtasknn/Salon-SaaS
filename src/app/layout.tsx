@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import { themeInitScript } from "./_ui/theme";
 import { InstallPrompt } from "./pwa/install-prompt";
 import { ServiceWorkerRegistrar } from "./pwa/service-worker-registrar";
 
@@ -30,14 +31,22 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f2f2f7",
+  // Browser chrome follows the device theme (an explicit in-app choice cannot change this meta).
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f2f2f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
   // Lets env(safe-area-inset-*) resolve in standalone mode; bars/body pad themselves.
   viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="tr" className="h-full antialiased">
+    <html lang="tr" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        {/* Sets <html data-theme> before first paint (no flash of the wrong theme). No CSP is configured. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans text-ink">
         {children}
         <InstallPrompt />

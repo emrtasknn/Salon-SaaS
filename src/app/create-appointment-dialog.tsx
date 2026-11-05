@@ -64,7 +64,7 @@ const createErrors: Record<string, string> = {
 };
 
 const inputClassName =
-  "w-full min-h-11 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:bg-zinc-100";
+  "w-full min-h-11 rounded-lg border border-field-border bg-surface px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30 disabled:bg-surface-muted";
 
 /** Today's local calendar date in the tenant timezone. */
 function todayIn(timeZone: string): LocalDateIso {
@@ -340,26 +340,26 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
           }}
           noValidate
         >
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-ink-muted">
             {isAdmin
               ? "Oluşturulan randevu doğrudan onaylı olarak kaydedilir."
               : "Randevu sizin adınıza, onaylı olarak kaydedilir."}
           </p>
 
           {optionsState === "loading" && (
-            <p role="status" className="text-sm text-zinc-600">
+            <p role="status" className="text-sm text-ink-muted">
               Seçenekler yükleniyor…
             </p>
           )}
 
           {optionsState === "error" && (
-            <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+            <p role="alert" className="rounded-lg border border-destructive/40 bg-status-rejected-bg p-3 text-sm text-status-rejected">
               Randevu seçenekleri yüklenemedi. Yetkinizi kontrol edin veya daha sonra tekrar deneyin.
             </p>
           )}
 
           {optionsState === "ready" && options && options.services.length === 0 && (
-            <p className="rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm text-zinc-700">
+            <p className="rounded-lg border border-separator bg-surface-muted p-3 text-sm text-ink-muted">
               Aktif hizmet yok. {isAdmin ? "Önce İşletme yönetimi sayfasından bir hizmet ekleyin." : "İşletme yöneticinizden hizmet eklemesini isteyin."}
             </p>
           )}
@@ -397,7 +397,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                       Personel
                     </label>
                     {options.staff.length === 0 ? (
-                      <p className="text-sm text-zinc-600">Aktif personel yok. Önce personel ekleyin.</p>
+                      <p className="text-sm text-ink-muted">Aktif personel yok. Önce personel ekleyin.</p>
                     ) : (
                       <select
                         id={`${fieldId}-staff`}
@@ -442,14 +442,14 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                   </p>
                   <div aria-live="polite" className="mt-1 min-h-11">
                     {slots.state === "idle" && (
-                      <p className="text-sm text-zinc-600">
+                      <p className="text-sm text-ink-muted">
                         {isAdmin ? "Uygun saatleri görmek için hizmet, personel ve tarih seçin." : "Uygun saatleri görmek için hizmet ve tarih seçin."}
                       </p>
                     )}
-                    {slots.state === "loading" && <p className="text-sm text-zinc-600">Uygun saatler yükleniyor…</p>}
-                    {slots.state === "error" && <p className="text-sm font-medium text-red-700">{slots.message}</p>}
+                    {slots.state === "loading" && <p className="text-sm text-ink-muted">Uygun saatler yükleniyor…</p>}
+                    {slots.state === "error" && <p className="text-sm font-medium text-destructive">{slots.message}</p>}
                     {slots.state === "ok" && slots.slots.length === 0 && (
-                      <p className="text-sm text-zinc-600">Bu tarihte uygun saat yok. Başka bir tarih seçin.</p>
+                      <p className="text-sm text-ink-muted">Bu tarihte uygun saat yok. Başka bir tarih seçin.</p>
                     )}
                   </div>
                   {slots.state === "ok" && slots.slots.length > 0 && (
@@ -462,8 +462,8 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                             type="button"
                             aria-pressed={isSelected}
                             onClick={() => setStartAt(s.startAt)}
-                            className={`min-h-11 rounded-lg border px-2 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 ${
-                              isSelected ? "border-black bg-black text-white" : "border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50"
+                            className={`min-h-11 rounded-lg border px-2 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 ${
+                              isSelected ? "border-action bg-action text-on-action" : "border-separator bg-surface text-ink hover:bg-surface-muted"
                             }`}
                           >
                             {s.label}
@@ -518,16 +518,16 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                         aria-describedby={`${fieldId}-search-hint`}
                         className={inputClassName}
                       />
-                      <p id={`${fieldId}-search-hint`} className="text-xs text-zinc-500">
+                      <p id={`${fieldId}-search-hint`} className="text-xs text-ink-muted">
                         Ad, telefon veya e-posta ile en az 2 karakter girin.
                       </p>
                     </div>
 
                     <div aria-live="polite">
-                      {searchState === "loading" && <p className="text-sm text-zinc-600">Aranıyor…</p>}
-                      {searchState === "error" && <p className="text-sm font-medium text-red-700">Arama yapılamadı. Tekrar deneyin.</p>}
+                      {searchState === "loading" && <p className="text-sm text-ink-muted">Aranıyor…</p>}
+                      {searchState === "error" && <p className="text-sm font-medium text-destructive">Arama yapılamadı. Tekrar deneyin.</p>}
                       {searchState === "done" && results.length === 0 && !selected && (
-                        <p className="text-sm text-zinc-600">Müşteri bulunamadı. &quot;Yeni müşteri&quot; seçeneğiyle devam edebilirsiniz.</p>
+                        <p className="text-sm text-ink-muted">Müşteri bulunamadı. &quot;Yeni müşteri&quot; seçeneğiyle devam edebilirsiniz.</p>
                       )}
                       {selected && (
                         <p className="text-sm">
@@ -537,7 +537,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                     </div>
 
                     {!selected && results.length > 0 && (
-                      <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-300" aria-label="Arama sonuçları">
+                      <ul className="divide-y divide-separator rounded-lg border border-separator" aria-label="Arama sonuçları">
                         {results.map((c) => (
                           <li key={c.profileId}>
                             <button
@@ -547,10 +547,10 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                                 setResults([]);
                                 setSearchState("idle");
                               }}
-                              className="block min-h-11 w-full px-3 py-2 text-left text-sm hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400"
+                              className="block min-h-11 w-full px-3 py-2 text-left text-sm hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
                             >
                               <span className="font-medium">{c.displayName}</span>
-                              <span className="block text-xs text-zinc-600">
+                              <span className="block text-xs text-ink-muted">
                                 {[c.phone, c.email].filter(Boolean).join(" · ") || "İletişim bilgisi yok"}
                               </span>
                             </button>
@@ -595,7 +595,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                         aria-describedby={`${fieldId}-phone-hint`}
                         className={inputClassName}
                       />
-                      <p id={`${fieldId}-phone-hint`} className="text-xs text-zinc-500">
+                      <p id={`${fieldId}-phone-hint`} className="text-xs text-ink-muted">
                         Ülke koduyla girin, örn. +905551234567.
                       </p>
                     </div>
@@ -632,7 +632,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                     />
                     Müşteriyi bilgilendir
                   </label>
-                  <p id={`${fieldId}-notify-hint`} className="text-xs text-zinc-500">
+                  <p id={`${fieldId}-notify-hint`} className="text-xs text-ink-muted">
                     {hasPhone
                       ? "Randevu onay mesajı WhatsApp ile, yalnızca müşterinin izni kayıtlıysa gönderilir."
                       : "Bildirim için müşterinin telefon numarası gerekli."}
@@ -647,11 +647,11 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                       disabled={!hasPhone}
                       onChange={(e) => setVerbalOptIn(e.target.checked)}
                       aria-describedby={`${fieldId}-optin-hint`}
-                      className="mt-0.5 h-4 w-4 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+                      className="mt-0.5 h-4 w-4 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
                     />
-                    <span className={hasPhone ? "" : "text-zinc-500"}>{options.verbalOptIn.label}</span>
+                    <span className={hasPhone ? "" : "text-ink-muted"}>{options.verbalOptIn.label}</span>
                   </label>
-                  <p id={`${fieldId}-optin-hint`} className="text-xs text-zinc-500">
+                  <p id={`${fieldId}-optin-hint`} className="text-xs text-ink-muted">
                     {hasPhone
                       ? "Yalnızca müşteri izin verdiyse işaretleyin. Kaydı sizin adınıza tutulur."
                       : "İzin kaydı için müşterinin telefon numarası gerekli."}
@@ -660,7 +660,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
               </fieldset>
 
               {service && slot && (isAdmin ? staffMember : true) && (
-                <p className="rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm">
+                <p className="rounded-lg border border-separator bg-surface-muted p-3 text-sm">
                   <span className="font-medium">{service.name}</span>
                   {isAdmin && staffMember ? ` · ${staffMember.displayName}` : ""} · {formatLocalDate(date)} {slot.label} ·{" "}
                   {service.durationMinutes} dk
@@ -669,7 +669,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
 
               <div aria-live="assertive" role="alert">
                 {error && (
-                  <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                  <div className="rounded-lg border border-destructive/40 bg-status-rejected-bg p-3 text-sm text-status-rejected">
                     <p className="font-medium">{error}</p>
                     {emailExists && (
                       <div className="mt-2 space-y-2">
@@ -691,7 +691,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                 )}
               </div>
 
-              <div className="flex flex-col-reverse gap-2 border-t border-zinc-200 pt-4 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-2 border-t border-separator pt-4 sm:flex-row sm:justify-end">
                 <button type="button" onClick={closeDialog} className={buttonSecondary}>
                   Vazgeç
                 </button>
@@ -699,7 +699,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                   {submitting ? "Oluşturuluyor…" : "Randevuyu oluştur"}
                 </button>
               </div>
-              {!slot && <p className="text-right text-xs text-zinc-500">Randevuyu oluşturmak için bir saat seçin.</p>}
+              {!slot && <p className="text-right text-xs text-ink-muted">Randevuyu oluşturmak için bir saat seçin.</p>}
             </>
           )}
         </form>

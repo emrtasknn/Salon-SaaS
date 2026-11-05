@@ -49,7 +49,7 @@ export function AppNavShell({
       </nav>
 
       {/* Bottom padding keeps page content (and its last CTA) clear of the fixed tab bar on phones. */}
-      <div className="flex flex-1 flex-col pb-[calc(3.5rem+max(0.5rem,env(safe-area-inset-bottom)))] md:pb-0">
+      <div data-app-content="" className="flex flex-1 flex-col pb-[calc(3.5rem+max(0.5rem,env(safe-area-inset-bottom)))] md:pb-0">
         {children}
       </div>
 

@@ -3,14 +3,18 @@
 /*
  * Salon-SaaS design tokens (single source of truth).
  * Apple-HIG-referenced rules live in .claude/skills/salon-saas-uiux/references/apple-design-rules.md.
- * Light theme only: the app has no dark theme yet; do not add one ad hoc in components.
- * Contrast notes (WCAG 2.x, computed): ink/surface 17:1, ink-muted/surface 6.6:1,
+ * Light + dark themes. Components use semantic tokens only; never `dark:` variants or raw palette
+ * classes. Dark values live in the two `DARK TOKENS` blocks below (keep them identical; the
+ * contrast test in src/app/_ui/theme-contrast.test.ts checks both themes and that the blocks match).
+ * Light contrast (WCAG 2.x, computed): ink/surface 17:1, ink-muted/surface 6.6:1,
  * ink-muted/canvas 5.9:1, field-border/surface 3.4:1 (non-text 3:1), status badges >= 5.8:1.
  */
 
 :root {
   --background: #f2f2f7;
   --foreground: #1c1c1e;
+  --glass-bg: rgb(255 255 255 / 0.85);
+  color-scheme: light dark;
 
   /* Motion (emilkowalski/skills, MIT): animate transform/opacity only. */
   --duration-fast: 150ms;
@@ -92,7 +96,113 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+/*
+ * Theme selection: no `data-theme` on <html> = follow the device (prefers-color-scheme);
+ * `data-theme="light"` / `"dark"` = explicit choice from the theme toggle (src/app/_ui/theme.ts).
+ * `color-scheme` makes native controls (date/time pickers, scrollbars) follow the theme.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* DARK TOKENS (system) — keep identical to the explicit block below. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #000000;
+    --foreground: #f5f5f7;
+    --glass-bg: rgb(28 28 30 / 0.9);
+    --color-canvas: #000000;
+    --color-surface: #1c1c1e;
+    --color-surface-muted: #2c2c2e;
+    --color-ink: #f5f5f7;
+    --color-ink-muted: #a1a1a8;
+    --color-separator: #38383a;
+    --color-field-border: #7c7c82;
+    --color-action: #f5f5f7;
+    --color-action-hover: #d1d1d6;
+    --color-on-action: #000000;
+    --color-destructive: #ff6961;
+    --color-destructive-hover: #ff8a84;
+    --color-focus: #409cff;
+    --color-status-pending: #ffb340;
+    --color-status-pending-bg: #3a2a10;
+    --color-status-confirmed: #30d158;
+    --color-status-confirmed-bg: #0f2e1a;
+    --color-status-rejected: #ff6961;
+    --color-status-rejected-bg: #3b1a1a;
+    --color-status-cancelled: #aeaeb2;
+    --color-status-cancelled-bg: #2c2c2e;
+    --color-status-completed: #64b5ff;
+    --color-status-completed-bg: #0e2a40;
+    --staff-1: #409cff;
+    --staff-1-bg: #0d2847;
+    --staff-2: #30d158;
+    --staff-2-bg: #0f3019;
+    --staff-3: #ff9f0a;
+    --staff-3-bg: #3a2410;
+    --staff-4: #bf5af2;
+    --staff-4-bg: #2a1c40;
+    --staff-5: #ff375f;
+    --staff-5-bg: #3d1426;
+    --staff-6: #40c8e0;
+    --staff-6-bg: #0b3233;
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.04);
+  }
+}
+
+/* DARK TOKENS (explicit) — keep identical to the system block above. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #000000;
+  --foreground: #f5f5f7;
+  --glass-bg: rgb(28 28 30 / 0.9);
+  --color-canvas: #000000;
+  --color-surface: #1c1c1e;
+  --color-surface-muted: #2c2c2e;
+  --color-ink: #f5f5f7;
+  --color-ink-muted: #a1a1a8;
+  --color-separator: #38383a;
+  --color-field-border: #7c7c82;
+  --color-action: #f5f5f7;
+  --color-action-hover: #d1d1d6;
+  --color-on-action: #000000;
+  --color-destructive: #ff6961;
+  --color-destructive-hover: #ff8a84;
+  --color-focus: #409cff;
+  --color-status-pending: #ffb340;
+  --color-status-pending-bg: #3a2a10;
+  --color-status-confirmed: #30d158;
+  --color-status-confirmed-bg: #0f2e1a;
+  --color-status-rejected: #ff6961;
+  --color-status-rejected-bg: #3b1a1a;
+  --color-status-cancelled: #aeaeb2;
+  --color-status-cancelled-bg: #2c2c2e;
+  --color-status-completed: #64b5ff;
+  --color-status-completed-bg: #0e2a40;
+  --staff-1: #409cff;
+  --staff-1-bg: #0d2847;
+  --staff-2: #30d158;
+  --staff-2-bg: #0f3019;
+  --staff-3: #ff9f0a;
+  --staff-3-bg: #3a2410;
+  --staff-4: #bf5af2;
+  --staff-4-bg: #2a1c40;
+  --staff-5: #ff375f;
+  --staff-5-bg: #3d1426;
+  --staff-6: #40c8e0;
+  --staff-6-bg: #0b3233;
+  --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+/* No rubber-band overscroll; the root carries the canvas color so any edge reveal matches the theme. */
+html {
+  background: var(--background);
+  overscroll-behavior-y: none;
+}
+
 body {
+  overscroll-behavior-y: none;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
@@ -114,10 +224,10 @@ body {
 /*
  * Glass material: ONLY for the floating functional layer (sticky bars, bottom bar,
  * sheet backdrops). Never on content cards; never glass on glass.
- * 85% white keeps ink-muted text >= 4.5:1 even over a black background.
+ * 85% white (light) / 90% #1c1c1e (dark) keeps ink-muted text >= 4.5:1 over worst-case content.
  */
 @utility glass {
-  background-color: rgb(255 255 255 / 0.85);
+  background-color: var(--glass-bg);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   border-color: var(--color-separator);
@@ -232,6 +342,13 @@ body {
   dialog.sheet-motion[open] {
     animation: sheet-in var(--duration-slow) var(--ease-out);
   }
+}
+
+/* Inside the app shell (top nav + tab-bar spacer), a `min-h-screen` page would add the bars' height
+   as blank scroll space at the bottom. Fill the remaining height instead. */
+[data-app-content] > main.min-h-screen {
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 /* On phones, when the app tab bar is present, lift the install banner above it

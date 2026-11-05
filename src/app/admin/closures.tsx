@@ -37,13 +37,13 @@ const createErrors: Record<string, string> = {
 };
 
 const inputClassName =
-  "w-full min-h-11 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200";
+  "w-full min-h-11 rounded-lg border border-field-border bg-surface px-3 py-2 text-sm text-ink shadow-sm focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30";
 const buttonPrimary =
-  "min-h-11 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50";
+  "min-h-11 rounded-lg bg-action px-4 py-2 text-sm font-medium text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:opacity-50";
 const buttonSecondary =
-  "min-h-11 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50";
+  "min-h-11 rounded-lg border border-separator bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:opacity-50";
 const buttonDanger =
-  "min-h-11 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 disabled:opacity-50";
+  "min-h-11 rounded-lg border border-destructive/40 bg-surface px-3 py-2 text-sm font-medium text-destructive hover:bg-status-rejected-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40 focus-visible:ring-offset-2 disabled:opacity-50";
 
 function todayIn(timeZone: string): LocalDateIso {
   try {
@@ -169,17 +169,17 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
   return (
     <section
       aria-labelledby={`${ids}-title`}
-      className={embedded ? "" : "mt-6 rounded-xl border border-zinc-300 bg-white p-5 shadow-sm"}
+      className={embedded ? "" : "mt-6 rounded-xl border border-separator bg-surface p-5 shadow-sm"}
     >
       <h2 id={`${ids}-title`} className={embedded ? "sr-only" : "text-lg font-semibold"}>
         Kapalı günler
       </h2>
-      <p className={`${embedded ? "" : "mt-1 "}max-w-2xl text-sm text-zinc-600`}>
+      <p className={`${embedded ? "" : "mt-1 "}max-w-2xl text-sm text-ink-muted`}>
         Kapalı günlerde online ve yeni randevu alınmaz. Mevcut randevular olduğu gibi kalır; bunları ayrıca sizin
         yönetmeniz gerekir.{timezone ? ` Tarihler salon saat dilimine göredir (${timezone}).` : ""}
       </p>
 
-      <p role="status" aria-live="polite" className={status ? "mt-3 rounded-lg border border-zinc-300 bg-zinc-50 p-3 text-sm" : "sr-only"}>
+      <p role="status" aria-live="polite" className={status ? "mt-3 rounded-lg border border-separator bg-surface-muted p-3 text-sm" : "sr-only"}>
         {status}
       </p>
 
@@ -223,13 +223,13 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
               aria-describedby={`${ids}-reason-hint`}
               className={inputClassName}
             />
-            <p id={`${ids}-reason-hint`} className="text-xs text-zinc-500">
+            <p id={`${ids}-reason-hint`} className="text-xs text-ink-muted">
               Örn. resmî tatil, bakım. En fazla 200 karakter ({reason.length}/200).
             </p>
           </div>
 
           {impact && impact.length > 0 && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <div className="rounded-lg border border-status-pending/40 bg-status-pending-bg p-3 text-sm text-status-pending">
               <p className="font-medium">
                 {formatLocalDate(date)} tarihinde {impact.length} randevu var.
               </p>
@@ -237,7 +237,7 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
                 Bu randevular iptal edilmez ve olduğu gibi kalır. Müşterilerle iletişime geçip bunları ayrıca yönetmeniz
                 gerekir.
               </p>
-              <ul className="mt-2 divide-y divide-amber-200" aria-label="Bu tarihteki randevular">
+              <ul className="mt-2 divide-y divide-status-pending/20" aria-label="Bu tarihteki randevular">
                 {impact.map((a) => (
                   <li key={a.id} className="py-2">
                     <span className="font-medium">{a.startLabel}</span> · {a.staffName} · {a.customerName} ·{" "}
@@ -259,7 +259,7 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
 
           <div role="alert" aria-live="assertive">
             {formError && (
-              <p className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800">{formError}</p>
+              <p className="rounded-lg border border-destructive/40 bg-status-rejected-bg p-3 text-sm font-medium text-status-rejected">{formError}</p>
             )}
           </div>
 
@@ -275,20 +275,20 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
         <div>
           <h3 className="text-sm font-semibold">Yaklaşan kapalı günler</h3>
           {data.status === "INVALID_INPUT" ? (
-            <p className="mt-2 text-sm text-red-700">Kapalı günler yüklenemedi.</p>
+            <p className="mt-2 text-sm text-destructive">Kapalı günler yüklenemedi.</p>
           ) : closures.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-600">Yaklaşan kapalı gün yok. Tatil veya bakım günlerini buradan ekleyin.</p>
+            <p className="mt-2 text-sm text-ink-muted">Yaklaşan kapalı gün yok. Tatil veya bakım günlerini buradan ekleyin.</p>
           ) : (
-            <ul className="mt-2 divide-y divide-zinc-200 rounded-lg border border-zinc-300">
+            <ul className="mt-2 divide-y divide-separator rounded-lg border border-separator">
               {closures.map((c) => (
                 <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{formatLocalDate(c.date)}</p>
-                    {c.reason && <p className="break-words text-xs text-zinc-600">{c.reason}</p>}
+                    {c.reason && <p className="break-words text-xs text-ink-muted">{c.reason}</p>}
                   </div>
                   {pendingDelete === c.id ? (
                     <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`${formatLocalDate(c.date)} kapalı gününü kaldır`}>
-                      <span className="text-xs text-zinc-700">Kaldırılsın mı?</span>
+                      <span className="text-xs text-ink-muted">Kaldırılsın mı?</span>
                       <button type="button" disabled={busy} onClick={() => remove(c)} className={buttonDanger}>
                         Evet, kaldır
                       </button>

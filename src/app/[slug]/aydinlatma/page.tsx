@@ -20,29 +20,29 @@ export default async function FullNoticePage({ params }: { params: Promise<{ slu
   if (!notice) notFound();
 
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-2xl p-4 sm:p-8">
         <BackLink href={`/${encodeURIComponent(slug)}/book`} label="Randevu sayfası" className="mb-3" />
-        <article aria-labelledby="notice-title" className="space-y-5 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+        <article aria-labelledby="notice-title" className="space-y-5 rounded-2xl border bg-surface p-5 shadow-sm sm:p-6">
           <header className="space-y-2">
-            <p className="text-sm text-zinc-600">{notice.salonName}</p>
+            <p className="text-sm text-ink-muted">{notice.salonName}</p>
             <div className="flex flex-wrap items-center gap-2">
               <h1 id="notice-title" className="text-2xl font-semibold">
                 Aydınlatma Metni
               </h1>
               {notice.draft && (
-                <span className="rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-semibold tracking-wide text-amber-900">
+                <span className="rounded-full border border-status-pending/40 bg-status-pending-bg px-2 py-0.5 text-xs font-semibold tracking-wide text-status-pending">
                   TASLAK
                 </span>
               )}
             </div>
-            <p className="text-xs text-zinc-600">Sürüm: {notice.version}</p>
+            <p className="text-xs text-ink-muted">Sürüm: {notice.version}</p>
             {notice.draft && (
-              <p className="text-xs text-amber-900">Bu metin taslaktır; hukuki onay sonrası güncellenebilir.</p>
+              <p className="text-xs text-status-pending">Bu metin taslaktır; hukuki onay sonrası güncellenebilir.</p>
             )}
           </header>
 
-          <div className="whitespace-pre-line break-words border-t pt-5 text-sm leading-relaxed text-zinc-800">
+          <div className="whitespace-pre-line break-words border-t pt-5 text-sm leading-relaxed text-ink">
             {notice.text}
           </div>
 

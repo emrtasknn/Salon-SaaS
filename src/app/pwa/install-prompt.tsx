@@ -159,12 +159,12 @@ export function InstallPrompt() {
             {variant === "native" ? (
               <>
                 <span className="font-medium">Ana ekrana ekle</span>
-                <span className="hidden text-neutral-600 sm:inline"> · RandevuN’u uygulama gibi aç.</span>
+                <span className="hidden text-ink-muted sm:inline"> · RandevuN’u uygulama gibi aç.</span>
               </>
             ) : (
               <>
                 <span className="font-medium">Ana ekrana ekle:</span>{" "}
-                <span className="text-neutral-700">
+                <span className="text-ink-muted">
                   Paylaş <span aria-hidden="true">(⬆︎)</span> → Ana Ekrana Ekle
                 </span>
               </>
@@ -184,7 +184,7 @@ export function InstallPrompt() {
             type="button"
             onClick={dismiss}
             aria-label="Yükleme önerisini kapat"
-            className="pressable focus-ring flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control text-ink-muted hover:bg-black/5 hover:text-ink"
+            className="pressable focus-ring flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control text-ink-muted hover:bg-ink/5 hover:text-ink"
           >
             <span aria-hidden="true" className="text-xl leading-none">
               ×

@@ -51,8 +51,8 @@ function availableActions(status: string): Array<{ to: AdminTransitionTarget; la
 }
 
 const listActionClass: Record<ActionKind, string> = {
-  primary: "rounded-lg bg-black px-3 py-2 text-xs text-white disabled:opacity-50",
-  destructive: "rounded-lg border border-red-300 px-3 py-2 text-xs text-red-700 disabled:opacity-50",
+  primary: "rounded-lg bg-action px-3 py-2 text-xs text-on-action disabled:opacity-50",
+  destructive: "rounded-lg border border-destructive/40 px-3 py-2 text-xs text-destructive disabled:opacity-50",
   secondary: "rounded-lg border px-3 py-2 text-xs disabled:opacity-50",
 };
 
@@ -169,7 +169,7 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
     return (
       <main className="mx-auto max-w-5xl p-6">
         <h1 className="text-2xl font-semibold">Yetkisiz erişim</h1>
-        <p className="mt-2 text-sm text-zinc-600">
+        <p className="mt-2 text-sm text-ink-muted">
           Bu alan yalnızca işletme yöneticilerine açıktır.
         </p>
       </main>
@@ -298,7 +298,7 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
             {dayAppointments.map((appointment) => (
               <article
                 key={appointment.id}
-                className="rounded-xl border bg-white p-4"
+                className="rounded-xl border bg-surface p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -307,17 +307,17 @@ export function AdminCalendar({ initialDate, initialData, closures }: Props) {
                       {timeFormatter.format(new Date(appointment.endAt))}
                     </p>
 
-                    <p className="mt-2 text-sm text-zinc-700">
+                    <p className="mt-2 text-sm text-ink-muted">
                       <span className="font-medium">Personel:</span>{" "}
                       {appointment.staffDisplayName}
                     </p>
 
-                    <p className="text-sm text-zinc-700">
+                    <p className="text-sm text-ink-muted">
                       <span className="font-medium">Müşteri:</span>{" "}
                       {appointment.customerDisplayName}
                     </p>
 
-                    <p className="text-sm text-zinc-700">
+                    <p className="text-sm text-ink-muted">
                       <span className="font-medium">Hizmet:</span>{" "}
                       {appointment.serviceName}
                     </p>

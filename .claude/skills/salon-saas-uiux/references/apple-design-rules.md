@@ -50,7 +50,7 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 - [ ] CSS only: `backdrop-filter` + `-webkit-backdrop-filter` (`glass` utility).
 - [ ] Only on the floating functional layer: sticky top bar (`AppBar`), bottom bar/install banner, sheet/dialog backdrops. **Never** on content cards. **Never** glass on glass.
 - [ ] Solid fallbacks: `@supports not (backdrop-filter…)`, `prefers-reduced-transparency: reduce`, `prefers-contrast: more`.
-- [ ] Text on glass ≥4.5:1 against the worst-case background (black content scrolled beneath). Our 85% white glass gives `ink` ≈11:1 and `ink-muted` ≈4.7:1 in that case; do not lower the opacity without re-checking.
+- [ ] Text on glass ≥4.5:1 against the worst-case background (black content scrolled beneath). Light: 85% white glass gives `ink` ≈11:1 and `ink-muted` ≈4.7:1 over black content. Dark: 90% #1c1c1e glass gives `ink` 11.6:1 and `ink-muted` 4.9:1 over white content. Do not lower either opacity without re-running `src/app/_ui/theme-contrast.test.ts`.
 
 ### Motion
 - [ ] Animate only `transform` and `opacity` (color/background transitions on press are acceptable). Never `transition: all`; list exact properties.
@@ -61,4 +61,4 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 ### Do not
 - [ ] Do not change server actions, data loaders, auth, tenant resolution, RLS or booking semantics for visual reasons.
 - [ ] Do not change legal notice text or make the WhatsApp opt-in pre-checked/required.
-- [ ] Do not add a dark theme ad hoc; it needs its own token set and contrast pass.
+- [ ] Dark mode comes only from the token overrides in `globals.css` (system default + `data-theme` toggle). Never use `dark:` variants or raw palette classes (`zinc-*`, `bg-white`, `text-black`) in components; `theme-contrast.test.ts` must stay green.
