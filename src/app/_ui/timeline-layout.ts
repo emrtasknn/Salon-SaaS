@@ -145,3 +145,150 @@ export function initialScrollMinute(range: MinuteRange, firstStartMin: number | 
   if (firstStartMin !== null) return clamp(Math.floor(firstStartMin / 60) * 60);
   return range.startMin;
 }
+
+/* ------------------------------------------------------------------------------------------ */
+/* Calendar ranges (Gün | Hafta | Ay) and the loader's range validation.                       */
+/* ------------------------------------------------------------------------------------------ */
+
+/** Longest inclusive range a calendar loader accepts: a 6-week month grid. */
+export const CALENDAR_RANGE_MAX_DAYS = 42;
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isRealIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !ISO_DATE.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * Validates a loader range (local YYYY-MM-DD, inclusive). `endDate` defaults to `startDate`.
+ * Both must be real calendar dates, start <= end, and the span at most CALENDAR_RANGE_MAX_DAYS days.
+ */
+export function parseCalendarRange(startDate: unknown, endDate?: unknown): { startDate: string; endDate: string } | null {
+  const end = endDate === undefined || endDate === null ? startDate : endDate;
+  if (!isRealIsoDate(startDate) || !isRealIsoDate(end)) return null;
+  const days = isoToUtcDays(end) - isoToUtcDays(startDate) + 1;
+  if (days < 1 || days > CALENDAR_RANGE_MAX_DAYS) return null;
+  return { startDate, endDate: end };
+}
+
+/** Monday = 0 … Sunday = 6. */
+export function weekdayIndex(dateIso: string) {
+  return (new Date(`${dateIso}T00:00:00.000Z`).getUTCDay() + 6) % 7;
+}
+
+/** Monday of the week that contains `dateIso`. */
+export function startOfWeek(dateIso: string) {
+  return addDays(dateIso, -weekdayIndex(dateIso));
+}
+
+/** The seven dates (Mon–Sun) of the week containing `dateIso`. */
+export function weekDates(dateIso: string) {
+  const monday = startOfWeek(dateIso);
+  return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+}
+
+/** Same day-of-month `months` later, clamped to the target month's length. */
+export function addMonths(dateIso: string, months: number) {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 1 + months, 1));
+  const lastDay = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  first.setUTCDate(Math.min(d, lastDay));
+  return first.toISOString().slice(0, 10);
+}
+
+/**
+ * Month grid: whole Mon–Sun weeks covering the month of `dateIso` (4–6 weeks, at most 42 days).
+ * `month` is the YYYY-MM prefix used to mute days outside the month.
+ */
+export function monthGrid(dateIso: string) {
+  const month = dateIso.slice(0, 7);
+  const first = `${month}-01`;
+  const last = addDays(addMonths(first, 1), -1);
+  const start = startOfWeek(first);
+  const end = addDays(startOfWeek(last), 6);
+  const weeks: string[][] = [];
+  for (let day = start; day <= end; day = addDays(day, 7)) {
+    weeks.push(Array.from({ length: 7 }, (_, i) => addDays(day, i)));
+  }
+  return { month, startDate: start, endDate: end, weeks };
+}
+
+export type CalendarViewKind = "day" | "week" | "month" | "list";
+
+/** Inclusive date range the loader needs for a view anchored on `dateIso`. */
+export function viewDateRange(view: CalendarViewKind, dateIso: string) {
+  if (view === "week") {
+    const days = weekDates(dateIso);
+    return { startDate: days[0], endDate: days[6] };
+  }
+  if (view === "month") {
+    const grid = monthGrid(dateIso);
+    return { startDate: grid.startDate, endDate: grid.endDate };
+  }
+  return { startDate: dateIso, endDate: dateIso };
+}
+
+/** Anchor date after one ‹ / › step in the given view. */
+export function stepDate(view: CalendarViewKind, dateIso: string, direction: 1 | -1) {
+  if (view === "week") return addDays(dateIso, 7 * direction);
+  if (view === "month") return addMonths(dateIso, direction);
+  return addDays(dateIso, direction);
+}
+
+/** Local date (YYYY-MM-DD in `timeZone`) of an instant. */
+export function dateInZone(instant: Date | string | number, timeZone = TIMELINE_TIME_ZONE) {
+  return zonedParts(new Date(instant), timeZone).dateIso;
+}
+
+/* ------------------------------------------------------------------------------------------ */
+/* Vertical time grid: placement and side-by-side lanes per column.                            */
+/* ------------------------------------------------------------------------------------------ */
+
+/** Top offset and height in px for a vertical axis where one hour is `hourPx` tall. */
+export function placeVertical(interval: MinuteRange, range: MinuteRange, hourPx: number, minHeightPx = 0) {
+  const start = Math.min(Math.max(interval.startMin, range.startMin), range.endMin);
+  const end = Math.min(Math.max(interval.endMin, start), range.endMin);
+  const top = ((start - range.startMin) / 60) * hourPx;
+  const maxHeight = ((range.endMin - start) / 60) * hourPx;
+  const height = Math.min(Math.max(((end - start) / 60) * hourPx, minHeightPx), Math.max(maxHeight, minHeightPx));
+  return { top, height };
+}
+
+/**
+ * Side-by-side lanes inside one column. Items that overlap (directly or through a chain) form a
+ * cluster; each item gets a lane and the cluster's lane count, so non-overlapping items keep the
+ * full column width. `minDurationMin` stretches very short items to their minimum drawn height
+ * so a bar that is drawn taller than its duration never covers the next one.
+ */
+export function layoutColumn(items: ReadonlyArray<LaneInput>, minDurationMin = 0) {
+  const sorted = [...items]
+    .map((item) => ({ ...item, endMin: Math.max(item.endMin, item.startMin + minDurationMin) }))
+    .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin || a.id.localeCompare(b.id));
+  const result = new Map<string, { lane: number; laneCount: number }>();
+  let cluster: Array<{ id: string; lane: number }> = [];
+  let laneEnds: number[] = [];
+  let clusterEnd = -Infinity;
+
+  const flush = () => {
+    for (const member of cluster) result.set(member.id, { lane: member.lane, laneCount: Math.max(1, laneEnds.length) });
+    cluster = [];
+    laneEnds = [];
+  };
+
+  for (const item of sorted) {
+    if (item.startMin >= clusterEnd) flush();
+    let lane = laneEnds.findIndex((end) => end <= item.startMin);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(item.endMin);
+    } else {
+      laneEnds[lane] = item.endMin;
+    }
+    cluster.push({ id: item.id, lane });
+    clusterEnd = cluster.length === 1 ? item.endMin : Math.max(clusterEnd, item.endMin);
+  }
+  flush();
+  return result;
+}
