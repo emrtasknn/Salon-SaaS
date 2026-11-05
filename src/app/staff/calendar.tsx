@@ -87,7 +87,7 @@ export function StaffCalendar({ initialDate, initialData }: Props) {
   return <main className="min-h-screen bg-canvas">
     <header className="mx-auto flex max-w-5xl flex-wrap items-end justify-between gap-3 px-4 pb-3 pt-6 sm:px-6">
       <div>
-        <p className="text-footnote font-semibold text-ink-muted">Salon-SaaS</p>
+        <p className="text-footnote font-semibold text-ink-muted">RandevuN</p>
         <h1 className="mt-1 text-large-title">Personel randevularım</h1>
         <p className="mt-1 text-subhead text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
       </div>
