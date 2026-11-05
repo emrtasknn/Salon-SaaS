@@ -33,10 +33,14 @@ Facts below were checked against vendor docs on 2026-11-04 (sources at the end).
 
 Why `STAGING_DATABASE_URL` and not `DATABASE_URL`: if an Environment secret is missing, GitHub falls back to the repo secret with the same name, which is pilot.
 
-## 2. Create the Supabase staging branch
+## 2. Supabase staging database
 
-1. Supabase dashboard → pilot project → Branches → **Create branch** → name `staging`, type **persistent**. Leave "Include data" **off**. No GitHub integration.
-2. Wait until the branch status is healthy. Record its **project ref** (from the branch's Settings → General or API URL). **(verify)** the branch has its own ref, DB password and pooler hosts.
+**Owner decision 2026-11-05:** staging uses the existing, separate Supabase project **`salon-saas-test`** (ref `kocsusejhsagrrpwfdkn`, region eu-west-2, same org as pilot) instead of a pilot branch. No branch cost, and it shares nothing with pilot. Checked read-only on 2026-11-05: `public` schema has 0 tables, no migrations. Region differs from pilot (eu-west-1); acceptable for staging, not for latency measurements. Wherever this runbook says "staging branch", read "the `salon-saas-test` project". `staging-migrate.yml` works unchanged: its guard matches the ref inside the URL.
+
+Steps 1–2 below are the branch alternative, kept for reference only; start at step 3.
+
+1. (Alternative, not used) Supabase dashboard → pilot project → Branches → **Create branch** → name `staging`, type **persistent**. Leave "Include data" **off**. No GitHub integration.
+2. (Alternative, not used) Wait until the branch status is healthy. Record its **project ref**. **(verify)** the branch has its own ref, DB password and pooler hosts.
 3. Branch → Settings → Database → reset/set the DB password; keep it in your password manager only.
 4. Copy the **session pooler** connection string (port 5432). The pooler username contains the branch ref (`postgres.<ref>`), which the workflow's guard checks.
 5. **(verify)** the branch is empty before the first deploy: in the branch SQL editor, `select count(*) from information_schema.tables where table_schema = 'public';` returns 0 (no copied tables or data).

@@ -12,7 +12,7 @@ Nothing in this file installs or activates anything.
 | Architect / Builder / Reviewer skills | `.agents/skills/{architect,builder,reviewer}/SKILL.md` | Cline (Agent Office v1) | Not auto-discovered by Claude Code (outside `.claude/`) |
 | UI/UX skill | `.claude/skills/salon-saas-uiux/SKILL.md` (+ `references/`) | Claude Code | **No frontmatter** (`name`/`description`) → unreliable auto-selection |
 | UI/UX agent | `.claude/agents/salon-saas-uiux.md` | Claude Code | **No frontmatter** → may not register as a subagent |
-| Project MCP config | none (`.mcp.json` absent) | — | MCP lives in user-level client configs |
+| Project MCP config | `.mcp.json`: Playwright MCP `@playwright/mcp@0.0.83 --isolated` (local browser automation, no secrets, pinned; added 2026-11-05) | Claude Code (approve on first load) | Use for staging/local UI checks only; never type real credentials or pilot data into it |
 | ai-memory MCP | user-level Claude Desktop / Cline config; `.ai-memory.toml` in local copy | Claude Desktop, Cline | Project scope: `default` / `emrtasknn-salon-saas` (pass explicitly; static clients otherwise fall back to `scratch`) |
 | GitHub MCP | referenced in `docs/AGENT_OFFICE_OPERATING_PROCEDURE.md` | Cline | Not configured for Claude Code |
 | CI | `.github/workflows/ci.yml` | GitHub Actions | Active |
