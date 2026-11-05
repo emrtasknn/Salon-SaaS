@@ -10,6 +10,7 @@ import { createPrismaMembershipReader } from "../../persistence/prisma-membershi
 import { createPrismaStaffAppointmentsRepository } from "../../persistence/prisma-staff-appointments";
 import { createPrismaBookingRepository } from "../../persistence/prisma-booking-engine";
 import { createPrismaInAppNotificationRepository } from "../../persistence/prisma-in-app-notifications";
+import { findStaffByProfileId } from "../../persistence/prisma-staff-lookup";
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
 import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
 import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supabase-server-env";
@@ -29,9 +30,7 @@ async function getStaffContext() {
   const reader = createPrismaMembershipReader({ prisma });
   const membership = await reader.readMembership({ tenantContext: request.tenantContext, identity: request.identity });
   if (membership.status !== "found" || membership.membership.role !== "STAFF") return null;
-  const staff = await prisma.staff.findUnique({
-    where: { tenantId_profileId: { tenantId: request.tenantContext.tenantId, profileId: membership.membership.profileId } },
-  });
+  const staff = await findStaffByProfileId(prisma, request.tenantContext, membership.membership.profileId);
   if (!staff || staff.status !== "ACTIVE") return null;
   return {
     prisma, reader, staffId: staff.id, tenantContext: request.tenantContext,
@@ -48,9 +47,7 @@ function staffDecisionAuthorization(
     membershipReader: reader,
     staffReader: {
       async findByProfileId(tenantContext: Parameters<typeof authorizeStaffDecision>[2], profileId: string) {
-        return prisma.staff.findUnique({
-          where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId } },
-        });
+        return findStaffByProfileId(prisma, tenantContext, profileId);
       },
     },
   };
@@ -145,9 +142,7 @@ export async function listStaffNotifications(): Promise<InAppNotificationView> {
           if (identity.state !== "authenticated") return false;
           const membership = await reader.readMembership({ tenantContext, identity });
           if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
-          const staff = await prisma.staff.findUnique({
-            where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId: membership.membership.profileId } },
-          });
+          const staff = await findStaffByProfileId(prisma, tenantContext, membership.membership.profileId);
           return staff !== null && staff.status === "ACTIVE" && staff.id === staffId && staff.tenantId === tenantContext.tenantId;
         },
       },

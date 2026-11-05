@@ -8,6 +8,7 @@ import { createPrismaCalendarCrmRepository } from "../../persistence/prisma-cale
 import { createPrismaBookingRepository } from "../../persistence/prisma-booking-engine";
 import { createPrismaInAppNotificationRepository } from "../../persistence/prisma-in-app-notifications";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
+import { findStaffByProfileId } from "../../persistence/prisma-staff-lookup";
 import { withPrismaTenantContext, type PrismaTenantTransactionClient } from "../../persistence/prisma-tenant-context";
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
 import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
@@ -68,9 +69,7 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
         if (identity.state !== "authenticated") return false;
         const membership = await reader.readMembership({ tenantContext, identity });
         if (membership.status !== "found" || membership.membership.role !== "STAFF") return false;
-        const staff = await prisma.staff.findUnique({
-          where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId: membership.membership.profileId } },
-        });
+        const staff = await findStaffByProfileId(prisma, tenantContext, membership.membership.profileId);
         return staff !== null && staff.status === "ACTIVE" && staff.id === appointment.staffId && staff.tenantId === appointment.tenantId && appointment.status === "PENDING";
       },
       // Transitions only; create-on-behalf uses createOnBehalfBookingEngine (WP-08).

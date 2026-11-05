@@ -24,10 +24,12 @@ describe("Prisma tenant provisioning repository", () => {
       .mockResolvedValueOnce({ id: "tenant-1" })
       .mockResolvedValueOnce({ id: "profile-1" })
       .mockResolvedValueOnce({ id: "membership-1" });
+    const executeRaw = vi.fn(async () => 1);
 
     const repository = createPrismaTenantProvisioningRepository({
       $transaction: vi.fn(async (operation) =>
         operation({
+          $executeRaw: executeRaw,
           tenant: { create },
           profile: { create },
           tenantMembership: { create },
@@ -57,6 +59,11 @@ describe("Prisma tenant provisioning repository", () => {
         phone: null,
       },
     });
+    // Tenant context is bound after the Tenant insert and before the RLS-protected inserts.
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(executeRaw).toHaveBeenCalledWith(expect.anything(), "tenant-1");
+    expect(executeRaw.mock.invocationCallOrder[0]).toBeGreaterThan(create.mock.invocationCallOrder[0]);
+    expect(executeRaw.mock.invocationCallOrder[0]).toBeLessThan(create.mock.invocationCallOrder[1]);
     expect(create).toHaveBeenNthCalledWith(3, {
       data: {
         tenantId: "tenant-1",

@@ -26,6 +26,10 @@ jobs:
           - 5432:5432
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/salon_saas_test
+      # App runtime role (migration 20261107110000_salon_app_runtime_role): NOSUPERUSER,
+      # NOBYPASSRLS. Migrations and fixtures keep the superuser DATABASE_URL; the RLS runtime
+      # proof (salon-app-runtime-role.integration.test.ts) connects with this URL.
+      SALON_APP_DATABASE_URL: postgresql://salon_app:ci@localhost:5432/salon_saas_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,6 +41,17 @@ jobs:
       # Migrations must produce exactly schema.prisma (catches constraint/index name drift,
       # which staging-migrate.yml would otherwise only find on a real environment).
       - run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      # CI-only LOGIN password; real environments set it manually (docs/STAGING_RUNBOOK.md).
+      - name: Enable salon_app login (CI only)
+        run: |
+          node -e '
+            const { Client } = require("pg");
+            const c = new Client({ connectionString: process.env.DATABASE_URL });
+            c.connect()
+              .then(() => c.query("ALTER ROLE salon_app WITH LOGIN PASSWORD $$ci$$"))
+              .then(() => c.end())
+              .catch((e) => { console.error(e.message); process.exit(1); });
+          '
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
