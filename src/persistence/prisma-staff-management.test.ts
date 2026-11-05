@@ -199,7 +199,7 @@ describe("Prisma admin self-staff repository (owner decision 2026-11-05)", () =>
       $executeRaw: vi.fn().mockResolvedValue(0),
       staff: {
         findUnique: vi.fn().mockResolvedValue({ status: "ACTIVE" }),
-        upsert: vi.fn().mockResolvedValue({ id: "staff-1" }),
+        create: vi.fn().mockResolvedValue({ id: "staff-1" }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
@@ -207,19 +207,25 @@ describe("Prisma admin self-staff repository (owner decision 2026-11-05)", () =>
     return { prisma, tx };
   }
 
-  it("creates or reactivates the own row by (tenantId, profileId) inside the tenant context", async () => {
+  it("reactivates the own row with a tenant-scoped update inside the tenant context", async () => {
     const { prisma, tx } = makeSelfPrisma();
     await expect(createPrismaAdminSelfStaffRepository(prisma as unknown as PrismaStaffClient).setOwnStatus(tenantContext, "profile-1", "ACTIVE"))
       .resolves.toBe("updated");
     expect(tx.$executeRaw).toHaveBeenCalledOnce();
     expect(tx.$executeRaw.mock.calls[0]).toContain("tenant-1");
-    expect(tx.staff.upsert).toHaveBeenCalledWith({
-      where: { tenantId_profileId: { tenantId: "tenant-1", profileId: "profile-1" } },
-      create: { tenantId: "tenant-1", profileId: "profile-1", status: "ACTIVE" },
-      update: { status: "ACTIVE" },
-      select: { id: true },
-    });
-    expect(tx.staff.updateMany).not.toHaveBeenCalled();
+    expect(tx.staff.updateMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-1", profileId: "profile-1" }, data: { status: "ACTIVE" } });
+    expect(tx.staff.create).not.toHaveBeenCalled();
+  });
+
+  it("creates the own row only when no row exists in this tenant, and surfaces create errors", async () => {
+    const { prisma, tx } = makeSelfPrisma();
+    tx.staff.updateMany.mockResolvedValue({ count: 0 });
+    const repository = createPrismaAdminSelfStaffRepository(prisma as unknown as PrismaStaffClient);
+    await expect(repository.setOwnStatus(tenantContext, "profile-1", "ACTIVE")).resolves.toBe("updated");
+    expect(tx.staff.create).toHaveBeenCalledWith({ data: { tenantId: "tenant-1", profileId: "profile-1", status: "ACTIVE" }, select: { id: true } });
+    // e.g. the profile belongs to another tenant: unique profileId / composite FK violation must not be swallowed.
+    tx.staff.create.mockRejectedValue(Object.assign(new Error("Unique constraint failed"), { code: "P2002" }));
+    await expect(repository.setOwnStatus(tenantContext, "profile-1", "ACTIVE")).rejects.toThrow("Unique constraint failed");
   });
 
   it("deactivates only an existing own row and never creates one", async () => {
@@ -229,7 +235,7 @@ describe("Prisma admin self-staff repository (owner decision 2026-11-05)", () =>
     expect(tx.staff.updateMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-1", profileId: "profile-1" }, data: { status: "INACTIVE" } });
     tx.staff.updateMany.mockResolvedValue({ count: 0 });
     await expect(repository.setOwnStatus(tenantContext, "profile-1", "INACTIVE")).resolves.toBe("not_found");
-    expect(tx.staff.upsert).not.toHaveBeenCalled();
+    expect(tx.staff.create).not.toHaveBeenCalled();
   });
 
   it("reads the own row status scoped to the tenant", async () => {

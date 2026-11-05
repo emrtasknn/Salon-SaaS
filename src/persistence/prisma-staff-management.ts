@@ -237,15 +237,13 @@ type AdminSelfStaffTransaction = PrismaTenantTransactionClient & {
       where: { tenantId_profileId: { tenantId: string; profileId: string } };
       select: { status: true };
     }): Promise<{ status: StaffStatus } | null>;
-    upsert(args: {
-      where: { tenantId_profileId: { tenantId: string; profileId: string } };
-      create: { tenantId: string; profileId: string; status: "ACTIVE" };
-      update: { status: "ACTIVE" };
+    create(args: {
+      data: { tenantId: string; profileId: string; status: "ACTIVE" };
       select: { id: true };
     }): Promise<{ id: string }>;
     updateMany(args: {
       where: { tenantId: string; profileId: string };
-      data: { status: "INACTIVE" };
+      data: { status: StaffStatus };
     }): Promise<{ count: number }>;
   };
 };
@@ -277,20 +275,20 @@ export function createPrismaAdminSelfStaffRepository(
         prisma,
         tenantContext,
         async (tx: AdminSelfStaffTransaction) => {
-          if (status === "ACTIVE") {
-            await tx.staff.upsert({
-              where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId } },
-              create: { tenantId: tenantContext.tenantId, profileId, status: "ACTIVE" },
-              update: { status: "ACTIVE" },
-              select: { id: true },
-            });
-            return "updated" as const;
-          }
+          // No Prisma upsert: its native form is INSERT ... ON CONFLICT ("profileId") (the global unique),
+          // which silently no-ops on another tenant's row instead of failing. Update in-tenant first,
+          // then a plain create that fails loudly (unique profileId / composite tenant FK).
           const result = await tx.staff.updateMany({
             where: { tenantId: tenantContext.tenantId, profileId },
-            data: { status: "INACTIVE" },
+            data: { status },
           });
-          return result.count === 1 ? ("updated" as const) : ("not_found" as const);
+          if (result.count === 1) return "updated" as const;
+          if (status === "INACTIVE") return "not_found" as const;
+          await tx.staff.create({
+            data: { tenantId: tenantContext.tenantId, profileId, status: "ACTIVE" },
+            select: { id: true },
+          });
+          return "updated" as const;
         },
       );
     },

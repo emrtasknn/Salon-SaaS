@@ -179,8 +179,13 @@ describeDatabase("Admin serves as staff: own Staff row under RLS (integration)",
     const repository = createPrismaAdminSelfStaffRepository(roleClient());
     await expect(repository.findOwnStatus(ctx(tenantB), tenantA.adminProfileId)).resolves.toBeNull();
     await expect(repository.setOwnStatus(ctx(tenantB), tenantA.adminProfileId, "INACTIVE")).resolves.toBe("not_found");
-    await expect(repository.setOwnStatus(ctx(tenantB), tenantA.adminProfileId, "ACTIVE")).rejects.toBeTruthy();
     expect(await staffRows(tenantA.adminProfileId)).toEqual([expect.objectContaining({ tenantId: tenantA.tenantId, status: "ACTIVE" })]);
+
+    // With tenant A's row INACTIVE, a tenant-B "enable" must fail loudly and must not reactivate it
+    // (regression: Prisma's native upsert used ON CONFLICT ("profileId") and silently no-opped).
+    await expect(useCase().set(identityOf(tenantA), ctx(tenantA), false)).resolves.toEqual({ status: "ok", servesAsStaff: false });
+    await expect(repository.setOwnStatus(ctx(tenantB), tenantA.adminProfileId, "ACTIVE")).rejects.toBeTruthy();
+    expect(await staffRows(tenantA.adminProfileId)).toEqual([expect.objectContaining({ tenantId: tenantA.tenantId, status: "INACTIVE" })]);
   });
 
   it("disabling without a Staff row creates nothing", async () => {
