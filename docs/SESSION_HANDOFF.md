@@ -1,40 +1,37 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-05 — finish MVP code work, Apple-referenced PWA design, staging prep (Supabase/Vercel), Playwright MCP.
+2026-11-05 — Staging + pilot rollout, RLS runtime role, owner smoke-test fixes, PWA UX.
 
 ## State
-- Branch / commit: `main` @ b5a0f1c (+ this docs PR)
-- Working tree: clean apart from this PR
-- Environment touched: Pilot Supabase **read-only** (`_prisma_migrations` SELECT, advisors); `salon-saas-test` read-only; Vercel project created (no env vars)
+- `main` @ 4b51d53 (#172). Working tree clean.
+- **Pilot is live:** https://salon-saas-pilot-emre-361a.vercel.app (Vercel `salon-saas-pilot`, `dub1`, public). Always use this alias, never a deployment-specific URL (PWA installed from those never updates).
+- **Staging:** Vercel `salon-saas-staging` (Vercel Auth on) + Supabase `salon-saas-test`.
+- Both DBs: all 21 migrations applied, no drift. Runtime connects as **`salon_app`** (NOBYPASSRLS) on both → FORCE RLS active at runtime. Migrations keep `postgres` (GitHub secrets).
+- Environment touched: staging + pilot DB migrations via guarded workflows (owner-approved; pilot without backup by owner decision, test-only data); Vercel projects created; Supabase read-only checks.
 
-## Done
-- WP-10 KVKK notice / WhatsApp opt-in / contact snapshot — #149
-- Staging DB = existing empty Supabase project `salon-saas-test` (owner decision; runbook §2) + pinned Playwright MCP `.mcp.json` — #150
-- Apple-referenced design pass (tokens, CSS-only glass, inset lists, 44px targets, 17px inputs) — #151, review fixes #154
-- Staff list/calendar show customer + service names, calendar shows booking contact — #155 (landed via #154 squash)
-- Login + platform pages on the design system — #157 (landed via #154 squash)
-- Staff/admin notification texts use the booking contact name — #156
-- Cloud-session setup notes in `docs/AI_TOOLING.md` — #152 (owner: not needed for now)
-- Vercel project `salon-saas-staging` (Next.js, Node 24.x, `lhr1`, Vercel Auth on all) — runbook §5
+## Done (PRs)
+- Infra/ops: #150 staging project + Playwright MCP, #158/#163/#167/#169 runbook + evidence, #159/#160 drift print + schema name mapping + CI drift step, #168 guarded pilot workflow (Environment `pilot`, confirm_ref, backup_taken).
+- Security: #166 `salon_app` runtime role (+3 pre-context fixes), #167 Tenant RLS explicit.
+- Features/UX: #151/#154 Apple design pass, #155 staff names, #156 notification names, #157 login/platform design, #161 staff temp password + invite/forgot password + staff routing, #162 notice opt-out wording, #164 tab bar + back links, #165 salon location/maps link (migration), #170 sign-in entry + salons sheet, #171 calendar timeline (Gantt), #172 customers exclude team + platform logout.
 
 ## Validation
-| Check | Result |
-|---|---|
-| Lint / typecheck / targeted vitest / build | PASS on every PR above (DATABASE_URL unset) |
-| CI `quality-gates` | PASS on #149–#157 |
-| Visual | 375/1280px fake-data preview for booking + staff views only; no real-device check |
+- CI `quality-gates` green on every PR (incl. drift step, salon_app integration test).
+- Owner smoke tests PASS on staging (as postgres and as salon_app) and pilot (platform list, salon pages, admin/staff flows).
 
 ## Decisions
-- No new UI deps: Lenis, liquid-glass-js, GSAP skipped; react-bits not copied (Commons Clause, owner to decide) — `.claude/skills/salon-saas-uiux/references/apple-design-rules.md`
-- Rate-limit cleanup already exists (opportunistic delete of rows > 1 day) — no job needed
+- Staging = separate Supabase project; pilot Vercel separate project; previews off on both.
+- No new UI deps (Lenis/GSAP/liquid-glass skipped; react-bits not copied).
+- Staff initial password set by admin (free Supabase mailer only reaches org members).
+- WhatsApp: pilot starts with it OFF (Meta business-initiated templates are paid; permanent token via System User is free). Push + status link + wa.me cover the pilot.
 
-## Open risks
-- Pilot DB: 11 of 18 migrations applied; 7 pending (WP-5..WP-10) — staging first, then owner-approved pilot workflow
-- Pilot Supabase advisor: Leaked Password Protection disabled — owner enables in Auth settings
-- Vercel staging builds fail until env vars are added (expected)
-- `/reset-password` page still unstyled; retention/deletion job waits for counsel's retention period; status-link token visible in request logs (post-MVP)
-- Stacked PRs merged into a non-main base: always confirm the base branch before merging
+## Open risks / next
+- Legal: owner brings counsel-approved texts → set version v1, drop TASLAK badge; DPA signature before real customers.
+- WhatsApp later: System User token, payment method, templates with salon name, webhook to pilot URL, W11.5 live tests.
+- Timeline limits: only staff with appointments get rows; range 08–21 not from working hours; staff row labelled "Ben".
+- Vercel runtime-log review (§9) pending: needs team access approval link.
+- Backup/restore rehearsal (§8) not done; Supabase Free has no downloadable backups → owner pg_dump.
+- `/reset-password` page still old styling.
 
-## Next task (owner, see STAGING_RUNBOOK)
-1. Enable Leaked Password Protection on pilot. 2. `salon-saas-test`: set DB password, copy session-pooler URL. 3. GitHub Environment `staging` (§3). 4. Run "WP-12 Staging Supabase Migration" check → deploy (§4, §4.5). 5. Vercel staging env vars (Production scope of `salon-saas-staging`) → Redeploy (§5). 6. Auth URLs (§6), smoke test incl. KVKK flow (§7).
+## Next task
+- Owner device test on the alias URL (reinstall PWA), then go/no-go (WP-14) once legal is done.
