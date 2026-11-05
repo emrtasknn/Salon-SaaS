@@ -320,6 +320,9 @@ MVP v1 is reached only after the real-salon journey is usable and the critical s
 - review requests / review funnel (moved from MVP, owner decision 2026-11-03)
 - operational polish
 - real-user bug fixing
+- **PWA auto-update (owner request 2026-11-05):** when a new version ships, every installed app updates without reinstalling: service-worker update check on launch/focus, "Yeni sürüm hazır — Yenile" prompt (or silent reload on next launch), versioned SW cache. Note: installs made from a deployment-specific Vercel URL never update; always install from the project alias / custom domain (a custom domain removes this trap).
+- **Customer notification channel (free) (owner question 2026-11-05):** evaluate customer Web Push from the status link (works in Android browsers; iOS only after Add to Home Screen) — needs a customer push-subscription model keyed to the appointment token → architecture review per `AGENTS.md` PWA rules; and transactional email via a free-tier provider (new provider → approval). Calendar-file reminders (.ics with alarm) are the zero-cost first step.
+- Calendar timeline: show staff without appointments, range from working hours, staff's own name on the staff view.
 
 ### WhatsApp product direction — hybrid model agreed; implementation requires architecture approval
 
