@@ -7,6 +7,7 @@ import { createSupabaseAdminAuthProvisioner } from "@/infrastructure/auth/supaba
 import { createNextSupabaseServerClient } from "@/infrastructure/auth/supabase-server-client";
 import { readSupabaseServerClientConfig } from "@/infrastructure/auth/supabase-server-env";
 import { createSupabaseAuthAdapter } from "@/infrastructure/auth/supabase-auth-adapter";
+import { logError } from "@/infrastructure/log-redaction";
 import { getPrisma } from "@/infrastructure/prisma-runtime";
 import { createPrismaTenantProvisioningRepository } from "@/persistence/prisma-tenant-provisioning";
 import {
@@ -110,6 +111,7 @@ async function readPlatformActor(): Promise<PlatformActor> {
 function platformTenants() {
   return createPlatformTenantStatus({
     repository: createPrismaPlatformTenantRepository(getPrisma()),
+    reportError: (event, error) => logError(event, { error }),
   });
 }
 
@@ -117,7 +119,8 @@ function platformTenants() {
 export async function listPlatformTenants(): Promise<PlatformTenantListResult> {
   try {
     return await platformTenants().list(await readPlatformActor());
-  } catch {
+  } catch (error) {
+    logError("platform_tenant_list_failed", { error });
     return { ok: false, code: "PERSISTENCE_FAILURE" };
   }
 }
