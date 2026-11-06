@@ -16,6 +16,7 @@ import {
   BOOKING_STEP_TITLES,
   dateStrip,
   formatDateLong,
+  formatDateShort,
   formatTime,
   groupSlots,
   initialStep,
@@ -292,9 +293,9 @@ export function PublicBookingForm({
         : "Bir hizmet seçin"
       : step === 2
         ? selectedSlot
-          ? `${formatDateLong(dateIso)} · ${timeLabel}`
+          ? `${formatDateShort(dateIso)} · ${timeLabel}`
           : "Bir saat seçin"
-        : `${formatDateLong(dateIso)} · ${timeLabel}`;
+        : `${formatDateShort(dateIso)} · ${timeLabel}`;
 
   if (booked) {
     return (

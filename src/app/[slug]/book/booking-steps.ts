@@ -41,6 +41,13 @@ export function formatDateLong(dateIso: string): string {
   );
 }
 
+/** Compact salon-local label for tight spaces (the action bar), e.g. "7 Kas Cmt". */
+export function formatDateShort(dateIso: string): string {
+  return new Intl.DateTimeFormat("tr-TR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(
+    new Date(`${dateIso}T12:00:00.000Z`),
+  );
+}
+
 export function formatTime(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat("tr-TR", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateStrip, formatDateLong, formatTime, groupSlots, initialStep } from "./booking-steps";
+import { dateStrip, formatDateLong, formatDateShort, formatTime, groupSlots, initialStep } from "./booking-steps";
 
 describe("initialStep", () => {
   it("starts at the service list without a preselected service", () => {
@@ -29,6 +29,10 @@ describe("dateStrip", () => {
 describe("formatting", () => {
   it("writes the long date without shifting the day", () => {
     expect(formatDateLong("2026-11-07")).toBe("7 Kasım Cumartesi");
+  });
+
+  it("writes a compact date for the action bar", () => {
+    expect(formatDateShort("2026-11-07")).toBe("7 Kas Cmt");
   });
 
   it("shows times in the salon time zone", () => {
