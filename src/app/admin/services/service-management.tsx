@@ -216,10 +216,15 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
         <h2 id="service-new-title" className="group-label">Yeni hizmet</h2>
         <form
           className="inset-group space-y-4 p-4"
-          action={(formData) =>
+          // onSubmit (not a form action): React resets an action form after every submit, which
+          // would wipe what the admin typed when the price is rejected or the save fails.
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const formData = new FormData(form);
+            const catalog = readCatalog(formData, setFeedback);
+            if (!catalog) return;
             startTransition(async () => {
-              const catalog = readCatalog(formData, setFeedback);
-              if (!catalog) return;
               const result = await createServiceAction({
                 name: String(formData.get("name") ?? ""),
                 durationMinutes: Number(formData.get("durationMinutes") ?? 0),
@@ -227,9 +232,12 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                 ...catalog,
               });
               setFeedback(result.status === "created" ? "Hizmet eklendi." : message(result.status));
-              if (result.status === "created") refresh();
-            })
-          }
+              if (result.status === "created") {
+                form.reset();
+                refresh();
+              }
+            });
+          }}
         >
           <div>
             <label htmlFor="service-new-name" className={label}>Hizmet adı</label>
@@ -288,10 +296,12 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                         </div>
                         <form
                           className="space-y-3 border-t border-separator pt-3"
-                          action={(formData) =>
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            const formData = new FormData(event.currentTarget);
+                            const catalog = readCatalog(formData, setFeedback);
+                            if (!catalog) return;
                             startTransition(async () => {
-                              const catalog = readCatalog(formData, setFeedback);
-                              if (!catalog) return;
                               const result = await updateServiceAction(item.id, {
                                 name: String(formData.get("name") ?? ""),
                                 durationMinutes: Number(formData.get("durationMinutes") ?? 0),
@@ -300,8 +310,8 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                               });
                               setFeedback(result.status === "updated" ? "Hizmet bilgileri kaydedildi." : message(result.status));
                               if (result.status === "updated") refresh();
-                            })
-                          }
+                            });
+                          }}
                         >
                           <input name="name" required defaultValue={item.name} aria-label="Hizmet adı" className={field} />
                           <div className="flex gap-2">
