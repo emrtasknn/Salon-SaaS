@@ -151,6 +151,17 @@ Also check that the pooler user is really `salon_app.<ref>`: Supabase logs → S
 
 Rollback: set Vercel `DATABASE_URL` back to the `postgres` URL and redeploy (no data change). Optionally `ALTER ROLE salon_app NOLOGIN;`. The role and grants can stay; removing them is listed in the migration header.
 
+## 4.9 Merge order for PRs with a migration (2026-11-06)
+
+main deploys to staging **and** the pilot on merge. A migration PR is merged only after:
+1. the migration is applied to staging (`staging-migrate.yml`, or the manual method below), then
+2. to the pilot (`w11-4-pilot-supabase-migrate.yml`), then
+3. the label `pilot-migrated` is added. The `Migration gate` check (`.github/workflows/migration-gate.yml`) fails without it; make `migration-gate` a required status check on main.
+
+Incident: #189 was merged before the pilot migration; the pilot booking page returned 404 for ~4 h until `20261109100000_service_category_price` was applied.
+
+Manual method (used 2026-11-06 with owner approval, when the staging environment rule rejected a feature branch): run the exact `migration.sql` statements and the `_prisma_migrations` insert in **one** transaction as `postgres`, with `checksum` = sha256 of the file (same as `prisma migrate deploy` records), `applied_steps_count` = 1. Then verify RLS flags, policies and `salon_app` privileges on the new tables.
+
 ## 5. Vercel project and staging environment
 
 **Done 2026-11-05 (agent, owner-approved):** dedicated Vercel project **`salon-saas-staging`** (`prj_Y64itnAWE3hNG9xkaBz9i34tc9sU`) linked to `emrtasknn/Salon-SaaS`, Framework Next.js, Node 24.x, function region `lhr1` (London, next to the `salon-saas-test` DB), Vercel Authentication on **all** deployments (only signed-in team members can open it). No env vars were set by the agent. Because this project is staging-only, put the section 1 "Vercel (staging env)" values in its **Production** scope (its production branch is `main`); the pilot later gets its own Vercel project. Until the env vars exist, builds fail at `postinstall` (`prisma generate` needs `DATABASE_URL` defined) — expected. After adding them, Deployments → Redeploy. Options A/B below are the alternative for a single shared project.

@@ -51,6 +51,13 @@ export function staffForService(staff: ReadonlyArray<StaffOption>, serviceIds: s
   return wanted.length ? staff.filter((member) => wanted.every((id) => staffPerformsService(member.serviceIds ?? [], id))) : [...staff];
 }
 
+/** Shown when nobody performs the chosen service(s); wording depends on how many are chosen. */
+export function noStaffMessage(chosenCount: number): string {
+  return chosenCount > 1
+    ? "Seçtiğiniz hizmetlerin hepsini yapan bir uzman yok. Hizmetleri ayrı randevularla alabilirsiniz."
+    : "Bu hizmet için şu anda online randevu alan bir uzman yok. Lütfen başka bir hizmet seçin veya salonla iletişime geçin.";
+}
+
 /**
  * The chosen services as one entry for summaries (owner decision 2026-11-06: same staff, back to back):
  * "Kesim + Sakal", summed service time, summed price only when every service shows a price.
@@ -237,7 +244,7 @@ export function PublicBookingForm({
     setServiceIds(next);
     setStaffId(nextStaffId);
     setSelectedSlot("");
-    setStatus(next.length && eligible.length === 0 ? "Seçtiğiniz hizmetlerin hepsini yapan bir uzman yok. Hizmetleri ayrı randevularla alabilirsiniz." : "");
+    setStatus(next.length && eligible.length === 0 ? noStaffMessage(next.length) : "");
     setAvailabilityStatus(next.length && nextStaffId && dateIso ? "loading" : "idle");
   }
 

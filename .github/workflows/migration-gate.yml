@@ -1,0 +1,50 @@
+name: Migration gate
+
+# main deploys to BOTH staging and the pilot on merge, so a PR that adds a
+# Prisma migration must not be merged before that migration is applied to the
+# pilot (2026-11-06: #189 was merged first and the pilot booking page returned
+# 404 for ~4 hours). This check fails while a PR adds files under
+# prisma/migrations/ and does not carry the label `pilot-migrated`.
+#
+# Owner flow: apply the migration to staging, then the pilot
+# (docs/STAGING_RUNBOOK.md), add the label `pilot-migrated`, then merge.
+# Make "migration-gate" a required status check on main (branch protection)
+# so GitHub blocks the merge button until the label is present.
+#
+# Reads only the PR's own files and labels; no secrets, no database access.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  migration-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require pilot-migrated label for new migrations
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'pilot-migrated') }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_REF"
+          added=$(git diff --name-only --diff-filter=A "origin/$BASE_REF...HEAD" -- 'prisma/migrations/*/migration.sql' || true)
+          if [ -z "$added" ]; then
+            echo "No new migrations in this PR."
+            exit 0
+          fi
+          echo "New migrations in this PR:"
+          echo "$added"
+          if [ "$HAS_LABEL" = "true" ]; then
+            echo "Label pilot-migrated present: the owner confirmed staging + pilot are migrated."
+            exit 0
+          fi
+          echo "::error::This PR adds a migration. Apply it to staging and then the pilot first (docs/STAGING_RUNBOOK.md), then add the label 'pilot-migrated'. main deploys to the pilot on merge; merging first breaks the live app."
+          exit 1
