@@ -1,45 +1,38 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-06 — UI/UX audit (pilot + staging), DB pool fix PR, then admin/staff UI quick wins.
+2026-11-06 (cloud) — finish the UI/UX audit's high-priority fixes; check the "Salon listesi yüklenemedi" outage.
 
 ## State
-- Branch: `fix/admin-ui-quick-wins` (from `origin/main` @ 0f36a0c), not committed yet.
-- Other open work: PR #185 `fix/db-pool-exhaustion` (CI green, not merged). After merge the owner must switch the Vercel pilot `DATABASE_URL` to the Supabase transaction pooler (6543, `salon_app.<ref>`) and redeploy.
-- A stash `handoff staging audit` holds the handoff text written on the PR #185 branch; safe to drop.
-- Staging test tenant `uiux-test-salon` (admin + staff, test data only). Credentials in gitignored `.env.staging-test`. Delete tenant and accounts when the audit is done.
+- Branch: `feat/completion-rules-pjkk8c` (pushed). Top includes the desktop WIP commit `c7259b4` (`.claude/launch.json` dev config only); left as-is to avoid a force push.
+- Environment touched: Pilot + staging Supabase read-only (project list, health advisors, log queries). No writes.
 
-## Done (this branch)
-- Customer detail: salon time zone ("7 Kas Cmt 11:00" instead of UTC "08:00:00"), Turkish status badge, note form using the existing TENANT_ADMIN `addCustomerNote` action. List date in salon zone.
-- Dashboard: pending line matches the bell (all days); setup checklist (staff → service → hours → legal) until done; "Salon bilgileri" row warns when legal info is missing.
-- Salon settings: online booking status says "Kapalı" while legal info is missing (was "Aktif").
-- Reject/cancel ask first (`_ui/confirm-button.tsx`) in admin list + sheet and staff list + sheet.
-- `Button size="small"` keeps the 36px look but has a 44px hit area (all small buttons).
-- Calendar: date row no longer overflows at 375px; refresh is icon-only on phones; sheet title shows the date; stale feedback cleared when opening a sheet; list times use the salon zone.
-- Staff list header shows the shown day ("Bugün · 6 Kas Cum"); staff sheet copy explains who cancels/completes.
-- Specific success messages on services/hours/staff pages.
+## Done
+- Already on this branch from `e53bd98`: customer detail salon time zone + Turkish status, 44px hit area on small buttons, reject/cancel confirmation.
+- Public booking: staff is no longer auto-selected (only when the salon has exactly one); slots area says "Saatleri görmek için hizmet ve personel seçin" until chosen.
+- Public booking: after a successful request the form is replaced by a confirmation screen at the top (service, staff, salon-time date, status link + copy, "Yeni randevu al"); focus moves to its heading.
+
+## Changes
+| File | Change | Reason |
+|---|---|---|
+| `src/app/[slug]/book/form.tsx` | `initialStaffId`, idle hint, swap to confirmation on success | audit: auto staff, success hidden below form |
+| `src/app/[slug]/book/booking-confirmation.tsx` | new confirmation view | same |
+| `src/app/[slug]/book/booking-confirmation.test.tsx` | unit tests | coverage |
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
 | Typecheck | `npm run typecheck` | PASS |
 | Lint | `npm run lint` | 0 errors (3 pre-existing warnings) |
-| Unit tests | `npx vitest run src/app src/components` (DATABASE_URL unset) | 65 files, 760 tests PASS |
-| Build / browser check | — | not run (local dev server would use the pilot DB); verify on staging after deploy |
+| Unit tests | `npx vitest run src/app/` (DATABASE_URL unset) | 40 files, 381 tests PASS |
+| Build / browser | — | not run; verify on staging |
 
 ## Decisions
-- Audit contrast finding on the calendar view switch was a false positive (script misread a `color(srgb … / 0.7)` background); real ratio ≈5.2:1.
-- Pending appointments still offer both "Reddet" and "İptal et" (unchanged; product decision).
+- Booking semantics unchanged: the server still requires a staffId; only the client default changed.
 
-## Owner decisions 2026-11-06
-- Customer notice provider name = "RandevuN platformu" (`PLATFORM_PROVIDER_NAME`, notice version bumped to draft-2026-11-06; on this branch). Retention periods etc. stay `[belirlenecek]`.
-- APPROVED: "any staff", multi-service, service category + price, staff–service mapping, staff completing appointments. Plan + migrations still need owner review before merge (migrations go to pilot before merge).
-- APPROVED: navy/emerald palette, "no AI slop". Being done by the salon-saas-uiux agent in a separate worktree (not merged into this branch).
-- APPROVED: clinics/PT scope. Never label people "hasta"; clinic = "İşlem / Uzman / Danışan".
-- DEFERRED: Supabase email + Meta WhatsApp template rebrand.
-- OPEN: "Tamamlandı" before start — proposed: server allows COMPLETED only when startAt <= now; UI hides the button before.
+## Open risks
+- "Salon listesi yüklenemedi" = Supavisor session-pool exhaustion (`EMAXCONNSESSION`, pool_size 15). Last seen 2026-11-06 09:00 UTC, none since. Fix is PR #185 (open, mergeable) + owner switches Vercel pilot `DATABASE_URL` to the transaction pooler (6543) and redeploys.
+- Live audit of admin/staff screens still pending (use staging tenant `uiux-test-salon`).
 
 ## Next task
-- Commit + PR for this branch; check on staging (375px calendar row, confirm buttons, customer time, setup list).
-- Then: customer booking flow (3 steps + sticky bar), working-hours single save, week view on phones.
-- Report: https://claude.ai/artifact/CVmoaKmm5C18hKCP3wqrPj
+- Owner: merge PR #185, switch pooler URL. Then customer booking flow redesign (3 steps + sticky bar, Fresha-style flows, Apple Calendar-like look), "any staff" once the approved data-model work lands.
