@@ -41,3 +41,40 @@ describe("BookingConfirmation", () => {
     expect(html).not.toContain("Randevu bağlantınız");
   });
 });
+
+describe("PublicBookingForm steps", () => {
+  const legal = {
+    ready: true, noticeVersion: "v", noticeHash: "h", optInVersion: "o", optInHash: "oh",
+    optInLabel: "WhatsApp", optInHelp: "help", shortNotice: "notice", fullNoticePath: "/x/aydinlatma",
+  } as never;
+  const base = {
+    slug: "salon", legal, services: [{ id: "s1", name: "Saç kesimi", durationMinutes: 30, bufferMinutes: 0 }],
+    staff: [{ id: "a", displayName: "Ayşe" }, { id: "b", displayName: "Burak" }],
+    timeZone: "Europe/Istanbul", minDate: "2026-11-07",
+  };
+
+  it("opens on the service list with a disabled Devam until a service is chosen", async () => {
+    const { PublicBookingForm } = await import("./form");
+    const html = renderToStaticMarkup(<PublicBookingForm {...base} initialServiceId="" />);
+    expect(html).toContain("Adım 1 / 3");
+    expect(html).toContain("Hizmet seçin");
+    expect(html).toContain("Saç kesimi");
+    expect(html).toContain("Bir hizmet seçin");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Devam/);
+  });
+
+  it("starts at staff and time when the service is preselected, without picking a staff member", async () => {
+    const { PublicBookingForm } = await import("./form");
+    const html = renderToStaticMarkup(<PublicBookingForm {...base} initialServiceId="s1" />);
+    expect(html).toContain("Adım 2 / 3");
+    expect(html).toContain("Uzman ve saat");
+    expect(html).not.toMatch(/aria-pressed="true"[^>]*>Ayşe/);
+    expect(html).toContain("Saatleri görmek için bir uzman seçin.");
+  });
+
+  it("explains an empty service list", async () => {
+    const { PublicBookingForm } = await import("./form");
+    const html = renderToStaticMarkup(<PublicBookingForm {...base} services={[]} initialServiceId="" />);
+    expect(html).toContain("henüz online randevuya açık bir hizmet eklemedi");
+  });
+});
