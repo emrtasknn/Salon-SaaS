@@ -8,7 +8,7 @@ import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma
 import { withPrismaTenantContext } from "./prisma-tenant-context";
 
 type Tx = PrismaTenantTransactionClient & {
-  tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string } | null> };
+  tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string; name: string } | null> };
   appointment: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } }; include: unknown }): Promise<{
     startAt: Date;
     customerProfile: { id: string; displayName: string; phone: string | null };
@@ -70,12 +70,15 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
         const staff = { profileId: appointment.staff.profile.id, displayName: appointment.staff.profile.displayName, phone: appointment.staff.profile.phone };
         const serviceName = appointmentServiceLabel(appointment.service.name, appointment.services?.map((item) => item.service.name));
         const time = new Intl.DateTimeFormat("tr-TR", { timeZone: tenant.timezone, dateStyle: "short", timeStyle: "short" }).format(appointment.startAt);
+        // Owner decision 2026-11-06: messages come from the shared RandevuN number, so every template
+        // starts with the salon name ({{1}}) and the recipient knows which salon it is about.
+        const salon = tenant.name;
 
         if (eventType === "APPOINTMENT_CREATED") {
-          const staffBody = `Yeni randevu talebi: ${customer.displayName} — ${serviceName} — ${time}. Onay bekliyor.`;
-          const staffParameters = [customer.displayName, serviceName, time];
+          const staffBody = `${salon}: yeni randevu talebi: ${customer.displayName} — ${serviceName} — ${time}. Onay bekliyor.`;
+          const staffParameters = [salon, customer.displayName, serviceName, time];
           const staffRecipient: NotificationRecipient = { profileId: staff.profileId, displayName: staff.displayName, phone: staff.phone, templateKey: "appointment-created-staff", body: staffBody, templateParameters: staffParameters };
-          const customerRecipient: NotificationRecipient | null = customer.phone === null ? null : { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `Randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [serviceName, time, staff.displayName] };
+          const customerRecipient: NotificationRecipient | null = customer.phone === null ? null : { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone, templateKey: "appointment-created-customer", body: `${salon}: randevu talebiniz oluşturuldu ve onay bekliyor. ${serviceName} — ${time}.`, templateParameters: [salon, serviceName, time, staff.displayName] };
           // Tenant id comes from the trusted server context; explicit filter is defence in depth on top of RLS.
           const adminMemberships = await tx.tenantMembership.findMany({
             where: { tenantId: tenantContext.tenantId, role: "TENANT_ADMIN" },
@@ -91,15 +94,15 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
         if (customer.phone === null) return [];
         const base = { profileId: customer.profileId, displayName: customer.displayName, phone: customer.phone };
         if (eventType === "APPOINTMENT_CONFIRMED") {
-          return [{ ...base, templateKey: "appointment-confirmed-customer", body: `Randevunuz onaylandı. ${serviceName} — ${time} — ${staff.displayName}.`, templateParameters: [serviceName, time, staff.displayName] }];
+          return [{ ...base, templateKey: "appointment-confirmed-customer", body: `${salon}: randevunuz onaylandı. ${serviceName} — ${time} — ${staff.displayName}.`, templateParameters: [salon, serviceName, time, staff.displayName] }];
         }
         if (eventType === "APPOINTMENT_RESCHEDULED") {
           // Owner decision 2026-11-05: same opt-in rule as CONFIRMED; `time` is the appointment's
           // current (new) start. Meta template not created yet: without a WHATSAPP_TEMPLATES_JSON
           // entry the provider rejects with WHATSAPP_TEMPLATE_NOT_CONFIGURED (a FAILED delivery).
-          return [{ ...base, templateKey: "appointment-rescheduled-customer", body: `Randevunuzun saati değişti. ${serviceName} — ${time} — ${staff.displayName}.`, templateParameters: [serviceName, time, staff.displayName] }];
+          return [{ ...base, templateKey: "appointment-rescheduled-customer", body: `${salon}: randevunuzun saati değişti. ${serviceName} — ${time} — ${staff.displayName}.`, templateParameters: [salon, serviceName, time, staff.displayName] }];
         }
-        return [{ ...base, templateKey: "appointment-rejected-customer", body: `Randevu talebiniz onaylanmadı. ${serviceName} — ${time}.`, templateParameters: [serviceName, time] }];
+        return [{ ...base, templateKey: "appointment-rejected-customer", body: `${salon}: randevu talebiniz onaylanmadı. ${serviceName} — ${time}.`, templateParameters: [salon, serviceName, time] }];
       });
     },
 
