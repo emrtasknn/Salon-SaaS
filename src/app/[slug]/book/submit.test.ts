@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { vitrinLoad, bookingCreate, publishAppointmentNotification, prisma, checkRateLimit, readClientIp } = vi.hoisted(() => ({
+const { vitrinLoad, bookingCreate, publishAppointmentNotification, prisma, checkRateLimit, readClientIp, anyStaffCandidates } = vi.hoisted(() => ({
+  anyStaffCandidates: vi.fn(),
   vitrinLoad: vi.fn(),
   bookingCreate: vi.fn(),
   publishAppointmentNotification: vi.fn(),
@@ -18,6 +19,8 @@ vi.mock("../../notification-runtime", () => ({ publishAppointmentNotification })
 vi.mock("../../rate-limit-runtime", () => ({ checkRateLimit, readClientIp }));
 vi.mock("../../../application/public-availability", () => ({ createPublicAvailability: vi.fn(() => ({ list: vi.fn() })) }));
 vi.mock("../../../persistence/prisma-public-availability", () => ({ createPrismaPublicAvailabilityRepository: vi.fn(() => ({})) }));
+
+vi.mock("./any-staff-runtime", () => ({ anyStaffCandidates }));
 
 import { submitBooking } from "./submit";
 
@@ -226,5 +229,71 @@ describe("public booking actions module", () => {
   it("exports only getPublicAvailability (no second booking action)", async () => {
     const actions = await import("./actions");
     expect(Object.keys(actions).sort()).toEqual(["getPublicAvailability"]);
+  });
+});
+
+describe("submitBooking with \"Fark etmez\" (owner decision 2026-11-06)", () => {
+  const staff = [{ id: "staff-a", displayName: "Ayşe" }, { id: "staff-b", displayName: "Burak" }];
+  const ok = { status: "ok", active: true, legalReady: true, tenantContext: vitrinTenantContext, timezone: "Europe/Istanbul", staff };
+
+  beforeEach(() => anyStaffCandidates.mockReset());
+
+  it("asks for candidates from the server catalog and books the first free one", async () => {
+    vitrinLoad.mockResolvedValue(ok);
+    anyStaffCandidates.mockResolvedValue(["staff-b", "staff-a"]);
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-any", accessToken: RAW_TOKEN });
+
+    const result = await submitBooking({ ...input, staffId: "any" });
+
+    expect(anyStaffCandidates).toHaveBeenCalledWith(vitrinTenantContext, ["staff-a", "staff-b"], {
+      serviceId: "service-1",
+      startAt: new Date("2026-11-05T10:00:00.000Z"),
+      timeZone: "Europe/Istanbul",
+    });
+    expect(bookingCreate).toHaveBeenCalledTimes(1);
+    expect(bookingCreate.mock.calls[0][1].staffId).toBe("staff-b");
+    expect(result).toEqual({ status: "created", appointmentId: "appt-any", statusPath: `/salon-a/randevu/${RAW_TOKEN}`, staffDisplayName: "Burak" });
+    expect(publishAppointmentNotification).toHaveBeenCalledWith(vitrinTenantContext, "appt-any", "APPOINTMENT_CREATED");
+  });
+
+  it("moves to the next candidate when the slot was taken meanwhile", async () => {
+    vitrinLoad.mockResolvedValue(ok);
+    anyStaffCandidates.mockResolvedValue(["staff-b", "staff-a"]);
+    bookingCreate
+      .mockResolvedValueOnce({ status: "SLOT_UNAVAILABLE" })
+      .mockResolvedValueOnce({ status: "created", appointmentId: "appt-2", accessToken: RAW_TOKEN });
+
+    const result = await submitBooking({ ...input, staffId: "any" });
+
+    expect(bookingCreate.mock.calls.map((call) => call[1].staffId)).toEqual(["staff-b", "staff-a"]);
+    expect(result).toMatchObject({ status: "created", staffDisplayName: "Ayşe" });
+  });
+
+  it("returns SLOT_UNAVAILABLE without booking or notifying when nobody is free", async () => {
+    vitrinLoad.mockResolvedValue(ok);
+    anyStaffCandidates.mockResolvedValue([]);
+
+    await expect(submitBooking({ ...input, staffId: "any" })).resolves.toEqual({ status: "SLOT_UNAVAILABLE" });
+    expect(bookingCreate).not.toHaveBeenCalled();
+    expect(publishAppointmentNotification).not.toHaveBeenCalled();
+  });
+
+  it("stops at a non-slot failure instead of trying other staff", async () => {
+    vitrinLoad.mockResolvedValue(ok);
+    anyStaffCandidates.mockResolvedValue(["staff-a", "staff-b"]);
+    bookingCreate.mockResolvedValue({ status: "NOTICE_STALE" });
+
+    await expect(submitBooking({ ...input, staffId: "any" })).resolves.toEqual({ status: "NOTICE_STALE" });
+    expect(bookingCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not use the any-staff path for a named staff member", async () => {
+    vitrinLoad.mockResolvedValue(ok);
+    bookingCreate.mockResolvedValue({ status: "created", appointmentId: "appt-3", accessToken: RAW_TOKEN });
+
+    const result = await submitBooking(input);
+
+    expect(anyStaffCandidates).not.toHaveBeenCalled();
+    expect(result).not.toHaveProperty("staffDisplayName");
   });
 });

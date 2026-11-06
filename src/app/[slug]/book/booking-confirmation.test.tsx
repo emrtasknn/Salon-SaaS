@@ -4,8 +4,8 @@ import { BookingConfirmation } from "./booking-confirmation";
 import { initialStaffId } from "./form";
 
 describe("initialStaffId", () => {
-  it("does not pick a staff member when the customer has a choice", () => {
-    expect(initialStaffId([{ id: "a", displayName: "Ayşe" }, { id: "b", displayName: "Burak" }])).toBe("");
+  it("defaults to \"Fark etmez\" (never the first person) when the customer has a choice", () => {
+    expect(initialStaffId([{ id: "a", displayName: "Ayşe" }, { id: "b", displayName: "Burak" }])).toBe("any");
   });
 
   it("preselects the only staff member", () => {
@@ -63,13 +63,14 @@ describe("PublicBookingForm steps", () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Devam/);
   });
 
-  it("starts at staff and time when the service is preselected, without picking a staff member", async () => {
+  it("starts at staff and time with \"Fark etmez\" selected, not the first staff member", async () => {
     const { PublicBookingForm } = await import("./form");
     const html = renderToStaticMarkup(<PublicBookingForm {...base} initialServiceId="s1" />);
     expect(html).toContain("Adım 2 / 3");
     expect(html).toContain("Uzman ve saat");
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Fark etmez/);
     expect(html).not.toMatch(/aria-pressed="true"[^>]*>Ayşe/);
-    expect(html).toContain("Saatleri görmek için bir uzman seçin.");
+    expect(html).toContain("Uygun saatler kontrol ediliyor");
   });
 
   it("explains an empty service list", async () => {

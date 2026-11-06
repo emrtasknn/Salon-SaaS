@@ -82,3 +82,29 @@ describe("getPublicAvailability rate limiting (WP-5)", () => {
     expect(availabilityList).not.toHaveBeenCalled();
   });
 });
+
+describe("getPublicAvailability with \"Fark etmez\"", () => {
+  const staff = [{ id: "staff-a" }, { id: "staff-b" }];
+  const slot = (hhmm: string) => ({ startAtIso: `2026-11-05T${hhmm}:00.000Z`, endAtIso: `2026-11-05T${hhmm}:30.000Z` });
+
+  it("reads every catalog staff member once, charges the limiter once and merges their slots", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext, staff });
+    availabilityList
+      .mockResolvedValueOnce({ status: "ok", timeZone: "Europe/Istanbul", slots: [slot("09:00"), slot("07:00")] })
+      .mockResolvedValueOnce({ status: "ok", timeZone: "Europe/Istanbul", slots: [slot("07:00"), slot("08:00")] });
+
+    const result = await getPublicAvailability({ ...input, staffId: "any" });
+
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(availabilityList.mock.calls.map((call) => call[1].staffId)).toEqual(["staff-a", "staff-b"]);
+    expect(availabilityList.mock.calls.every((call) => call[0] === tenantContext)).toBe(true);
+    expect(result).toEqual({ status: "ok", timeZone: "Europe/Istanbul", slots: [slot("07:00"), slot("08:00"), slot("09:00")] });
+  });
+
+  it("reports the first error when no staff member can be read", async () => {
+    vitrinLoad.mockResolvedValue({ status: "ok", active: true, tenantContext, staff });
+    availabilityList.mockResolvedValue({ status: "INVALID_RESOURCE", slots: [] });
+
+    await expect(getPublicAvailability({ ...input, staffId: "any" })).resolves.toEqual({ status: "INVALID_RESOURCE", slots: [] });
+  });
+});
