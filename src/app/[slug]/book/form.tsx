@@ -10,6 +10,7 @@ import { card, field, statusNote } from "../../_ui/styles";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SalonLocationLink, type SalonLocationView } from "../../_ui/salon-location-link";
 import { Button } from "@/components/ui/button";
+import { BookingConfirmation, type BookingSummary } from "./booking-confirmation";
 
 type ServiceOption = Readonly<{
   id: string;
@@ -47,6 +48,11 @@ const legalErrors: Record<string, string> = {
   INVALID_PHONE: "Telefon numarası geçersiz. Ülke koduyla girin, örn. +905551234567.",
 };
 
+/** Preselect staff only when there is no real choice; otherwise the customer picks. */
+export function initialStaffId(staff: ReadonlyArray<StaffOption>): string {
+  return staff.length === 1 ? staff[0].id : "";
+}
+
 function formatSlot(iso: string, timeZone: string) {
   return new Intl.DateTimeFormat("tr-TR", {
     timeZone,
@@ -79,16 +85,15 @@ export function PublicBookingForm({
   initialServiceId: string;
 }) {
   const [serviceId, setServiceId] = useState(initialServiceId);
-  const [staffId, setStaffId] = useState(staff[0]?.id ?? "");
+  const [staffId, setStaffId] = useState(() => initialStaffId(staff));
   const [dateIso, setDateIso] = useState(minDate);
   const [slots, setSlots] = useState<ReadonlyArray<Slot>>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [availabilityStatus, setAvailabilityStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error" | "limited" | "inactive">(() =>
-    initialServiceId && staff[0]?.id ? "loading" : "idle",
+    initialServiceId && initialStaffId(staff) ? "loading" : "idle",
   );
   const [status, setStatus] = useState("");
-  const [statusUrl, setStatusUrl] = useState("");
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const [booked, setBooked] = useState<BookingSummary | null>(null);
   const [phone, setPhone] = useState("");
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [phoneError, setPhoneError] = useState(false);
@@ -133,8 +138,6 @@ export function PublicBookingForm({
     const optedIn = whatsappOptIn && hasPhone;
     setStatus("");
     setPhoneError(false);
-    setStatusUrl("");
-    setCopyState("idle");
     startTransition(async () => {
       const result = await submitBooking({
         slug,
@@ -152,10 +155,14 @@ export function PublicBookingForm({
       });
 
       if (result.status === "created") {
-        setStatus("Randevu talebiniz oluşturuldu.");
-        if ("statusPath" in result && typeof result.statusPath === "string" && result.statusPath) {
-          setStatusUrl(`${window.location.origin}${result.statusPath}`);
-        }
+        const statusPath = "statusPath" in result && typeof result.statusPath === "string" ? result.statusPath : "";
+        setBooked({
+          serviceName: selectedService?.name ?? "",
+          staffName: staff.find((member) => member.id === staffId)?.displayName ?? "",
+          startAtIso: selectedSlot,
+          timeZone,
+          statusUrl: statusPath ? `${window.location.origin}${statusPath}` : "",
+        });
         setSelectedSlot("");
         setSlots((current) => current.filter((slot) => slot.startAtIso !== selectedSlot));
       } else if (result.status === "SLOT_UNAVAILABLE") {
@@ -200,6 +207,9 @@ export function PublicBookingForm({
     <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
         <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
+        {booked ? (
+          <BookingConfirmation summary={booked} onNewBooking={() => setBooked(null)} />
+        ) : (
         <form
           className="space-y-7"
           onSubmit={(event) => {
@@ -292,6 +302,9 @@ export function PublicBookingForm({
 
           <section aria-live="polite" className={`${card} space-y-3`}>
             <div className="text-headline">Uygun saatler</div>
+            {availabilityStatus === "idle" && (
+              <p className="text-subhead text-ink-muted">Saatleri görmek için hizmet ve personel seçin.</p>
+            )}
             {availabilityStatus === "loading" && <p className="text-subhead text-ink-muted">Uygun saatler kontrol ediliyor…</p>}
             {availabilityStatus === "empty" && <p className="text-subhead text-ink-muted">Bu tarih için uygun saat bulunmuyor.</p>}
             {availabilityStatus === "error" && <p className="text-subhead text-ink-muted">Uygun saatler yüklenemedi. Lütfen tekrar deneyin.</p>}
@@ -406,36 +419,8 @@ export function PublicBookingForm({
             )}
           </div>
 
-          {statusUrl && (
-            <section aria-labelledby="status-link-title" className={`${card} space-y-3`}>
-              <h2 id="status-link-title" className="text-headline">Randevu bağlantınız</h2>
-              <p className="text-subhead text-ink-muted">
-                Bu bağlantıyı kaydedin; randevunuzu görmek veya iptal etmek için kullanabilirsiniz.
-              </p>
-              <a href={statusUrl} className="focus-ring block break-all rounded-control bg-surface-muted p-3 text-subhead text-ink underline">
-                {statusUrl}
-              </a>
-              <Button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(statusUrl);
-                    setCopyState("copied");
-                  } catch {
-                    setCopyState("failed");
-                  }
-                }}
-                variant="secondary" className="w-full sm:w-auto"
-              >
-                Bağlantıyı kopyala
-              </Button>
-              <p aria-live="polite" className="text-footnote text-ink-muted">
-                {copyState === "copied" && "Bağlantı kopyalandı."}
-                {copyState === "failed" && "Kopyalanamadı. Bağlantıyı seçip elle kopyalayın."}
-              </p>
-            </section>
-          )}
         </form>
+        )}
       </div>
     </main>
   );

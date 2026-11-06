@@ -20,25 +20,36 @@ import {
   DetailList,
   formatPeriod,
   formatTimeRange,
+  useMinuteClock,
   useCalendarData,
   useCalendarView,
   ViewSwitch,
 } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
-import { dateInZone } from "../_ui/timeline-layout";
+import { dateInZone, TIMELINE_TIME_ZONE } from "../_ui/timeline-layout";
+import { formatDayLabel } from "../_ui/date-format";
+import { ConfirmButton } from "../_ui/confirm-button";
 import { appointmentStatusBadge, badgeBase, fieldInline, appointmentStatusLabel } from "../_ui/styles";
 import { PageHeader } from "../_ui/page-header";
 import { AdminClosures } from "./closures";
 import type { ClosureListResult, LocalDateIso } from "../appointment-create-contract";
 import { Button, type ButtonVariant } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
+import { RotateCw } from "lucide-react";
 
 type AdminTransitionTarget = "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 type ActionKind = "primary" | "destructive" | "secondary";
 
-/** Same actions per status as the list always offered; the server re-validates every transition. */
-function availableActions(status: string): Array<{ to: AdminTransitionTarget; label: string; kind: ActionKind }> {
+/**
+ * Actions per status; the server re-validates every transition. "Tamamlandı" appears only once the
+ * appointment has started (owner decision 2026-11-06; the server also refuses with NOT_STARTED).
+ */
+function availableActions(
+  appointment: Readonly<{ status: string; startAt: string | Date }>,
+  nowMs: number | null,
+): Array<{ to: AdminTransitionTarget; label: string; kind: ActionKind }> {
+  const status = appointment.status;
   if (status === "PENDING") {
     return [
       { to: "CONFIRMED", label: "Onayla", kind: "primary" },
@@ -47,13 +58,21 @@ function availableActions(status: string): Array<{ to: AdminTransitionTarget; la
     ];
   }
   if (status === "CONFIRMED") {
+    const started = nowMs !== null && new Date(appointment.startAt).getTime() <= nowMs;
     return [
-      { to: "COMPLETED", label: "Tamamlandı", kind: "primary" },
+      ...(started ? [{ to: "COMPLETED" as const, label: "Tamamlandı", kind: "primary" as const }] : []),
       { to: "CANCELLED", label: "İptal et", kind: "secondary" },
     ];
   }
   return [];
 }
+
+/** Irreversible transitions ask first (ConfirmButton); the copy stays honest about notifications. */
+const confirmCopy: Partial<Record<AdminTransitionTarget, { question: string; confirmLabel: string }>> = {
+  REJECTED: { question: "Talep reddedilsin mi?", confirmLabel: "Evet, reddet" },
+  CANCELLED: { question: "Randevu iptal edilsin mi?", confirmLabel: "Evet, iptal et" },
+};
+const CONFIRM_DETAIL = "Bu işlem geri alınamaz. Müşteri bildirim izni verdiyse bilgilendirilir.";
 
 const actionVariant: Record<ActionKind, ButtonVariant> = {
   primary: "primary",
@@ -82,6 +101,7 @@ type Props = {
 const timeFormatter = new Intl.DateTimeFormat("tr-TR", {
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: TIMELINE_TIME_ZONE,
 });
 
 export function AdminCalendar({ initialDate, initialData, closures, bell, initialSelectedId = null }: Props) {
@@ -95,6 +115,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
+  const nowMs = useMinuteClock();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const [closuresOpen, setClosuresOpen] = useState(false);
   const move = useAppointmentMove({
@@ -159,6 +180,8 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
           "Bu randevu için bu işlem artık geçerli değil. Takvim yenilendi.",
         );
         refresh();
+      } else if (result.status === "NOT_STARTED") {
+        setFeedback("Randevu başlamadan tamamlandı olarak işaretlenemez.");
       } else if (result.status === "UNAUTHORIZED") {
         setFeedback("Bu işlem için yetkiniz yok.");
       } else if (result.status === "NOT_FOUND") {
@@ -195,6 +218,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const select = (id: string, trigger: HTMLElement) => {
     sheetTrigger.current = trigger;
+    setFeedback("");
     setSelectedId(id);
   };
 
@@ -245,9 +269,11 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
             onClick={() => refresh()}
             disabled={busy}
             variant="secondary"
-            className="ml-auto"
+            leadingIcon={RotateCw}
+            aria-label={loading ? "Yükleniyor" : "Yenile"}
+            className="ml-auto px-3 sm:px-4"
           >
-            {loading ? "Yükleniyor…" : "Yenile"}
+            <span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span>
           </Button>
         </div>
 
@@ -345,18 +371,33 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {availableActions(appointment.status).map((action) => (
-                    <Button
-                      key={action.to}
-                      type="submit"
-                      size="small"
-                      variant={actionVariant[action.kind]}
-                      disabled={busy}
-                      onClick={() => transition(appointment.id, action.to)}
-                    >
-                      {action.label}
-                    </Button>
-                  ))}
+                  {availableActions(appointment, nowMs).map((action) => {
+                    const ask = confirmCopy[action.to];
+                    return ask ? (
+                      <ConfirmButton
+                        key={action.to}
+                        label={action.label}
+                        question={ask.question}
+                        detail={CONFIRM_DETAIL}
+                        confirmLabel={ask.confirmLabel}
+                        size="small"
+                        variant={actionVariant[action.kind]}
+                        disabled={busy}
+                        onConfirm={() => transition(appointment.id, action.to)}
+                      />
+                    ) : (
+                      <Button
+                        key={action.to}
+                        type="button"
+                        size="small"
+                        variant={actionVariant[action.kind]}
+                        disabled={busy}
+                        onClick={() => transition(appointment.id, action.to)}
+                      >
+                        {action.label}
+                      </Button>
+                    );
+                  })}
                 </div>
               </article>
             ))}
@@ -367,7 +408,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
 
       <AppointmentSheet
         open={selected !== null}
-        title={selected ? formatTimeRange(selected.startAt, selected.endAt) : ""}
+        title={selected ? `${formatDayLabel(selected.startAt)} · ${formatTimeRange(selected.startAt, selected.endAt)}` : ""}
         onClose={() => {
           setSelectedId(null);
           sheetTrigger.current?.focus();
@@ -404,20 +445,35 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
                 }}
               />
             )}
-            {availableActions(selected.status).length > 0 ? (
+            {availableActions(selected, nowMs).length > 0 ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                {availableActions(selected.status).map((action) => (
-                  <Button
-                    key={action.to}
-                    type="button"
-                    variant={actionVariant[action.kind]}
-                    disabled={busy}
-                    onClick={() => transition(selected.id, action.to)}
-                    className="sm:flex-1"
-                  >
-                    {action.label}
-                  </Button>
-                ))}
+                {availableActions(selected, nowMs).map((action) => {
+                  const ask = confirmCopy[action.to];
+                  return ask ? (
+                    <ConfirmButton
+                      key={action.to}
+                      label={action.label}
+                      question={ask.question}
+                      detail={CONFIRM_DETAIL}
+                      confirmLabel={ask.confirmLabel}
+                      variant={actionVariant[action.kind]}
+                      disabled={busy}
+                      onConfirm={() => transition(selected.id, action.to)}
+                      className="sm:flex-1"
+                    />
+                  ) : (
+                    <Button
+                      key={action.to}
+                      type="button"
+                      variant={actionVariant[action.kind]}
+                      disabled={busy}
+                      onClick={() => transition(selected.id, action.to)}
+                      className="sm:flex-1"
+                    >
+                      {action.label}
+                    </Button>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-subhead text-ink-muted">Bu randevu için başka işlem yok.</p>

@@ -38,6 +38,7 @@ const repository = {
 const authorizer = {
   authorize: vi.fn(),
   authorizeStaffDecision: vi.fn(),
+  authorizeStaffCompletion: vi.fn(),
   resolveCreateScope: vi.fn<() => Promise<AppointmentCreateScope | null>>(),
 };
 const engine = () => createBookingEngine({ repository, authorizer });
@@ -53,6 +54,7 @@ beforeEach(() => {
   }));
   authorizer.authorize.mockResolvedValue(true);
   authorizer.authorizeStaffDecision.mockResolvedValue(true);
+  authorizer.authorizeStaffCompletion.mockResolvedValue(false);
   authorizer.resolveCreateScope.mockResolvedValue({ kind: "admin" });
 });
 
@@ -395,5 +397,52 @@ describe("booking engine reschedule (owner decision 2026-11-05)", () => {
 
   it("rejects malformed input", async () => {
     expect(await engine().reschedule(identity, tenant, appointment, "10:00")).toEqual({ status: "INVALID_INPUT" });
+  });
+});
+
+describe("completion (owner decision 2026-11-06)", () => {
+  const startAt = new Date("2026-11-07T08:00:00.000Z");
+  const confirmed = { id: "a", tenantId: "t", staffId: "staff", serviceId: "svc", customerProfileId: "p",
+    startAt, endAt: new Date("2026-11-07T09:00:00.000Z"), status: "CONFIRMED" as const };
+  const at = (iso: string) => createBookingEngine({ repository, authorizer, now: () => new Date(iso) });
+
+  it("refuses to complete before the start time and never writes", async () => {
+    const result = await at("2026-11-07T07:00:00.000Z").transition(identity, tenant, confirmed, "COMPLETED");
+    expect(result).toEqual({ status: "NOT_STARTED" });
+    expect(repository.transition).not.toHaveBeenCalled();
+  });
+
+  it("checks authorization before the time rule", async () => {
+    authorizer.authorize.mockResolvedValue(false);
+    const result = await at("2026-11-07T07:00:00.000Z").transition(identity, tenant, confirmed, "COMPLETED");
+    expect(result).toEqual({ status: "UNAUTHORIZED" });
+  });
+
+  it("lets a tenant admin complete once the appointment has started", async () => {
+    const result = await at("2026-11-07T08:00:00.000Z").transition(identity, tenant, confirmed, "COMPLETED");
+    expect(result).toEqual({ status: "updated" });
+    expect(repository.transition).toHaveBeenCalledWith(tenant, "a", "CONFIRMED", "COMPLETED");
+  });
+
+  it("lets the assigned staff member complete through the staff completion boundary", async () => {
+    authorizer.authorize.mockResolvedValue(false);
+    authorizer.authorizeStaffCompletion.mockResolvedValue(true);
+    const result = await at("2026-11-07T09:30:00.000Z").transition(identity, tenant, confirmed, "COMPLETED");
+    expect(result).toEqual({ status: "updated" });
+    expect(authorizer.authorizeStaffCompletion).toHaveBeenCalledWith(identity, tenant, confirmed);
+  });
+
+  it("denies staff who fail the completion boundary", async () => {
+    authorizer.authorize.mockResolvedValue(false);
+    const result = await at("2026-11-07T09:30:00.000Z").transition(identity, tenant, confirmed, "COMPLETED");
+    expect(result).toEqual({ status: "UNAUTHORIZED" });
+    expect(repository.transition).not.toHaveBeenCalled();
+  });
+
+  it("staff completion never authorizes cancelling", async () => {
+    authorizer.authorize.mockResolvedValue(false);
+    authorizer.authorizeStaffCompletion.mockResolvedValue(true);
+    const result = await at("2026-11-07T09:30:00.000Z").transition(identity, tenant, confirmed, "CANCELLED");
+    expect(result).toEqual({ status: "UNAUTHORIZED" });
   });
 });

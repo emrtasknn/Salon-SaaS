@@ -99,7 +99,7 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                           item.id,
                           item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
                         );
-                        setFeedback(message(result.status));
+                        setFeedback(message(result.status, "Personel durumu güncellendi."));
                         if (result.status === "updated") refresh();
                       })
                     }
@@ -116,7 +116,7 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                       setFeedback(
                         result.status === "updated"
                           ? "Personel bilgileri güncellendi."
-                          : message(result.status),
+                          : message(result.status, "Personel bilgileri kaydedildi."),
                       );
                       if (result.status === "updated") refresh();
                     })

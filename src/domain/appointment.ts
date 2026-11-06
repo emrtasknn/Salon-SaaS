@@ -32,6 +32,17 @@ export function canRescheduleAppointment(status: AppointmentStatus): boolean {
   return status === "PENDING" || status === "CONFIRMED";
 }
 
+/**
+ * Owner decision 2026-11-06: an appointment can be marked COMPLETED only once it has started
+ * (startAt <= now) and only from CONFIRMED. Prevents completing tomorrow's booking by mistake.
+ */
+export function canCompleteAppointment(
+  appointment: Readonly<{ status: AppointmentStatus; startAt: Date }>,
+  now: Date,
+): boolean {
+  return appointment.status === "CONFIRMED" && appointment.startAt.getTime() <= now.getTime();
+}
+
 export function canTransitionAppointment(from: AppointmentStatus, to: AppointmentStatus): boolean {
   return transitions[from].includes(to);
 }
