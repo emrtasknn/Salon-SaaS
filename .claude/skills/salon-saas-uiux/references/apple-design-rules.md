@@ -33,6 +33,7 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 - [ ] Input borders and other essential UI boundaries ≥3:1 (`border-field-border`).
 - [ ] Status is never color-only: every status badge carries a text label.
 - [ ] Use semantic tokens (`ink`, `ink-muted`, `canvas`, `surface`, `action`, `destructive`, `status-*`), not raw palette classes, in new or touched code.
+- [ ] RandevuN palette (owner 2026-11-06): navy `action` for primary buttons, headings, selected segments. Emerald `accent` only for confirmation moments (final booking CTA = `<Button variant="accent">`, selected time slot, success feedback); at most one accent button per screen; text on it is always `on-accent` (navy, never white). Emerald text/icons use `accent-ink`; selected tints use `accent-soft` + `on-accent-soft`. `status-confirmed` stays a separate, deeper green.
 
 ### Touch & interaction
 - [ ] Touch targets 44×44px by default (`tap-target` / `min-h-11`); 28px is an absolute floor for secondary inline controls only.
@@ -50,7 +51,7 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 - [ ] CSS only: `backdrop-filter` + `-webkit-backdrop-filter` (`glass` utility).
 - [ ] Only on the floating functional layer: sticky top bar (`AppBar`), bottom bar/install banner, sheet/dialog backdrops. **Never** on content cards. **Never** glass on glass.
 - [ ] Solid fallbacks: `@supports not (backdrop-filter…)`, `prefers-reduced-transparency: reduce`, `prefers-contrast: more`.
-- [ ] Text on glass ≥4.5:1 against the worst-case background (black content scrolled beneath). Light: 85% white glass gives `ink` ≈11:1 and `ink-muted` ≈4.7:1 over black content. Dark: 90% #1c1c1e glass gives `ink` 11.6:1 and `ink-muted` 4.9:1 over white content. Do not lower either opacity without re-running `src/app/_ui/theme-contrast.test.ts`.
+- [ ] Text on glass ≥4.5:1 against the worst-case background (black content scrolled beneath). Light: 82% canvas (#FAF9F7) glass gives `ink` ≈11.1:1 and `ink-muted` ≈4.7:1 over black content. Dark: 90% surface (#111827) glass gives `ink` 12.8:1 and `ink-muted` 5.2:1 over white content. Do not lower either opacity without re-running `src/app/_ui/theme-contrast.test.ts`.
 
 ### Motion
 - [ ] Animate only `transform` and `opacity` (color/background transitions on press are acceptable). Never `transition: all`; list exact properties.

@@ -6,14 +6,16 @@
  * Light + dark themes. Components use semantic tokens only; never `dark:` variants or raw palette
  * classes. Dark values live in the two `DARK TOKENS` blocks below (keep them identical; the
  * contrast test in src/app/_ui/theme-contrast.test.ts checks both themes and that the blocks match).
- * Light contrast (WCAG 2.x, computed): ink/surface 17:1, ink-muted/surface 6.6:1,
- * ink-muted/canvas 5.9:1, field-border/surface 3.4:1 (non-text 3:1), status badges >= 5.8:1.
+ * RandevuN palette (owner approval 2026-11-06): warm off-white canvas, navy ink/actions, emerald accent.
+ * Light contrast (WCAG 2.x, computed): ink/surface 17.9:1, ink-muted/surface 7.6:1,
+ * ink-muted/canvas 7.2:1, on-accent/accent 7.0:1, accent-ink/canvas 5.2:1,
+ * field-border/surface-muted 4.3:1 (non-text 3:1), status badges >= 5.8:1.
  */
 
 :root {
-  --background: #f2f2f7;
-  --foreground: #1c1c1e;
-  --glass-bg: rgb(255 255 255 / 0.85);
+  --background: #faf9f7;
+  --foreground: #0f172a;
+  --glass-bg: rgb(250 249 247 / 0.82);
   color-scheme: light dark;
 
   /* Motion (emilkowalski/skills, MIT): animate transform/opacity only. */
@@ -33,21 +35,33 @@
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Surfaces & text */
-  --color-canvas: #f2f2f7;
+  --color-canvas: #faf9f7;
   --color-surface: #ffffff;
-  --color-surface-muted: #f6f6f8;
-  --color-ink: #1c1c1e;
-  --color-ink-muted: #5c5c63;
-  --color-separator: #e3e3e8;
-  --color-field-border: #8a8a8e;
+  --color-surface-muted: #f4f3f0;
+  --color-ink: #0f172a;
+  --color-ink-muted: #475569;
+  --color-separator: #e7e5e0; /* decorative hairlines only; essential boundaries use field-border */
+  --color-field-border: #64748b;
 
-  /* Actions & focus */
-  --color-action: #1c1c1e;
-  --color-action-hover: #3a3a3c;
+  /* Actions & focus. Navy = primary actions, headings, selected segments. */
+  --color-action: #0f172a;
+  --color-action-hover: #1e293b;
   --color-on-action: #ffffff;
+  /*
+   * Brand accent (emerald) — ONLY for confirmation moments: the final booking CTA, the selected
+   * time slot, success feedback. At most one accent-filled button per screen. Text on an accent
+   * fill is always `on-accent` (navy); white on emerald is 2.5:1 and not allowed. Emerald text or
+   * icons use `accent-ink`; selected rows use `accent-soft` with `on-accent-soft` text.
+   */
+  --color-accent: #10b981;
+  --color-accent-hover: #059669;
+  --color-on-accent: #0f172a;
+  --color-accent-ink: #047857;
+  --color-accent-soft: #ecfdf5;
+  --color-on-accent-soft: #065f46;
   --color-destructive: #c41e1e;
   --color-destructive-hover: #a31919;
-  --color-focus: #0066cc;
+  --color-focus: #2563eb;
 
   /* Appointment status (text always paired with a label; never color-only) */
   --color-status-pending: #8a4b00;
@@ -56,8 +70,8 @@
   --color-status-confirmed-bg: #e6f6ea;
   --color-status-rejected: #b4151b;
   --color-status-rejected-bg: #fdeceb;
-  --color-status-cancelled: #48484a;
-  --color-status-cancelled-bg: #ececf0;
+  --color-status-cancelled: #475569;
+  --color-status-cancelled-bg: #f1f5f9;
   --color-status-completed: #0b5c8c;
   --color-status-completed-bg: #e5f1fa;
 
@@ -109,30 +123,36 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --background: #000000;
-    --foreground: #f5f5f7;
-    --glass-bg: rgb(28 28 30 / 0.9);
-    --color-canvas: #000000;
-    --color-surface: #1c1c1e;
-    --color-surface-muted: #2c2c2e;
-    --color-ink: #f5f5f7;
-    --color-ink-muted: #a1a1a8;
-    --color-separator: #38383a;
-    --color-field-border: #7c7c82;
-    --color-action: #f5f5f7;
-    --color-action-hover: #d1d1d6;
-    --color-on-action: #000000;
+    --background: #0b1120;
+    --foreground: #f8fafc;
+    --glass-bg: rgb(17 24 39 / 0.9);
+    --color-canvas: #0b1120;
+    --color-surface: #111827;
+    --color-surface-muted: #1e293b;
+    --color-ink: #f8fafc;
+    --color-ink-muted: #94a3b8;
+    --color-separator: #334155;
+    --color-field-border: #7c8ba1;
+    --color-action: #f8fafc;
+    --color-action-hover: #cbd5e1;
+    --color-on-action: #0f172a;
+    --color-accent: #34d399;
+    --color-accent-hover: #10b981;
+    --color-on-accent: #0b1120;
+    --color-accent-ink: #6ee7b7;
+    --color-accent-soft: #064e3b;
+    --color-on-accent-soft: #a7f3d0;
     --color-destructive: #ff6961;
     --color-destructive-hover: #ff8a84;
-    --color-focus: #409cff;
+    --color-focus: #60a5fa;
     --color-status-pending: #ffb340;
     --color-status-pending-bg: #3a2a10;
     --color-status-confirmed: #30d158;
     --color-status-confirmed-bg: #0f2e1a;
     --color-status-rejected: #ff6961;
     --color-status-rejected-bg: #3b1a1a;
-    --color-status-cancelled: #aeaeb2;
-    --color-status-cancelled-bg: #2c2c2e;
+    --color-status-cancelled: #cbd5e1;
+    --color-status-cancelled-bg: #1e293b;
     --color-status-completed: #64b5ff;
     --color-status-completed-bg: #0e2a40;
     --staff-1: #409cff;
@@ -154,30 +174,36 @@
 /* DARK TOKENS (explicit) — keep identical to the system block above. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #000000;
-  --foreground: #f5f5f7;
-  --glass-bg: rgb(28 28 30 / 0.9);
-  --color-canvas: #000000;
-  --color-surface: #1c1c1e;
-  --color-surface-muted: #2c2c2e;
-  --color-ink: #f5f5f7;
-  --color-ink-muted: #a1a1a8;
-  --color-separator: #38383a;
-  --color-field-border: #7c7c82;
-  --color-action: #f5f5f7;
-  --color-action-hover: #d1d1d6;
-  --color-on-action: #000000;
+  --background: #0b1120;
+  --foreground: #f8fafc;
+  --glass-bg: rgb(17 24 39 / 0.9);
+  --color-canvas: #0b1120;
+  --color-surface: #111827;
+  --color-surface-muted: #1e293b;
+  --color-ink: #f8fafc;
+  --color-ink-muted: #94a3b8;
+  --color-separator: #334155;
+  --color-field-border: #7c8ba1;
+  --color-action: #f8fafc;
+  --color-action-hover: #cbd5e1;
+  --color-on-action: #0f172a;
+  --color-accent: #34d399;
+  --color-accent-hover: #10b981;
+  --color-on-accent: #0b1120;
+  --color-accent-ink: #6ee7b7;
+  --color-accent-soft: #064e3b;
+  --color-on-accent-soft: #a7f3d0;
   --color-destructive: #ff6961;
   --color-destructive-hover: #ff8a84;
-  --color-focus: #409cff;
+  --color-focus: #60a5fa;
   --color-status-pending: #ffb340;
   --color-status-pending-bg: #3a2a10;
   --color-status-confirmed: #30d158;
   --color-status-confirmed-bg: #0f2e1a;
   --color-status-rejected: #ff6961;
   --color-status-rejected-bg: #3b1a1a;
-  --color-status-cancelled: #aeaeb2;
-  --color-status-cancelled-bg: #2c2c2e;
+  --color-status-cancelled: #cbd5e1;
+  --color-status-cancelled-bg: #1e293b;
   --color-status-completed: #64b5ff;
   --color-status-completed-bg: #0e2a40;
   --staff-1: #409cff;
@@ -224,7 +250,7 @@ body {
 /*
  * Glass material: ONLY for the floating functional layer (sticky bars, bottom bar,
  * sheet backdrops). Never on content cards; never glass on glass.
- * 85% white (light) / 90% #1c1c1e (dark) keeps ink-muted text >= 4.5:1 over worst-case content.
+ * 82% canvas (light) / 90% surface (dark) keeps ink-muted text >= 4.5:1 over worst-case content.
  */
 @utility glass {
   background-color: var(--glass-bg);
@@ -349,6 +375,12 @@ body {
 [data-app-content] > main.min-h-screen {
   min-height: 0;
   flex: 1 1 auto;
+}
+
+/* The booking flow has its own fixed action bar; keep the install banner out of the way there. */
+body:has([data-booking-bar]) [data-install-banner],
+body:has([data-booking-bar]) [data-install-banner-spacer] {
+  display: none;
 }
 
 /* On phones, when the app tab bar is present, lift the install banner above it
