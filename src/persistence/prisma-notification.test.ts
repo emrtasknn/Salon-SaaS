@@ -171,7 +171,7 @@ describe("Prisma notification repository", () => {
         operation({
           $executeRaw: vi.fn().mockResolvedValue(1),
           appointment: { findUnique: vi.fn().mockResolvedValue(row) },
-          tenant: { findUnique: vi.fn().mockResolvedValue({ timezone: "Europe/Istanbul" }) },
+          tenant: { findUnique: vi.fn().mockResolvedValue({ timezone: "Europe/Istanbul", name: "Salon A" }) },
           tenantMembership: { findMany },
           notificationDelivery: { findUnique: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
         }),
@@ -216,8 +216,10 @@ describe("Prisma notification repository", () => {
         body: staffEntry.body,
       });
       expect(adminEntry.templateParameters).toEqual(staffEntry.templateParameters);
-      expect(adminEntry.templateParameters[0]).toBe("Customer");
-      expect(adminEntry.templateParameters[1]).toBe("Kesim");
+      // Owner decision 2026-11-06: {{1}} is always the salon name.
+      expect(adminEntry.templateParameters[0]).toBe("Salon A");
+      expect(adminEntry.templateParameters[1]).toBe("Customer");
+      expect(adminEntry.templateParameters[2]).toBe("Kesim");
     });
 
     it("omits admins with a null or blank phone", async () => {
@@ -270,9 +272,9 @@ describe("Prisma notification repository", () => {
       const created = await repository.recipients(tenantContext("tenant-a"), "appointment-1", "APPOINTMENT_CREATED");
       const staffEntry = created.find((r) => r.profileId === "staff-1");
       const adminEntry = created.find((r) => r.profileId === "admin-1");
-      expect(staffEntry?.templateParameters[0]).toBe("Ayşe (randevu)");
+      expect(staffEntry?.templateParameters[1]).toBe("Ayşe (randevu)");
       expect(staffEntry?.body).toContain("Ayşe (randevu)");
-      expect(adminEntry?.templateParameters[0]).toBe("Ayşe (randevu)");
+      expect(adminEntry?.templateParameters[1]).toBe("Ayşe (randevu)");
       // Recipients and routing are unchanged: same profiles, customer still on the snapshot phone.
       expect(created.map((r) => r.profileId)).toEqual(["staff-1", "customer-1", "admin-1"]);
       expect(created.find((r) => r.profileId === "customer-1")?.phone).toBe("+905550000002");
@@ -315,7 +317,7 @@ describe("Prisma notification repository", () => {
         phone: "+905550000002",
         templateKey: "appointment-rescheduled-customer",
         body: expect.stringContaining("Kesim"),
-        templateParameters: ["Kesim", expect.stringContaining("14:00"), "Staff"],
+        templateParameters: ["Salon A", "Kesim", expect.stringContaining("14:00"), "Staff"],
       }]);
       expect(findMany).not.toHaveBeenCalled();
     });
