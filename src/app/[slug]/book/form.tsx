@@ -55,6 +55,8 @@ export function initialStaffId(staff: ReadonlyArray<StaffOption>): string {
 const chip = "pressable focus-ring tap-target shrink-0 rounded-control border px-3.5 py-2 text-subhead font-medium";
 const chipOn = "border-action bg-action text-on-action";
 const chipOff = "border-separator bg-surface-muted text-ink hover:border-field-border";
+// RandevuN palette: emerald accent only for the confirmation moment (selected time + final submit).
+const slotOn = "border-accent-ink bg-accent-soft font-semibold text-on-accent-soft shadow-[inset_0_0_0_1px_var(--color-accent-ink)]";
 
 function Check() {
   return (
@@ -472,7 +474,7 @@ export function PublicBookingForm({
                               setSelectedSlot(slot.startAtIso);
                               setStatus("");
                             }}
-                            className={`pressable focus-ring tap-target rounded-control border px-2 py-2.5 text-body font-medium tabular-nums ${selectedSlot === slot.startAtIso ? chipOn : chipOff}`}
+                            className={`pressable focus-ring tap-target rounded-control border px-2 py-2.5 text-body font-medium tabular-nums ${selectedSlot === slot.startAtIso ? slotOn : chipOff}`}
                           >
                             {formatTime(slot.startAtIso, timeZone)}
                           </button>
@@ -601,7 +603,7 @@ export function PublicBookingForm({
           <Button
             type="submit"
             form="booking-form"
-            variant="primary"
+            variant={step === 3 ? "accent" : "primary"}
             disabled={step === 3 ? busy || stale || !selectedSlot : !canContinue}
             aria-describedby={step === 3 ? "booking-notice" : undefined}
             className="shrink-0"

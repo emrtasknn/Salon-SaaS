@@ -16,7 +16,7 @@ export type NoticeTone = "info" | "success" | "error";
 
 const toneStyles: Record<NoticeTone, { disc: string; Icon: typeof Info }> = {
   info: { disc: "bg-status-completed-bg text-status-completed", Icon: Info },
-  success: { disc: "bg-status-confirmed-bg text-status-confirmed", Icon: CircleCheck },
+  success: { disc: "bg-accent-soft text-accent-ink", Icon: CircleCheck },
   error: { disc: "bg-status-rejected-bg text-status-rejected", Icon: CircleAlert },
 };
 
