@@ -11,6 +11,8 @@ import { AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, f
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
 import { dateInZone } from "../_ui/timeline-layout";
+import { formatDayLabel } from "../_ui/date-format";
+import { ConfirmButton } from "../_ui/confirm-button";
 import { Button } from "@/components/ui/button";
 
 // Staff create for themselves only (staffId derived server-side), guest customer only.
@@ -18,6 +20,7 @@ const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listS
 import { decideAndNotify } from "./decide";
 import { BookingContactSummary } from "../booking-contact-summary";
 import { haptic } from "@/lib/haptics";
+import { RotateCw } from "lucide-react";
 
 type Props = {
   initialDate: string;
@@ -95,7 +98,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const loadError = data.status !== "ok" ? "Randevular yüklenemedi." : "";
   // Day and list show only the anchor date (data may still hold a wider range while reloading).
   const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
-  const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setSelectedId(id); };
+  const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setFeedback(""); setSelectedId(id); };
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const customerOf = (a: (typeof appointments)[number]) => a.bookingContact?.displayName ?? a.customerName;
   const movableOf = (a: (typeof appointments)[number]) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, title: customerOf(a), detail: a.serviceName });
@@ -112,7 +115,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <p className="mr-auto text-subhead font-semibold text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
         <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
-        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary">{loading ? "Yükleniyor…" : "Yenile"}</Button>
+        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary" leadingIcon={RotateCw} aria-label={loading ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span></Button>
       </div>
       {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
       <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
@@ -160,7 +163,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
 
     <AppointmentSheet
       open={selected !== null}
-      title={selected ? formatTimeRange(selected.startAt, selected.endAt) : ""}
+      title={selected ? `${formatDayLabel(selected.startAt)} · ${formatTimeRange(selected.startAt, selected.endAt)}` : ""}
       onClose={() => { setSelectedId(null); sheetTrigger.current?.focus(); }}
     >
       {selected && <div className="space-y-4">
@@ -177,8 +180,8 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
         />}
         {selected.status === "PENDING" ? <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="button" disabled={busy} onClick={() => decide(selected.id, "CONFIRMED")} variant="primary" className="sm:flex-1">Onayla</Button>
-          <Button type="button" disabled={busy} onClick={() => decide(selected.id, "REJECTED")} variant="danger-outline" className="sm:flex-1">Reddet</Button>
-        </div> : <p className="text-subhead text-ink-muted">Bu randevu için başka işlem yok.</p>}
+          <ConfirmButton label="Reddet" question="Talep reddedilsin mi?" detail="Bu işlem geri alınamaz. Müşteri bildirim izni verdiyse bilgilendirilir." confirmLabel="Evet, reddet" disabled={busy} onConfirm={() => decide(selected.id, "REJECTED")} className="sm:flex-1" />
+        </div> : <p className="text-subhead text-ink-muted">İptal ve tamamlama işlemlerini salon yöneticisi yapar.</p>}
       </div>}
     </AppointmentSheet>
     {move.sheet}

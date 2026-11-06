@@ -7,6 +7,9 @@ import { field } from "../../_ui/styles";
 import { House } from "lucide-react";
 import { PageHeader } from "../../_ui/page-header";
 import { getCustomer, getCustomers } from "./actions";
+import { appointmentStatusBadge, appointmentStatusLabel, badgeBase } from "../../_ui/styles";
+import { formatAppointmentDateTime, formatDateInZone } from "../../_ui/date-format";
+import { CustomerNoteForm } from "./note-form";
 
 export default async function CustomerPage({
   searchParams,
@@ -50,10 +53,12 @@ export default async function CustomerPage({
                   <div key={appointment.id} className="rounded-lg border p-3 text-sm">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <span className="font-medium">{appointment.serviceName}</span>
-                      <span className="rounded-md bg-surface-muted px-2 py-1 text-xs">{appointment.status}</span>
+                      <span className={`${badgeBase} ${appointmentStatusBadge[appointment.status] ?? "bg-surface-muted text-ink"}`}>
+                        {appointmentStatusLabel[appointment.status] ?? appointment.status}
+                      </span>
                     </div>
                     <div className="mt-2 text-ink-muted">
-                      {new Date(appointment.startAt).toLocaleString("tr-TR")}
+                      <time dateTime={new Date(appointment.startAt).toISOString()}>{formatAppointmentDateTime(appointment.startAt)}</time>
                     </div>
                     <div className="mt-1 text-ink-muted">
                       Personel: {appointment.staffDisplayName}
@@ -77,6 +82,7 @@ export default async function CustomerPage({
             ) : (
               <p className="mt-3 text-sm text-ink-muted">Henüz not yok.</p>
             )}
+            <CustomerNoteForm customerId={result.customer.id} />
           </section>
         </div>
       </main>
@@ -127,7 +133,7 @@ export default async function CustomerPage({
                     </div>
                     <div className="text-right text-xs text-ink-muted">
                       <div>{customer.appointmentCount} randevu</div>
-                      <div>{customer.lastAppointmentAt ? new Date(customer.lastAppointmentAt).toLocaleDateString("tr-TR") : "Henüz randevu yok"}</div>
+                      <div>{customer.lastAppointmentAt ? formatDateInZone(customer.lastAppointmentAt) : "Henüz randevu yok"}</div>
                     </div>
                   </div>
                 </Link>

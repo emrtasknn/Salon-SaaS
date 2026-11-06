@@ -202,7 +202,7 @@ export function useCalendarData<T>(
 /* ------------------------------------------------------------------------------------------ */
 
 const stepButton =
-  "pressable focus-ring tap-target inline-flex items-center justify-center rounded-control border border-separator bg-surface text-ink hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40";
+  "pressable focus-ring tap-target inline-flex shrink-0 items-center justify-center rounded-control border border-separator bg-surface text-ink hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40";
 
 const stepLabels: Record<CalendarView, [string, string]> = {
   day: ["Önceki gün", "Sonraki gün"],
@@ -230,11 +230,12 @@ export function DateStepper({
   const showsToday = viewDateRange(view, date);
   const todayVisible = today >= showsToday.startDate && today <= showsToday.endDate && (view !== "month" || today.slice(0, 7) === date.slice(0, 7));
   return (
-    <div className="flex items-center gap-1.5">
+    // min-w-0 + a shrinking date field keep the row inside 320-390px phones (it used to overflow by ~4px).
+    <div className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto">
       <button type="button" aria-label={previousLabel} disabled={disabled} onClick={() => { haptic("selection"); onChange(stepDate(view, date, -1)); }} className={stepButton}>
         <span aria-hidden="true" className="text-headline">‹</span>
       </button>
-      {children}
+      <div className="min-w-0 flex-1 sm:flex-none [&>input]:w-full [&>input]:min-w-0">{children}</div>
       <button type="button" aria-label={nextLabel} disabled={disabled} onClick={() => { haptic("selection"); onChange(stepDate(view, date, 1)); }} className={stepButton}>
         <span aria-hidden="true" className="text-headline">›</span>
       </button>
@@ -242,7 +243,7 @@ export function DateStepper({
         type="button"
         disabled={disabled || date === today || (view !== "day" && view !== "list" && todayVisible)}
         onClick={() => { haptic("selection"); onChange(today); }}
-        className={`${stepButton} px-3.5 text-subhead font-medium`}
+        className={`${stepButton} shrink-0 px-3 text-subhead font-medium`}
       >
         Bugün
       </button>
