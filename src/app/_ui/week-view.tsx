@@ -5,8 +5,9 @@
 // appointments (the loader already restricts them). Presentation only.
 
 import { useMemo, useState } from "react";
-import { staffPalette } from "./styles";
-import { formatLongDate, TimeGrid, type GridColumn, type GridItem } from "./day-timeline";
+import { appointmentStatusBadge, badgeBase, staffPalette } from "./styles";
+import { appointmentStatusLabels, formatLongDate, formatTimeRange, TimeGrid, type GridColumn, type GridItem } from "./day-timeline";
+import { formatIsoDayLabel } from "./date-format";
 import { dateInZone, todayInZone, weekDates } from "./timeline-layout";
 
 export type WeekItem = Readonly<{
@@ -30,6 +31,16 @@ export function staffLegend(items: ReadonlyArray<Pick<WeekItem, "staffId" | "sta
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name, "tr-TR") || a.id.localeCompare(b.id))
     .map((staff, index) => ({ ...staff, palette: staffPalette[index % staffPalette.length] }));
+}
+
+/** Week items grouped by local day (Mon–Sun), each day sorted by start time. */
+export function agendaDays<T extends Pick<WeekItem, "startAt">>(days: ReadonlyArray<string>, items: ReadonlyArray<T>) {
+  return days.map((day) => ({
+    date: day,
+    items: items
+      .filter((item) => dateInZone(item.startAt) === day)
+      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()),
+  }));
 }
 
 const chipClass =
@@ -65,8 +76,8 @@ export function WeekView({
     headerAriaLabel: `${formatLongDate(day)}${day === today ? ", bugün" : ""}. Gün görünümünü aç`,
   }));
 
-  const gridItems: GridItem[] = items
-    .filter((item) => activeFilter === "all" || item.staffId === activeFilter)
+  const filtered = items.filter((item) => activeFilter === "all" || item.staffId === activeFilter);
+  const gridItems: GridItem[] = filtered
     .map((item) => {
       const palette = legend.find((staff) => staff.id === item.staffId)?.palette;
       return {
@@ -114,7 +125,53 @@ export function WeekView({
       {gridItems.length === 0 && (
         <p className="text-subhead text-ink-muted">Bu hafta için randevu yok.</p>
       )}
-      <TimeGrid caption="Hafta görünümü" columns={columns} items={gridItems} onSelect={onSelect} minColumnRem={6.5} />
+      {/* Phones: a day-by-day agenda instead of seven narrow columns (Apple Calendar list style). */}
+      <ol aria-label="Hafta görünümü" className="space-y-4 md:hidden">
+        {agendaDays(days, filtered).map((day) => (
+          <li key={day.date}>
+            <button
+              type="button"
+              onClick={() => onOpenDay(day.date)}
+              aria-label={`${formatLongDate(day.date)}${day.date === today ? ", bugün" : ""}. Gün görünümünü aç`}
+              className={`focus-ring tap-target mb-1.5 flex w-full items-center rounded-control px-1 text-left text-footnote font-semibold uppercase ${day.date === today ? "text-action" : "text-ink-muted"}`}
+            >
+              {formatIsoDayLabel(day.date, today)}
+            </button>
+            {day.items.length === 0 ? (
+              <p className="px-1 text-subhead text-ink-muted">Randevu yok</p>
+            ) : (
+              <ul className="inset-group divide-y divide-separator overflow-hidden">
+                {day.items.map((item) => {
+                  const palette = legend.find((staff) => staff.id === item.staffId)?.palette;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={(event) => onSelect(item.id, event.currentTarget)}
+                        className={`pressable focus-ring flex min-h-14 w-full items-center gap-3 border-l-4 px-3 py-2.5 text-left hover:bg-surface-muted ${perStaffColors && palette ? palette.bar.split(" ").filter((c) => c.startsWith("border-l-")).join(" ") : "border-l-transparent"}`}
+                      >
+                        <span className="w-24 shrink-0 text-subhead font-medium tabular-nums text-ink">{formatTimeRange(item.startAt, item.endAt)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-body font-medium text-ink">{item.customer}</span>
+                          <span className="block truncate text-footnote text-ink-muted">
+                            {perStaffColors ? `${item.staffName} · ${item.service}` : item.service}
+                          </span>
+                        </span>
+                        <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[item.status] ?? ""}`}>
+                          {appointmentStatusLabels[item.status] ?? item.status}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ol>
+      <div className="hidden md:block">
+        <TimeGrid caption="Hafta görünümü" columns={columns} items={gridItems} onSelect={onSelect} minColumnRem={6.5} />
+      </div>
     </div>
   );
 }

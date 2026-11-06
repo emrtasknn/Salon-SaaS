@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { TimeSelect } from "../../_ui/time-select";
 import { formatHoursRange, timeToMinutes } from "../../_ui/time-of-day";
+import { switchClassName } from "../../_ui/styles";
 import { removeWorkingHoursAction, saveWorkingHoursAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
+import { haptic } from "@/lib/haptics";
+import { planHoursChanges, type DayDraft } from "./hours-plan";
 
 // Index = dayOfWeek (0 = Pazar), matching the server contract.
 const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
@@ -15,87 +19,132 @@ const INVALID_HOURS = "Çalışma saatlerini kontrol edin (kapanış en geç 23:
 
 export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) {
   const { data, busy, startTransition, feedback, setFeedback, refresh } = useAdminData(initialData);
+  const hours = data.status !== "UNAUTHORIZED" && data.workingHours.status === "listed" ? data.workingHours.workingHours : [];
+  // Which days are switched open in the draft; starts from the saved week.
+  const [openDays, setOpenDays] = useState<Record<number, boolean>>(() =>
+    Object.fromEntries(days.map((_, index) => [index, hours.some((item) => item.dayOfWeek === index)])),
+  );
+  // Bumped after a save so the time selects re-read the saved values.
+  const [version, setVersion] = useState(0);
 
   if (data.status === "UNAUTHORIZED") return <AdminUnauthorized />;
 
-  const hours = data.workingHours.status === "listed" ? data.workingHours.workingHours : [];
+  function save(formData: FormData) {
+    const drafts: DayDraft[] = days.map((_, index) => ({
+      dayOfWeek: index,
+      open: openDays[index] ?? false,
+      openMinute: timeToMinutes(String(formData.get(`openTime-${index}`) ?? "")),
+      closeMinute: timeToMinutes(String(formData.get(`closeTime-${index}`) ?? "")),
+    }));
+    const plan = planHoursChanges(hours, drafts);
+    if (plan.status === "invalid") {
+      haptic("error");
+      setFeedback(`${days[plan.dayOfWeek]}: kapanış saati açılıştan sonra olmalı.`);
+      return;
+    }
+    if (plan.changes.length === 0) {
+      setFeedback("Değişiklik yok.");
+      return;
+    }
+    startTransition(async () => {
+      // Existing per-day actions, one after another; the server validates each day.
+      const failed: string[] = [];
+      let lastError = "";
+      for (const change of plan.changes) {
+        const result =
+          change.kind === "save"
+            ? await saveWorkingHoursAction({ dayOfWeek: change.dayOfWeek, openMinute: change.openMinute, closeMinute: change.closeMinute })
+            : await removeWorkingHoursAction(change.dayOfWeek);
+        const ok = result.status === "created" || result.status === "updated" || result.status === "removed";
+        if (!ok) {
+          failed.push(days[change.dayOfWeek]);
+          lastError = result.status === "INVALID_INPUT" ? INVALID_HOURS : message(result.status);
+        }
+      }
+      if (failed.length) {
+        haptic("error");
+        setFeedback(`${failed.join(", ")} kaydedilemedi. ${lastError}`);
+      } else {
+        haptic("success");
+        setFeedback("Çalışma saatleri kaydedildi.");
+      }
+      setVersion((value) => value + 1);
+      refresh();
+    });
+  }
 
   return (
     <AdminSubpage title="Çalışma saatleri" feedback={feedback}>
-      <section aria-labelledby="hours-title">
+      <form
+        aria-labelledby="hours-title"
+        onSubmit={(event) => {
+          event.preventDefault();
+          save(new FormData(event.currentTarget));
+        }}
+        className="space-y-3"
+      >
         <h2 id="hours-title" className="group-label">Haftalık saatler</h2>
         <ul className="inset-group">
           {displayOrder.map((index) => {
             const day = days[index];
             const item = hours.find((value) => value.dayOfWeek === index);
-            const summary = item ? formatHoursRange(item.openMinute, item.closeMinute) : "";
+            const open = openDays[index] ?? false;
             return (
               <li key={day} className="inset-row p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-headline">{day}</h3>
-                  <p className="text-subhead text-ink-muted tabular-nums">{item ? summary || "Ayarlı" : "Kapalı"}</p>
-                </div>
-                <form
-                  className="mt-3 flex flex-wrap items-end gap-2"
-                  action={(formData) =>
-                    startTransition(async () => {
-                      // TimeSelect posts "HH:MM"; the server contract stays in minutes.
-                      const openMinute = timeToMinutes(String(formData.get("openTime") ?? ""));
-                      const closeMinute = timeToMinutes(String(formData.get("closeTime") ?? ""));
-                      if (openMinute === null || closeMinute === null) {
-                        setFeedback(INVALID_HOURS);
-                        return;
-                      }
-                      const result = await saveWorkingHoursAction({ dayOfWeek: index, openMinute, closeMinute });
-                      setFeedback(result.status === "INVALID_INPUT" ? INVALID_HOURS : message(result.status, "Çalışma saati kaydedildi."));
-                      if (result.status === "created" || result.status === "updated") refresh();
-                    })
-                  }
-                >
-                  <TimeSelect
-                    key={`open-${item?.openMinute ?? "new"}`}
-                    name="openTime"
-                    label={`${day} açılış`}
-                    legend="Açılış"
-                    defaultMinute={item?.openMinute ?? 540}
-                    required
+                <label className="flex min-h-11 items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block text-headline">{day}</span>
+                    <span className="block text-footnote tabular-nums text-ink-muted">
+                      {item ? `Kayıtlı: ${formatHoursRange(item.openMinute, item.closeMinute)}` : "Kayıtlı: Kapalı"}
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-checked={open}
+                    aria-label={`${day} açık`}
+                    checked={open}
+                    disabled={busy}
+                    onChange={(event) => {
+                      haptic("selection");
+                      setOpenDays((current) => ({ ...current, [index]: event.target.checked }));
+                    }}
+                    className={switchClassName}
                   />
-                  <TimeSelect
-                    key={`close-${item?.closeMinute ?? "new"}`}
-                    name="closeTime"
-                    label={`${day} kapanış`}
-                    legend="Kapanış"
-                    defaultMinute={item?.closeMinute ?? 1080}
-                    required
-                  />
-                  <div className="flex w-full gap-2 sm:w-auto">
-                    <Button type="submit" disabled={busy} variant="primary" className="flex-1 sm:flex-none">
-                      Kaydet
-                    </Button>
-                    {item && (
-                      <Button
-                        type="button"
-                        disabled={busy}
-                        variant="secondary" className="flex-1 sm:flex-none"
-                        onClick={() =>
-                          startTransition(async () => {
-                            const result = await removeWorkingHoursAction(index);
-                            setFeedback(message(result.status, "Gün kapalı olarak kaydedildi."));
-                            if (result.status === "removed") refresh();
-                          })
-                        }
-                      >
-                        Kapalı yap
-                      </Button>
-                    )}
+                </label>
+                {open ? (
+                  <div className="mt-3 flex flex-wrap items-end gap-2">
+                    <TimeSelect
+                      key={`open-${index}-${item?.openMinute ?? "new"}-${version}`}
+                      name={`openTime-${index}`}
+                      label={`${day} açılış`}
+                      legend="Açılış"
+                      defaultMinute={item?.openMinute ?? 540}
+                      required
+                      disabled={busy}
+                    />
+                    <TimeSelect
+                      key={`close-${index}-${item?.closeMinute ?? "new"}-${version}`}
+                      name={`closeTime-${index}`}
+                      label={`${day} kapanış`}
+                      legend="Kapanış"
+                      defaultMinute={item?.closeMinute ?? 1080}
+                      required
+                      disabled={busy}
+                    />
                   </div>
-                </form>
+                ) : (
+                  <p className="mt-1 text-subhead text-ink-muted">Kapalı · online randevu alınmaz</p>
+                )}
               </li>
             );
           })}
         </ul>
-        <p className="mt-2 px-4 text-footnote text-ink-muted">Saati olmayan günlerde online randevu alınmaz.</p>
-      </section>
+        <Button type="submit" disabled={busy} variant="primary" className="w-full">
+          {busy ? "Kaydediliyor…" : "Kaydet"}
+        </Button>
+        <p className="px-4 text-footnote text-ink-muted">Saati olmayan günlerde online randevu alınmaz.</p>
+      </form>
     </AdminSubpage>
   );
 }
