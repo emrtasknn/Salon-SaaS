@@ -15,7 +15,8 @@ import { listAdminData } from "./actions";
 export type AdminData = Awaited<ReturnType<typeof listAdminData>>;
 export type AdminDataOk = Extract<AdminData, { status: "ok" }>;
 
-export function message(status: string) {
+/** Error text for a failed status; `success` is shown for any other (successful) status. */
+export function message(status: string, success = "İşlem tamamlandı.") {
   const map: Record<string, string> = {
     UNAUTHORIZED: "Bu işlem için yetkiniz yok.",
     INVALID_INPUT: "Bilgileri kontrol edin.",
@@ -25,7 +26,7 @@ export function message(status: string) {
     AUTH_PROVISIONING_FAILED: "Personel hesabı oluşturulamadı.",
     COMPENSATION_FAILED: "Personel kaydı geri alınamadı. Destek gereklidir.",
   };
-  return map[status] ?? "İşlem tamamlandı.";
+  return map[status] ?? success;
 }
 
 /** Local copy of the admin data with a server re-read after each successful change. */

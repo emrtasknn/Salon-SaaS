@@ -280,10 +280,11 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
           <div>
             <dt className="font-medium">Online randevu durumu</dt>
             <dd className="mt-1 text-ink-muted">
-              {settings.status === "ACTIVE"
-                ? "Aktif — müşteriler online randevu alabilir."
-                : "Pasif — online ve yeni randevu alınmıyor."}{" "}
-              Durumu yalnızca platform yöneticisi değiştirebilir.
+              {settings.status !== "ACTIVE"
+                ? "Pasif — online ve yeni randevu alınmıyor. Durumu yalnızca platform yöneticisi değiştirebilir."
+                : legalComplete
+                  ? "Açık — müşteriler online randevu alabilir."
+                  : "Kapalı — yukarıdaki yasal bilgiler tamamlanınca açılır."}
             </dd>
           </div>
         </dl>

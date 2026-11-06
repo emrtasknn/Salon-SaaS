@@ -29,7 +29,10 @@ const styles = {
     "pressable focus-ring inline-flex items-center justify-center gap-2 whitespace-nowrap select-none rounded-control disabled:cursor-not-allowed disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:opacity-40",
   size: {
     medium: "min-h-11 min-w-11 px-4 py-2.5 text-subhead font-semibold",
-    small: "min-h-9 min-w-9 px-3 py-1.5 text-footnote font-semibold",
+    // Compact look (36px) with an invisible 4px hit-area extension on every side, so the
+    // touch target is 44px (Apple HIG) without growing dense toolbars and lists.
+    small:
+      "relative min-h-9 min-w-9 px-3 py-1.5 text-footnote font-semibold after:absolute after:-inset-1 after:content-['']",
   },
   iconOnlySize: {
     medium: "size-11 p-0",

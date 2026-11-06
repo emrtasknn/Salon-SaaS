@@ -1,52 +1,38 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-05 — UI component kit: BoardUI + Amicro components restyled to RandevuN tokens, Inter font.
+2026-11-06 (cloud) — finish the UI/UX audit's high-priority fixes; check the "Salon listesi yüklenemedi" outage.
 
 ## State
-- Branch / commit: `feat/ui-component-kit` (see PR)
-- Environment touched: local only (dev server viewed /login; no data-changing clicks). No DB writes, no migrations.
+- Branch: `feat/completion-rules-pjkk8c` (pushed). Top includes the desktop WIP commit `c7259b4` (`.claude/launch.json` dev config only); left as-is to avoid a force push.
+- Environment touched: Pilot + staging Supabase read-only (project list, health advisors, log queries). No writes.
 
 ## Done
-- Tooling: BoardUI skill (`.claude/skills/boardui/`), BoardUI MCP pinned in `.mcp.json`, `components.json` (registries only).
-- New: `src/components/ui/{button,input,breadcrumb,notice,motion-icons}.tsx`, `src/lib/utils.ts` (`cx`), `src/app/_ui/status-toggle.tsx`.
-- Bell button with ring animation + count badge (9+) replaces the "Bildirimler N" box.
-- Theme: one morphing button cycling Sistem → Açık → Koyu.
-- Aktif/Pasif: eye switch (role="switch") for staff, services, platform tenants. Admin "Ben de hizmet veriyorum" checkbox styled as a switch.
-- All `buttonPrimary/Secondary/Destructive*` recipes migrated to `<Button>/<ButtonLink>/<ButtonAnchor>`; field recipe restyled (filled look); local ad-hoc input/button classes unified.
-- `BackLink` removed → `<Breadcrumb>` (phones show "‹ Parent").
-- Inter via `next/font` (latin + latin-ext).
+- Already on this branch from `e53bd98`: customer detail salon time zone + Turkish status, 44px hit area on small buttons, reject/cancel confirmation.
+- Public booking: staff is no longer auto-selected (only when the salon has exactly one); slots area says "Saatleri görmek için hizmet ve personel seçin" until chosen.
+- Public booking: after a successful request the form is replaced by a confirmation screen at the top (service, staff, salon-time date, status link + copy, "Yeni randevu al"); focus moves to its heading.
+
+## Changes
+| File | Change | Reason |
+|---|---|---|
+| `src/app/[slug]/book/form.tsx` | `initialStaffId`, idle hint, swap to confirmation on success | audit: auto staff, success hidden below form |
+| `src/app/[slug]/book/booking-confirmation.tsx` | new confirmation view | same |
+| `src/app/[slug]/book/booking-confirmation.test.tsx` | unit tests | coverage |
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| Lint | `npm run lint` | PASS (3 pre-existing warnings) |
 | Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run src/app src/lib` (DATABASE_URL unset, no integration) | PASS 57 files / 714 tests |
-| Integration | CI | pending |
-| Build | `npm run build` | PASS |
-
-## Round 2 (same PR)
-- Fixed top layer `PageHeader` on all signed-in screens; bell deep links (`?date=&appointment=`) + status colors.
-- Working hours: quarter-hour `TimeSelect`. Haptics (`src/lib/haptics.ts`) + "Titreşim" switch.
-- **Scope change (owner decision 2026-11-05): drag-to-move in the day calendar.** Admin: any open
-  appointment; active staff: own only (create scope). PENDING/CONFIRMED only, same staff/service, slot +
-  closure + conflict re-check under the create advisory lock, stale guard. No migration, **no customer
-  notification** (needs a new event type + Meta template → follow-up). WP-08, ADR-044 (amendment) and
-  docs/tasks/README.md updated.
-- New integration test `src/persistence/prisma-booking-reschedule.integration.test.ts` (CI only).
+| Lint | `npm run lint` | 0 errors (3 pre-existing warnings) |
+| Unit tests | `npx vitest run src/app/` (DATABASE_URL unset) | 40 files, 381 tests PASS |
+| Build / browser | — | not run; verify on staging |
 
 ## Decisions
-- No `boardui init` / BoardUI tokens: components restyled onto existing tokens (dark mode keeps working via `data-theme`).
-- Default button height kept at 44px (BoardUI uses 36px) for touch targets.
-- Notifications rendered inline (`<Notice>`), not floating toasts, so live regions behave as before.
+- Booking semantics unchanged: the server still requires a staffId; only the client default changed.
 
 ## Open risks
-- Signed-in screens (admin/staff/calendar) not checked visually in this session; needs a look in the preview after sign-in.
-- `npm audit` reports advisories in the dependency tree (not reviewed here).
+- "Salon listesi yüklenemedi" = Supavisor session-pool exhaustion (`EMAXCONNSESSION`, pool_size 15). Last seen 2026-11-06 09:00 UTC, none since. Fix is PR #185 (open, mergeable) + owner switches Vercel pilot `DATABASE_URL` to the transaction pooler (6543) and redeploys.
+- Live audit of admin/staff screens still pending (use staging tenant `uiux-test-salon`).
 
 ## Next task
-- Follow-up PR: customer reschedule notification. Migration = `APPOINTMENT_RESCHEDULED` enum value + per-reschedule
-  idempotency key on NotificationDelivery; apply to staging, then pilot (owner approval) **before** merging, since
-  `main` auto-deploys to the pilot Vercel project. WhatsApp template deferred by owner.
-- Visual pass on admin/staff screens (light/dark, 375px). Optional: ui.wensity.com KPI cards for the admin home.
+- Owner: merge PR #185, switch pooler URL. Then customer booking flow redesign (3 steps + sticky bar, Fresha-style flows, Apple Calendar-like look), "any staff" once the approved data-model work lands.
