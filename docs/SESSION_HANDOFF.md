@@ -22,12 +22,17 @@
 | Browser | temp preview route (fake data, no DB), iPhone 13 light/dark | steps 1–2 OK, no horizontal scroll; step 3 + live slots not seen |
 | Integration | CI | see PR checks |
 
+## Staging check (2026-11-06, after #189 + pooler switch)
+- Real browser (Playwright, iPhone 13) on `salon-saas-staging.vercel.app/uiux-test-salon/book` via a Vercel share link: steps 1→3, live slots, price + "ve üzeri", submit → confirmation screen, then cancelled via the status link. No console errors.
+- Fixed after the check: step-3 bar date was truncated ("7 Kasım Cuma…") → short date ("7 Kas Cmt · 09:00").
+- Pilot after the transaction-pooler switch: no `EMAXCONNSESSION` / auth / breaker lines in 6h; no Vercel runtime errors (3h). Staging shows only the known pg@9 `client.query()` deprecation warning.
+- New personal cloud environment `Salon-SaaS` (allows `salon-saas-staging.vercel.app`) for browser checks.
+
 ## Open risks / owner actions
-- **Owner:** Vercel `salon-saas-pilot` → `DATABASE_URL` = Supabase transaction pooler (port 6543, `salon_app.<ref>`), then redeploy. Until then #185 only lowers per-instance pool size (10 → 3). Watch Supavisor logs for `EMAXCONNSESSION`.
-- **Owner:** review #189 migration; apply to staging then pilot before merging.
-- Verify #192 on staging (step 3, live slots, bar over iOS Safari toolbar).
+- Done by owner: pilot `DATABASE_URL` → transaction pooler; #189 migration applied and merged. Keep watching Supavisor logs for a day.
+- Follow-up: pg@9 deprecation (`Promise.all` inside interactive transactions).
 - Staging test tenant `uiux-test-salon`: delete tenant + accounts after the audit.
 
 ## Next task
-- After #189: show price/category in step 1; then "any staff" and multi-service (approved data-model work).
+- "Any staff" and multi-service (approved data-model work).
 - Working-hours single save; week view on phones.
