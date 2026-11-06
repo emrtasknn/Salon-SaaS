@@ -46,6 +46,26 @@ describe("platform tenant status (WP-07)", () => {
     expect(repository.setStatus).not.toHaveBeenCalled();
   });
 
+  it("reports a list failure instead of swallowing it, then returns PERSISTENCE_FAILURE", async () => {
+    const repository = {
+      list: vi.fn().mockRejectedValue(new Error("pool exhausted")),
+      setStatus: vi.fn(),
+    };
+    const reportError = vi.fn();
+    const service = createPlatformTenantStatus({ repository, reportError });
+    await expect(service.list(superAdmin)).resolves.toEqual({ ok: false, code: "PERSISTENCE_FAILURE" });
+    expect(reportError).toHaveBeenCalledWith("platform_tenant_list_failed", expect.any(Error));
+  });
+
+  it("still returns PERSISTENCE_FAILURE when the error reporter itself throws", async () => {
+    const repository = { list: vi.fn().mockRejectedValue(new Error("down")), setStatus: vi.fn() };
+    const reportError = vi.fn(() => {
+      throw new Error("logger broken");
+    });
+    const service = createPlatformTenantStatus({ repository, reportError });
+    await expect(service.list(superAdmin)).resolves.toEqual({ ok: false, code: "PERSISTENCE_FAILURE" });
+  });
+
   it("maps a missing tenant to NOT_FOUND and failures to PERSISTENCE_FAILURE", async () => {
     const { service, repository } = makeService();
     repository.setStatus.mockResolvedValueOnce("not_found");
