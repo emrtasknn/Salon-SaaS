@@ -1,7 +1,7 @@
 "use client";
 
 import { field } from "../../_ui/styles";
-import { createStaffAction, setStaffStatusAction, updateStaffProfileAction } from "../actions";
+import { createStaffAction, setStaffServicesAction, setStaffStatusAction, updateStaffProfileAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
 import { StatusToggle } from "../../_ui/status-toggle";
@@ -9,12 +9,19 @@ import { ServesAsStaffToggle } from "../serves-as-staff-toggle";
 
 const label = "mb-1.5 block text-subhead font-medium text-ink";
 
+/** "Tüm hizmetler" when unrestricted, else "2 / 5 hizmet". */
+export function staffServicesSummary(mappedIds: ReadonlyArray<string>, total: number): string {
+  return mappedIds.length === 0 || mappedIds.length >= total ? "Tüm hizmetler" : `${mappedIds.length} / ${total} hizmet`;
+}
+
 export function StaffManagement({ initialData }: { initialData: AdminData }) {
   const { data, busy, startTransition, feedback, setFeedback, refresh } = useAdminData(initialData);
 
   if (data.status === "UNAUTHORIZED") return <AdminUnauthorized />;
 
   const staff = data.staff.status === "listed" && data.staff.staff ? data.staff.staff : [];
+  const services = data.services.status === "listed" ? data.services.services : [];
+  const mapped = data.staffServices ?? {};
 
   return (
     <AdminSubpage title="Personel" feedback={feedback}>
@@ -141,6 +148,54 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                     Bilgileri kaydet
                   </Button>
                 </form>
+                {services.length > 0 && (
+                  <details className="mt-3 border-t border-separator pt-3">
+                    <summary className="focus-ring tap-target flex cursor-pointer items-center justify-between gap-3 rounded-control text-subhead font-medium">
+                      <span>Yaptığı hizmetler</span>
+                      <span className="text-footnote font-normal text-ink-muted">
+                        {staffServicesSummary(mapped[item.id] ?? [], services.length)}
+                      </span>
+                    </summary>
+                    <form
+                      className="mt-2 space-y-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const chosen = new FormData(event.currentTarget).getAll("serviceId").map(String);
+                        // All ticked = no restriction, stored as "every service".
+                        const serviceIds = chosen.length === services.length ? [] : chosen;
+                        if (chosen.length === 0) {
+                          setFeedback("En az bir hizmet seçin ya da hepsini işaretli bırakın.");
+                          return;
+                        }
+                        startTransition(async () => {
+                          const result = await setStaffServicesAction(item.id, serviceIds);
+                          setFeedback(message(result.status, "Personelin hizmetleri kaydedildi."));
+                          if (result.status === "updated") refresh();
+                        });
+                      }}
+                    >
+                      <fieldset className="space-y-1">
+                        <legend className="sr-only">{item.displayName} hangi hizmetleri yapar</legend>
+                        {services.map((service) => (
+                          <label key={service.id} className="flex min-h-11 items-center gap-3 text-body">
+                            <input
+                              type="checkbox"
+                              name="serviceId"
+                              value={service.id}
+                              defaultChecked={(mapped[item.id] ?? []).length === 0 || (mapped[item.id] ?? []).includes(service.id)}
+                              className="focus-ring h-5 w-5 shrink-0 accent-action"
+                            />
+                            <span className="min-w-0 [overflow-wrap:anywhere]">{service.name}</span>
+                          </label>
+                        ))}
+                      </fieldset>
+                      <p className="text-footnote text-ink-muted">Online randevuda bu personel yalnızca işaretli hizmetlerde görünür.</p>
+                      <Button type="submit" disabled={busy} variant="secondary" className="w-full">
+                        Hizmetleri kaydet
+                      </Button>
+                    </form>
+                  </details>
+                )}
               </li>
             ))}
           </ul>

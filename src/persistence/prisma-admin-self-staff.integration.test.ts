@@ -34,7 +34,7 @@ describeDatabase("Admin serves as staff: own Staff row under RLS (integration)",
   const tenantA = makeFixture("a");
   const tenantB = makeFixture("b");
   // The public catalog also reads ServiceCategory (owner decision 2026-11-06).
-  const tables = ["Staff", "Profile", "TenantMembership", "Service", "ServiceCategory", "WorkingHours"];
+  const tables = ["Staff", "Profile", "TenantMembership", "Service", "ServiceCategory", "StaffService", "WorkingHours"];
   let pool: Pool | undefined;
   let prisma: PrismaClient | undefined;
   let roleCreated = false;

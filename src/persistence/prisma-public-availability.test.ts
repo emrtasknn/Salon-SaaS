@@ -9,14 +9,18 @@ function makeRepository(timeZone: string, tenantStatus: "ACTIVE" | "INACTIVE" = 
     $executeRaw: vi.fn().mockResolvedValue(1),
     tenantMembership: { findUnique: vi.fn() },
     tenant: { findUnique: vi.fn().mockResolvedValue({ id: "tenant-a", timezone: timeZone, status: tenantStatus }) },
-    service: { findUnique: vi.fn().mockResolvedValue({ id: "service-a", durationMinutes: 30, bufferMinutes: 0, active: true }) },
+    service: {
+      findUnique: vi.fn().mockResolvedValue({ id: "service-a", durationMinutes: 30, bufferMinutes: 0, active: true }),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     staff: { findUnique: vi.fn().mockResolvedValue({ id: "staff-a", status: "ACTIVE" }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([]) },
+    staffService: { findMany: vi.fn().mockResolvedValue([]) },
     appointment: { findMany: appointmentFindMany },
     closureDate: { findMany: closureFindMany },
   };
   const prisma = { $transaction: vi.fn(async (callback: (value: unknown) => unknown) => callback(tx)) } as unknown as PrismaTenantClient;
-  return { repository: createPrismaPublicAvailabilityRepository(prisma), appointmentFindMany, closureFindMany };
+  return { repository: createPrismaPublicAvailabilityRepository(prisma), appointmentFindMany, closureFindMany, tx };
 }
 
 describe("public availability local day boundaries", () => {
@@ -68,5 +72,46 @@ describe("public availability closed dates (WP-08)", () => {
     const { repository, closureFindMany } = makeRepository("Europe/Istanbul", "INACTIVE");
     await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09" });
     expect(closureFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("public availability staff–service mapping (owner decision 2026-11-06)", () => {
+  it("offers no slots when the staff member is mapped to other services only", async () => {
+    const { repository, tx, appointmentFindMany } = makeRepository("Europe/Istanbul");
+    tx.staffService.findMany.mockResolvedValue([{ staffId: "staff-a", serviceId: "service-other" }]);
+
+    await expect(repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09" }))
+      .resolves.toEqual({ status: "invalid_resource" });
+    expect(tx.staffService.findMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", staffId: "staff-a" }, select: { staffId: true, serviceId: true } });
+    expect(appointmentFindMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps offering slots for a mapped service", async () => {
+    const { repository, tx } = makeRepository("Europe/Istanbul");
+    tx.staffService.findMany.mockResolvedValue([{ staffId: "staff-a", serviceId: "service-a" }]);
+
+    const result = await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09" });
+    expect(result.status).toBe("ok");
+  });
+});
+
+describe("public availability multi-service (owner decision 2026-11-06)", () => {
+  it("sums duration + buffer of every service in order", async () => {
+    const { repository, tx } = makeRepository("Europe/Istanbul");
+    tx.service.findMany.mockResolvedValue([{ id: "service-b", durationMinutes: 20, bufferMinutes: 10, active: true }]);
+
+    const result = await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09", extraServiceIds: ["service-b"] });
+
+    expect(tx.service.findMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", id: { in: ["service-b"] } } });
+    expect(result).toMatchObject({ status: "ok", durationMinutes: 50, bufferMinutes: 10 });
+  });
+
+  it("refuses an unknown or inactive extra service", async () => {
+    const { repository, tx } = makeRepository("Europe/Istanbul");
+    tx.service.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "service-b", durationMinutes: 20, bufferMinutes: 0, active: false }]);
+    const input = { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09", extraServiceIds: ["service-b"] };
+
+    await expect(repository.read({ tenantId: "tenant-a" as never }, input)).resolves.toEqual({ status: "invalid_resource" });
+    await expect(repository.read({ tenantId: "tenant-a" as never }, input)).resolves.toEqual({ status: "invalid_resource" });
   });
 });

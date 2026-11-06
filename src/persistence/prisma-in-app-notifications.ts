@@ -1,3 +1,4 @@
+import { appointmentServiceLabel } from "../domain/multi-service";
 import {
   RECENT_STATUSES,
   type InAppNotificationItem,
@@ -15,6 +16,7 @@ type NotificationSelect = {
   updatedAt: true;
   staff: { select: { profile: { select: { displayName: true } } } };
   service: { select: { name: true } };
+  services: { orderBy: { position: "asc" }; select: { service: { select: { name: true } } } };
   customerProfile?: { select: { displayName: true } };
 };
 
@@ -25,6 +27,7 @@ type NotificationRow = {
   updatedAt: Date;
   staff: { profile: { displayName: string } };
   service: { name: string };
+  services?: Array<{ service: { name: string } }>;
   customerProfile?: { displayName: string };
 };
 
@@ -47,7 +50,7 @@ function toItem(row: NotificationRow, kind: InAppNotificationKind, includeCustom
     status: row.status,
     startAt: row.startAt,
     updatedAt: row.updatedAt,
-    serviceName: row.service.name,
+    serviceName: appointmentServiceLabel(row.service.name, row.services?.map((item) => item.service.name)),
     staffDisplayName: row.staff.profile.displayName,
   };
   return includeCustomer && row.customerProfile
@@ -70,6 +73,7 @@ export function createPrismaInAppNotificationRepository(prisma: PrismaTenantClie
         updatedAt: true,
         staff: { select: { profile: { select: { displayName: true } } } },
         service: { select: { name: true } },
+        services: { orderBy: { position: "asc" }, select: { service: { select: { name: true } } } },
         ...(includeCustomer ? { customerProfile: { select: { displayName: true } } } : {}),
       };
 

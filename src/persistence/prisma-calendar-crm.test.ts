@@ -47,6 +47,7 @@ describe("prisma calendar crm repository", () => {
         },
         customerProfile: { select: { displayName: true } },
         service: { select: { name: true } },
+        services: { orderBy: { position: "asc" }, select: { service: { select: { name: true } } } },
         contact: { select: { displayName: true, phone: true, email: true, whatsappOptIn: true, optOutAt: true } },
       },
     });
@@ -149,6 +150,7 @@ describe("prisma calendar crm repository", () => {
       include: {
         staff: { include: { profile: { select: { displayName: true } } } },
         service: { select: { name: true } },
+        services: { orderBy: { position: "asc" }, select: { service: { select: { name: true } } } },
       },
     });
     expect(customerNote.findMany).toHaveBeenCalledWith({

@@ -20,6 +20,7 @@ function makeTransaction(options: { token?: { appointmentId: string } | null; up
       updateMany: vi.fn().mockResolvedValue({ count: options.updateCount ?? 1 }),
     },
     service: { findUnique: vi.fn().mockResolvedValue({ name: "Saç Kesimi" }) },
+    appointmentService: { findMany: vi.fn().mockResolvedValue([]) },
     staff: { findUnique: vi.fn().mockResolvedValue({ profileId: "profile-a" }) },
     profile: { findUnique: vi.fn().mockResolvedValue({ displayName: "Ali" }) },
     appointmentContact: {
@@ -145,5 +146,19 @@ describe("WhatsApp state and opt-out (WP-10)", () => {
     const noToken = makeTransaction({ token: null });
     await expect(createPrismaAppointmentAccessTokenRepository(makePrisma(noToken)).stopWhatsAppByTokenHash(TENANT, HASH, NOW)).resolves.toBe("not_found");
     expect(noToken.appointmentContact.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("customer status view, multi-service (owner decision 2026-11-06)", () => {
+  it("names every booked service in order, read in the tenant context", async () => {
+    const transaction = makeTransaction();
+    transaction.appointmentService.findMany.mockResolvedValue([{ service: { name: "Saç Kesimi" } }, { service: { name: "Sakal" } }]);
+
+    const details = await createPrismaAppointmentAccessTokenRepository(makePrisma(transaction)).findDetailsByTokenHash(TENANT, HASH, NOW);
+
+    expect(details?.serviceName).toBe("Saç Kesimi + Sakal");
+    expect(transaction.appointmentService.findMany).toHaveBeenCalledWith({
+      where: { tenantId: "tenant-a", appointmentId: "appt-a" }, orderBy: { position: "asc" }, select: { service: { select: { name: true } } },
+    });
   });
 });

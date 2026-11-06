@@ -2,11 +2,13 @@ import type { TenantContext } from "../domain/tenant-context";
 import { calculateAvailability } from "../domain/availability";
 import type { AppointmentRecord } from "../domain/appointment";
 import type { WorkingHoursRecord } from "../domain/working-hours";
+import { normalizeExtraServiceIds } from "../domain/multi-service";
 
 export type PublicAvailabilityRepository = Readonly<{
   read(
     tenantContext: TenantContext,
-    input: Readonly<{ serviceId: string; staffId: string; dateIso: string }>,
+    /** extraServiceIds: further services after serviceId, same staff, back to back (owner decision 2026-11-06). */
+    input: Readonly<{ serviceId: string; staffId: string; dateIso: string; extraServiceIds?: ReadonlyArray<string> }>,
   ): Promise<
     | {
         status: "ok";
@@ -30,7 +32,7 @@ export function createPublicAvailability(repository: PublicAvailabilityRepositor
   return {
     async list(
       tenantContext: TenantContext,
-      input: Readonly<{ serviceId: unknown; staffId: unknown; dateIso: unknown }>,
+      input: Readonly<{ serviceId: unknown; staffId: unknown; dateIso: unknown; extraServiceIds?: unknown }>,
     ) {
       if (
         typeof input.serviceId !== "string" || !input.serviceId.trim() ||
@@ -39,6 +41,8 @@ export function createPublicAvailability(repository: PublicAvailabilityRepositor
       ) {
         return { status: "INVALID_INPUT" as const, slots: [] as const };
       }
+      const extraServiceIds = normalizeExtraServiceIds(input.serviceId.trim(), input.extraServiceIds);
+      if (extraServiceIds === "INVALID") return { status: "INVALID_INPUT" as const, slots: [] as const };
 
       let result: Awaited<ReturnType<PublicAvailabilityRepository["read"]>>;
       try {
@@ -46,6 +50,7 @@ export function createPublicAvailability(repository: PublicAvailabilityRepositor
           serviceId: input.serviceId.trim(),
           staffId: input.staffId.trim(),
           dateIso: input.dateIso,
+          ...(extraServiceIds.length ? { extraServiceIds } : {}),
         });
       } catch {
         return { status: "PERSISTENCE_FAILURE" as const, slots: [] as const };

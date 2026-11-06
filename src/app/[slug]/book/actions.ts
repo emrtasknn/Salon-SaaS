@@ -8,6 +8,7 @@ import { getPrisma } from "../../../infrastructure/prisma-runtime";
 import { checkRateLimit, readClientIp } from "../../rate-limit-runtime";
 import { ANY_STAFF_ID, mergeAnyStaffSlots } from "../../../application/any-staff";
 import { listForAllStaff } from "./any-staff-runtime";
+import { staffPerformsService } from "../../../domain/staff-service";
 
 async function loadTenant(slug: string) {
   const prisma = getPrisma();
@@ -19,6 +20,8 @@ export async function getPublicAvailability(input: {
   serviceId: string;
   staffId: string;
   dateIso: string;
+  /** Further services, same staff, back to back (validated in the application layer). */
+  extraServiceIds?: string[];
 }) {
   const v = await loadTenant(input.slug);
   if (v.status !== "ok") return { status: v.status, slots: [] as const };
@@ -33,7 +36,9 @@ export async function getPublicAvailability(input: {
   if (input.staffId !== ANY_STAFF_ID) return availability.list(v.tenantContext, input);
   // "Fark etmez": union of the salon's ACTIVE staff (server catalog, never client input). One rate-limit
   // charge for the whole request; staff are read one after another to stay light on the DB pool.
-  const perStaff = await listForAllStaff(v.tenantContext, v.staff.map((member) => member.id), input, availability.list);
+  const wanted = [input.serviceId, ...(Array.isArray(input.extraServiceIds) ? input.extraServiceIds : [])];
+  const eligible = v.staff.filter((member) => wanted.every((id) => staffPerformsService(member.serviceIds ?? [], id))).map((member) => member.id);
+  const perStaff = await listForAllStaff(v.tenantContext, eligible, input, availability.list);
   if (perStaff.status !== "ok") return { status: perStaff.status, slots: [] as const };
   return { status: "ok" as const, timeZone: perStaff.timeZone, slots: mergeAnyStaffSlots(perStaff.byStaff) };
 }

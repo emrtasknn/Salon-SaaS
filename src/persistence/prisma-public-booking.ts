@@ -7,14 +7,22 @@ import { addDaysToDateIso, calculateAvailability, isSlotOnClosedDate, utcToLocal
 import { appointmentAccessTokenExpiry } from "../domain/appointment-access-token";
 import { readTenantStatusForShare, type TenantStatusQueryTransaction } from "./tenant-status-guard";
 import { readClosedDates, type ClosureDateReadTransaction } from "./prisma-booking-engine";
+import { staffServesService, type StaffServiceReadTransaction } from "./prisma-staff-services";
+import { combineServiceTimings } from "../domain/multi-service";
 import { CUSTOMER_NOTICE, WHATSAPP_OPTIN, customerNoticeHash, isLegalReady, whatsAppOptInHash } from "../domain/legal-notice";
 
-type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & ClosureDateReadTransaction & {
+type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & ClosureDateReadTransaction & StaffServiceReadTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{
     id: string; timezone: string; name: string; contactPhone: string | null;
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
   } | null> };
-  service: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null> };
+  service: {
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
+    findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
+  };
+  appointmentService: {
+    createMany(args: { data: Array<{ tenantId: string; appointmentId: string; serviceId: string; position: number }> }): Promise<{ count: number }>;
+  };
   staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
   workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
   profile: {
@@ -56,6 +64,15 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
             tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
           ]);
           if (!tenant || !service || !staff || !service.active || staff.status !== "ACTIVE") return "invalid_resource";
+          // Owner decision 2026-11-06: the staff member must perform every booked service (no mapping = every service).
+          const extraIds = [...(input.extraServiceIds ?? [])];
+          for (const serviceId of [input.serviceId, ...extraIds]) {
+            if (!(await staffServesService(tx, tenantContext.tenantId, input.staffId, serviceId))) return "invalid_resource";
+          }
+          // Multi-service: extras must exist in this tenant and be active; time = sum of (duration + buffer).
+          const extras = extraIds.length ? await tx.service.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: extraIds } } }) : [];
+          if (extras.length !== extraIds.length || extras.some((extra) => !extra.active)) return "invalid_resource";
+          const timing = combineServiceTimings([service, ...extraIds.map((id) => extras.find((extra) => extra.id === id)!)]);
           // WP-10: legal fields re-checked on the row locked FOR SHARE above (a concurrent settings
           // update waits for this tx), so the recorded notice hash matches the text in force.
           if (!isLegalReady(tenant)) return "tenant_legal_incomplete";
@@ -65,7 +82,7 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
           const optIn = input.whatsappOptIn === true;
           const optInHash = optIn ? whatsAppOptInHash(tenant) : null;
           if (input.shownNoticeHash !== noticeHash || (optIn && input.shownOptInHash !== optInHash)) return "notice_stale";
-          const endAt = new Date(input.startAt.getTime() + (service.durationMinutes + service.bufferMinutes) * 60_000);
+          const endAt = new Date(input.startAt.getTime() + (timing.durationMinutes + timing.bufferMinutes) * 60_000);
           const local = utcToLocalDateAndMinute(input.startAt, tenant.timezone);
           // WP-08: closure re-check AFTER the FOR SHARE tenant read, on this tenant-context tx (RLS).
           const closedDates = await readClosedDates(tx, tenantContext.tenantId, input.staffId, [local.dateIso, addDaysToDateIso(local.dateIso, 1)]);
@@ -76,8 +93,8 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
             workingHours,
             staffId: input.staffId,
             appointments: [],
-            durationMinutes: service.durationMinutes,
-            bufferMinutes: service.bufferMinutes,
+            durationMinutes: timing.durationMinutes,
+            bufferMinutes: timing.bufferMinutes,
             now: new Date(),
             closedDates,
           }).find((candidate) => candidate.startAt.getTime() === input.startAt.getTime());
@@ -91,6 +108,12 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
           let profile = await tx.profile.findUnique({ where: { tenantId_email: { tenantId: tenantContext.tenantId, email: input.email } } });
           if (!profile) profile = await tx.profile.create({ data: { tenantId: tenantContext.tenantId, displayName: input.displayName, email: input.email, phone: input.phone } });
           const appointment = await tx.appointment.create({ data: { tenantId: tenantContext.tenantId, staffId: input.staffId, serviceId: input.serviceId, customerProfileId: profile.id, startAt: input.startAt, endAt, status: "PENDING" } });
+          // Multi-service: the ordered list in the same tx (position 0 = serviceId). Single service: no rows.
+          if (extraIds.length) {
+            await tx.appointmentService.createMany({
+              data: [input.serviceId, ...extraIds].map((serviceId, position) => ({ tenantId: tenantContext.tenantId, appointmentId: appointment.id, serviceId, position })),
+            });
+          }
           // WP-06: status-link token row in the same tx; a failed insert rolls the booking back.
           await tx.appointmentAccessToken.create({
             data: { tenantId: tenantContext.tenantId, appointmentId: appointment.id, tokenHash: input.accessTokenHash, expiresAt: appointmentAccessTokenExpiry(endAt) },

@@ -57,6 +57,7 @@ const baseSelect = {
   updatedAt: true,
   staff: { select: { profile: { select: { displayName: true } } } },
   service: { select: { name: true } },
+  services: { orderBy: { position: "asc" }, select: { service: { select: { name: true } } } },
 };
 
 describe("prisma in-app notification repository", () => {

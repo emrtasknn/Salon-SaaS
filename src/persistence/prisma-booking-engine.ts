@@ -1,3 +1,4 @@
+import { combineServiceTimings } from "../domain/multi-service";
 import type { BookingDataRepository } from "../application/booking-engine";
 import type { AppointmentRecord, AppointmentStatus } from "../domain/appointment";
 import type { ServiceRecord } from "../domain/service";
@@ -30,6 +31,12 @@ type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & Closure
   service: {
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<ServiceRecord | null>;
     findMany(args: { where: { tenantId: string; active: true }; orderBy: { name: "asc" }; select: { id: true; name: true; durationMinutes: true } }): Promise<Array<{ id: string; name: string; durationMinutes: number }>>;
+    findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<ServiceRecord[]>;
+  };
+  appointmentService: {
+    findMany(args: {
+      where: { tenantId: string; appointmentId: string; position: { gt: 0 } }; orderBy: { position: "asc" }; select: { serviceId: true };
+    }): Promise<Array<{ serviceId: string }>>;
   };
   staff: {
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<StaffRecord | null>;
@@ -266,11 +273,20 @@ export function createPrismaBookingRepository(prisma: PrismaTenantClient): Booki
           ]);
           // The service may have been deactivated since booking; the existing appointment can still move.
           if (!service || !staff || staff.status !== "ACTIVE") return "invalid_resource";
-          const endAt = new Date(input.startAt.getTime() + (service.durationMinutes + service.bufferMinutes) * 60_000);
+          // Multi-service (owner decision 2026-11-06): a moved appointment keeps the time of ALL its services.
+          const extraRows = await tx.appointmentService.findMany({
+            where: { tenantId, appointmentId: input.appointmentId, position: { gt: 0 } }, orderBy: { position: "asc" }, select: { serviceId: true },
+          });
+          const extras = extraRows.length
+            ? await tx.service.findMany({ where: { tenantId, id: { in: extraRows.map((row) => row.serviceId) } } })
+            : [];
+          if (extras.length !== new Set(extraRows.map((row) => row.serviceId)).size) return "invalid_resource";
+          const timing = combineServiceTimings([service, ...extraRows.map((row) => extras.find((extra) => extra.id === row.serviceId)!)]);
+          const endAt = new Date(input.startAt.getTime() + (timing.durationMinutes + timing.bufferMinutes) * 60_000);
           if (isSlotOnClosedDate({ startAt: input.startAt, endAt }, tenant.timezone, closedDates)) return "closed_date";
           const slot = calculateAvailability({
             dateIso: startDateIso, timeZone: tenant.timezone, workingHours, staffId: input.staffId, appointments: [],
-            durationMinutes: service.durationMinutes, bufferMinutes: service.bufferMinutes, now: new Date(), closedDates,
+            durationMinutes: timing.durationMinutes, bufferMinutes: timing.bufferMinutes, now: new Date(), closedDates,
           }).find((candidate) => candidate.startAt.getTime() === input.startAt.getTime());
           if (!slot) return "slot_unavailable";
           const conflicts = await tx.appointment.findMany({ where: {

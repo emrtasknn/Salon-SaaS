@@ -5,6 +5,8 @@ import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import { createServiceManager } from "../../application/service-management";
 import { createServiceCategoryManager } from "../../application/service-categories";
 import { createPrismaServiceCategoryRepository } from "../../persistence/prisma-service-categories";
+import { createStaffServiceManager } from "../../application/staff-services";
+import { createPrismaStaffServiceRepository } from "../../persistence/prisma-staff-services";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { createStaffManager } from "../../application/staff-management";
 import { createWorkingHoursManager } from "../../application/working-hours-management";
@@ -52,6 +54,20 @@ async function getAdminContext() {
       membership.membership.profileId,
     ),
   };
+}
+
+/** Owner decision 2026-11-06: which services each staff member performs; TENANT_ADMIN re-checked on the server. */
+function staffServices(prisma: ReturnType<typeof getPrisma>) {
+  return createStaffServiceManager({
+    authorizer: {
+      async authorize(identity, tenantContext, requiredRole) {
+        const reader = createPrismaMembershipReader({ prisma });
+        const decision = await enforceServerAuthorization({ identity, tenantContext, requiredRole }, reader);
+        return decision.authorization.status === "allowed";
+      },
+    },
+    repository: createPrismaStaffServiceRepository(prisma),
+  });
 }
 
 /** Owner decision 2026-11-06: service categories; TENANT_ADMIN re-checked on the server. */
@@ -132,12 +148,13 @@ export async function listAdminData() {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
 
-  const [serviceResult, categoryResult, hoursResult, staffResult, selfStaffResult] = await Promise.all([
+  const [serviceResult, categoryResult, hoursResult, staffResult, selfStaffResult, staffServiceResult] = await Promise.all([
     services(context.prisma).list(context.identity, context.tenantContext),
     categories(context.prisma).list(context.identity, context.tenantContext),
     workingHours(context.prisma).list(context.identity, context.tenantContext),
     staff(context.prisma).list(context.identity, context.tenantContext),
     adminServesAsStaff(context.prisma).read(context.identity, context.tenantContext),
+    staffServices(context.prisma).list(context.identity, context.tenantContext),
   ]);
 
   return {
@@ -148,7 +165,16 @@ export async function listAdminData() {
     staff: staffResult,
     /** Whether the signed-in TENANT_ADMIN also serves customers (own ACTIVE Staff row). */
     adminServesAsStaff: selfStaffResult.status === "ok" && selfStaffResult.servesAsStaff,
+    /** staffId -> service ids it performs; staff absent = every service. */
+    staffServices: staffServiceResult.status === "listed" ? staffServiceResult.byStaff : {},
   };
+}
+
+/** Replaces the services a staff member performs; [] = every service. Tenant comes from the session. */
+export async function setStaffServicesAction(staffId: string, serviceIds: string[]) {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+  return staffServices(context.prisma).set(context.identity, context.tenantContext, staffId, serviceIds);
 }
 
 type ServiceCatalogInput = {

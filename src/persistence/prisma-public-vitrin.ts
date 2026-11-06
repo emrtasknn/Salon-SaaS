@@ -3,8 +3,9 @@ import type { TenantContext } from "../domain/tenant-context";
 import type { ServiceRecord } from "../domain/service";
 import type { WorkingHoursRecord } from "../domain/working-hours";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
+import { readStaffServiceMap, type StaffServiceReadTransaction } from "./prisma-staff-services";
 
-type Tx = PrismaTenantTransactionClient & {
+type Tx = PrismaTenantTransactionClient & StaffServiceReadTransaction & {
   tenant: { findUnique(args: { where: { slug: string } }): Promise<{
     id: string; name: string; timezone: string; status: "ACTIVE" | "INACTIVE"; contactPhone: string | null;
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
@@ -44,10 +45,11 @@ export function createPrismaPublicSalonRepository(prisma: PrismaTenantClient): P
         });
         const profiles = await tx.profile.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: staff.map((s) => s.profileId) } } });
         const names = new Map(profiles.map((p) => [p.id, p.displayName]));
+        const performs = await readStaffServiceMap(tx, tenantContext.tenantId);
         return {
           services,
           categories,
-          staff: staff.map((s) => ({ ...s, displayName: names.get(s.profileId) ?? "Staff" })),
+          staff: staff.map((s) => ({ ...s, displayName: names.get(s.profileId) ?? "Staff", serviceIds: performs.get(s.id) ?? [] })),
           workingHours,
         };
       });

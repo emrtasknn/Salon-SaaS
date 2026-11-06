@@ -1,38 +1,33 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-06 (cloud) — UI/UX audit fixes, 3-step public booking flow, tidy all open PRs.
+2026-11-06 (cloud) — finish the "Next task" list: working hours single save, week view on phones, "any staff", staff–service mapping, multi-service.
 
 ## State
-- Branch `feat/completion-rules-pjkk8c` → PR #192 (3-step booking flow). Contains a `-s ours` merge of its old, already-squashed history (avoided a force push). Squash merge.
-- Environment touched: Pilot + staging Supabase read-only (projects, advisors, logs). No DB writes, no env changes.
+- Merged to main (squash, CI green): #194 (working hours one save + phone week agenda), #195 ("Fark etmez" any staff).
+- Open: **#196** on `feat/completion-rules-pjkk8c` — staff–service mapping + multi-service, **2 migrations**, CI green. Waiting for owner: apply both migrations to staging, then pilot, then merge.
+- main auto-deploys to BOTH staging and pilot (no PR previews). Booking changes reach real customers on merge.
+- Environment touched: staging + pilot read-only (Vercel deployments/runtime errors, Supabase logs). Staging writes: 2 test bookings on `uiux-test-salon`, both cancelled via their status links.
+- Cloud env `Salon-SaaS` (personal) allows `salon-saas-staging.vercel.app`; Vercel share link used for SSO.
 
-## Done
-- Merged (squash, CI green): #191 (admin/staff audit fixes + completion rules + booking polish), #185 (DB pool fix), #188 (RandevuN palette).
-- Closed as superseded by #191: #186, #187.
-- #189 (service categories + price, **migration**): conflict with main resolved (kept PR's service-management copy), pushed; typecheck + 772 unit tests pass. **Not merged**: needs owner migration review and pilot migration first.
-- #192: public booking is 3 steps (Hizmet → Uzman ve saat → Bilgileriniz) with a fixed glass action bar; 14-day date strip, slots grouped by part of day, no staff preselection, confirmation screen first after booking. Palette: emerald only for selected slot + final submit. Same server contracts.
+## Decisions (owner, 2026-11-06)
+- Multi-service = same staff, back to back; time = Σ(duration + buffer); max 5. Public booking only; admin/staff create stays single-service.
+- Staff–service default = no mapping means every service.
+- "Fark etmez" default chip when several staff; server assigns least-busy free staff (retry on race).
 
 ## Validation
-| Check | Command | Result |
-|---|---|---|
-| Typecheck | `npm run typecheck` | PASS |
-| Lint | `npm run lint` | 0 errors (3 pre-existing warnings) |
-| Unit tests | `npx vitest run src/app/` (DATABASE_URL unset) | 41 files, 409 tests PASS |
-| Browser | temp preview route (fake data, no DB), iPhone 13 light/dark | steps 1–2 OK, no horizontal scroll; step 3 + live slots not seen |
-| Integration | CI | see PR checks |
-
-## Staging check (2026-11-06, after #189 + pooler switch)
-- Real browser (Playwright, iPhone 13) on `salon-saas-staging.vercel.app/uiux-test-salon/book` via a Vercel share link: steps 1→3, live slots, price + "ve üzeri", submit → confirmation screen, then cancelled via the status link. No console errors.
-- Fixed after the check: step-3 bar date was truncated ("7 Kasım Cuma…") → short date ("7 Kas Cmt · 09:00").
-- Pilot after the transaction-pooler switch: no `EMAXCONNSESSION` / auth / breaker lines in 6h; no Vercel runtime errors (3h). Staging shows only the known pg@9 `client.query()` deprecation warning.
-- New personal cloud environment `Salon-SaaS` (allows `salon-saas-staging.vercel.app`) for browser checks.
+| Check | Result |
+|---|---|
+| `npm run typecheck` / `npm run lint` | PASS / 0 errors |
+| `npx vitest run src` (no DB) | 1571 pass |
+| CI #196 (incl. new integration tests) | PASS |
+| Staging browser (#195) | single-staff flow OK; "Fark etmez" not visible there (1 staff) |
 
 ## Open risks / owner actions
-- Done by owner: pilot `DATABASE_URL` → transaction pooler; #189 migration applied and merged. Keep watching Supavisor logs for a day.
-- Follow-up: pg@9 deprecation (`Promise.all` inside interactive transactions).
-- Staging test tenant `uiux-test-salon`: delete tenant + accounts after the audit.
+- Apply #196 migrations (staging → pilot), merge, then browser-check: map staff, book 2 services, drag-move it.
+- Staging tenant has 1 staff: add a second one to test "Fark etmez" live.
+- Follow-up: pg@9 `client.query()` deprecation; admin/staff create flows are single-service.
+- Staging test tenant `uiux-test-salon`: delete after the audit.
 
 ## Next task
-- "Any staff" and multi-service (approved data-model work).
-- Working-hours single save; week view on phones.
+- After #196: staging check, then consider multi-service in admin create, price on staff views.

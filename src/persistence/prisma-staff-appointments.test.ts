@@ -29,6 +29,7 @@ describe("prisma staff appointments repository", () => {
       include: {
         contact: { select: { displayName: true, phone: true, email: true, whatsappOptIn: true, optOutAt: true } },
         service: { select: { name: true } },
+        services: { orderBy: { position: "asc" }, select: { service: { select: { name: true } } } },
         customerProfile: { select: { displayName: true } },
       },
     });
