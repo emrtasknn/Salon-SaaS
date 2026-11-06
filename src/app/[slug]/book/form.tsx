@@ -281,7 +281,7 @@ export function PublicBookingForm({
                     type="button"
                     aria-pressed={selectedSlot === slot.startAtIso}
                     onClick={() => setSelectedSlot(slot.startAtIso)}
-                    className={`pressable focus-ring tap-target rounded-control border px-2 py-2.5 text-body font-medium tabular-nums ${selectedSlot === slot.startAtIso ? "border-action bg-action text-on-action" : "border-separator bg-surface-muted text-ink hover:border-field-border"}`}
+                    className={`pressable focus-ring tap-target rounded-control border px-2 py-2.5 text-body font-medium tabular-nums ${selectedSlot === slot.startAtIso ? "border-accent-ink bg-accent-soft font-semibold text-on-accent-soft shadow-[inset_0_0_0_1px_var(--color-accent-ink)]" : "border-separator bg-surface-muted text-ink hover:border-field-border"}`}
                   >
                     {formatSlot(slot.startAtIso, timeZone)}
                   </button>
@@ -364,7 +364,7 @@ export function PublicBookingForm({
               type="submit"
               disabled={busy || stale || !selectedSlot || availabilityStatus !== "ready"}
               aria-describedby="booking-notice"
-              variant="primary" className="w-full"
+              variant="accent" className="w-full"
             >
               {busy ? "Gönderiliyor…" : "Randevu talebi gönder"}
             </Button>

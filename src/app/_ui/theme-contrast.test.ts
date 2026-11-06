@@ -72,12 +72,24 @@ const textPairs: Array<[string, string]> = [
   ["--color-status-rejected", "--color-status-rejected-bg"],
   ["--color-status-cancelled", "--color-status-cancelled-bg"],
   ["--color-status-completed", "--color-status-completed-bg"],
+  // Emerald accent: navy label on the fill (rest + hover), emerald text/icons on page surfaces,
+  // and text on the selected-row tint.
+  ["--color-on-accent", "--color-accent"],
+  ["--color-on-accent", "--color-accent-hover"],
+  ["--color-accent-ink", "--color-surface"],
+  ["--color-accent-ink", "--color-canvas"],
+  ["--color-accent-ink", "--color-accent-soft"],
+  ["--color-on-accent-soft", "--color-accent-soft"],
 ];
 
 const nonTextPairs: Array<[string, string]> = [
   ["--color-field-border", "--color-surface"],
+  ["--color-field-border", "--color-surface-muted"],
   ["--color-focus", "--color-canvas"],
   ["--color-focus", "--color-surface"],
+  ["--color-focus", "--color-surface-muted"],
+  // Selected time-slot outline must read against the unselected slot fill.
+  ["--color-accent-ink", "--color-surface-muted"],
 ];
 
 function rgbOf(theme: Record<string, string>, name: string): Rgb {

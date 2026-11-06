@@ -10,7 +10,7 @@ import { cx } from "@/lib/utils";
  * Presentation only.
  */
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "danger-outline";
+export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "danger" | "danger-outline";
 export type ButtonSize = "medium" | "small";
 
 type IconComponent = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false"; strokeWidth?: number }>;
@@ -41,6 +41,8 @@ const styles = {
   },
   variant: {
     primary: "bg-action text-on-action shadow-card hover:bg-action-hover",
+    // Confirmation moment only (e.g. final booking submit); at most one per screen. Label is navy.
+    accent: "bg-accent text-on-accent shadow-card hover:bg-accent-hover",
     secondary: "border border-separator bg-surface text-ink shadow-card hover:bg-surface-muted",
     ghost: "text-ink hover:bg-surface-muted",
     danger: "bg-destructive text-on-action shadow-card hover:bg-destructive-hover",
@@ -56,7 +58,7 @@ export function buttonClassName({
   className,
 }: { variant?: ButtonVariant; size?: ButtonSize; iconOnly?: boolean; className?: string } = {}) {
   // Filled primary/danger actions keep the larger iOS body label at the default size.
-  const prominent = size === "medium" && (variant === "primary" || variant === "danger") && "px-5 py-3 text-body";
+  const prominent = size === "medium" && (variant === "primary" || variant === "accent" || variant === "danger") && "px-5 py-3 text-body";
   return cx(styles.base, styles.size[size], prominent, styles.variant[variant], iconOnly && styles.iconOnlySize[size], className);
 }
 

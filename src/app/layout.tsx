@@ -35,8 +35,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   // Browser chrome follows the device theme (an explicit in-app choice cannot change this meta).
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f2f2f7" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: light)", color: "#faf9f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1120" },
   ],
   // Lets env(safe-area-inset-*) resolve in standalone mode; bars/body pad themselves.
   viewportFit: "cover",
