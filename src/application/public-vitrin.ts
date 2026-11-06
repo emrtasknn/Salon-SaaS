@@ -18,6 +18,8 @@ export type PublicSalonRepository = Readonly<{
   }> | null>;
   catalog(tenantContext: TenantContext): Promise<Readonly<{
     services: ReadonlyArray<ServiceRecord>;
+    /** Owner decision 2026-11-06: public group names + order (no ids beyond grouping). */
+    categories?: ReadonlyArray<Readonly<{ id: string; name: string; sortOrder: number }>>;
     staff: ReadonlyArray<Readonly<Pick<StaffRecord, "id" | "profileId" | "status"> & { displayName: string }>>;
     workingHours: ReadonlyArray<WorkingHoursRecord>;
   }>>;

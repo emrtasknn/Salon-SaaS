@@ -226,3 +226,57 @@ describe("service management", () => {
     expect(result.status).toBe("PERSISTENCE_FAILURE");
   });
 });
+
+describe("service category and price (owner decision 2026-11-06)", () => {
+  it("creates a service with a category and a price", async () => {
+    const d = deps();
+    const result = await createServiceManager(d).create({
+      identity, tenantContext, name: "Kesim", durationMinutes: 30,
+      categoryId: "cat-1", priceMinor: 45000, priceIsFrom: true,
+    });
+    expect(result.status).toBe("created");
+    expect(d.repository.create).toHaveBeenCalledWith(tenantContext, {
+      name: "Kesim", durationMinutes: 30, bufferMinutes: 0,
+      categoryId: "cat-1", priceMinor: 45000, priceIsFrom: true,
+    });
+  });
+
+  it("rejects a starting price without a price, a bad price and a bad category id", async () => {
+    for (const extra of [
+      { priceMinor: null, priceIsFrom: true },
+      { priceMinor: -1, priceIsFrom: false },
+      { priceMinor: 10.5, priceIsFrom: false },
+      { categoryId: "" },
+      { categoryId: "bad\nid" },
+      { categoryId: 7 },
+    ]) {
+      const d = deps();
+      const result = await createServiceManager(d).create({ identity, tenantContext, name: "Kesim", durationMinutes: 30, ...extra });
+      expect(result.status).toBe("INVALID_INPUT");
+      expect(d.repository.create).not.toHaveBeenCalled();
+    }
+  });
+
+  it("maps a category of another tenant (FK violation) to NOT_FOUND", async () => {
+    const d = deps();
+    d.repository.create.mockResolvedValue("category_not_found");
+    const result = await createServiceManager(d).create({ identity, tenantContext, name: "Kesim", durationMinutes: 30, categoryId: "other-tenant-cat" });
+    expect(result.status).toBe("NOT_FOUND");
+  });
+
+  it("updates price as a pair and clears the category with null", async () => {
+    const d = deps();
+    const result = await createServiceManager(d).update({
+      identity, tenantContext, serviceId: "service-1", categoryId: null, priceMinor: 30000, priceIsFrom: false,
+    });
+    expect(result.status).toBe("updated");
+    expect(d.repository.update).toHaveBeenCalledWith(tenantContext, "service-1", { categoryId: null, priceMinor: 30000, priceIsFrom: false });
+  });
+
+  it("refuses a half price update", async () => {
+    const d = deps();
+    const result = await createServiceManager(d).update({ identity, tenantContext, serviceId: "service-1", priceIsFrom: true });
+    expect(result.status).toBe("INVALID_INPUT");
+    expect(d.repository.update).not.toHaveBeenCalled();
+  });
+});

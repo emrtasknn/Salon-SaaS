@@ -33,7 +33,8 @@ describeDatabase("Admin serves as staff: own Staff row under RLS (integration)",
   const role = `admin_self_staff_runner_${randomUUID().replaceAll("-", "")}`;
   const tenantA = makeFixture("a");
   const tenantB = makeFixture("b");
-  const tables = ["Staff", "Profile", "TenantMembership", "Service", "WorkingHours"];
+  // The public catalog also reads ServiceCategory (owner decision 2026-11-06).
+  const tables = ["Staff", "Profile", "TenantMembership", "Service", "ServiceCategory", "WorkingHours"];
   let pool: Pool | undefined;
   let prisma: PrismaClient | undefined;
   let roleCreated = false;

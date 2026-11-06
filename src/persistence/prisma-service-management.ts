@@ -13,7 +13,12 @@ type ServiceRow = Readonly<{
   durationMinutes: number;
   bufferMinutes: number;
   active: boolean;
+  categoryId?: string | null;
+  priceMinor?: number | null;
+  priceIsFrom?: boolean;
 }>;
+
+type CatalogData = { categoryId?: string | null; priceMinor?: number | null; priceIsFrom?: boolean };
 
 export type PrismaServiceTransaction = PrismaTenantTransactionClient & {
   service: {
@@ -24,7 +29,7 @@ export type PrismaServiceTransaction = PrismaTenantTransactionClient & {
         durationMinutes: number;
         bufferMinutes: number;
         active: boolean;
-      };
+      } & CatalogData;
     }): Promise<ServiceRow>;
     update(args: {
       where: { tenantId_id: { tenantId: string; id: string } };
@@ -32,7 +37,7 @@ export type PrismaServiceTransaction = PrismaTenantTransactionClient & {
         name?: string;
         durationMinutes?: number;
         bufferMinutes?: number;
-      };
+      } & CatalogData;
     }): Promise<ServiceRow>;
     updateMany(args: {
       where: { tenantId: string; id: string };
@@ -58,7 +63,15 @@ function toService(row: ServiceRow): ServiceRecord {
     durationMinutes: row.durationMinutes,
     bufferMinutes: row.bufferMinutes,
     active: row.active,
+    categoryId: row.categoryId ?? null,
+    priceMinor: row.priceMinor ?? null,
+    priceIsFrom: row.priceIsFrom ?? false,
   });
+}
+
+/** FK violation: the category does not exist in THIS tenant (composite FK). */
+function isForeignKeyViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2003";
 }
 
 function isUniqueConflict(error: unknown): boolean {
@@ -87,6 +100,9 @@ export function createPrismaServiceRepository(
                 durationMinutes: input.durationMinutes,
                 bufferMinutes: input.bufferMinutes,
                 active: true,
+                ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
+                ...(input.priceMinor !== undefined ? { priceMinor: input.priceMinor } : {}),
+                ...(input.priceIsFrom !== undefined ? { priceIsFrom: input.priceIsFrom } : {}),
               },
             });
           },
@@ -94,6 +110,7 @@ export function createPrismaServiceRepository(
         return "created";
       } catch (error) {
         if (isUniqueConflict(error)) return "conflict";
+        if (isForeignKeyViolation(error)) return "category_not_found";
         throw error;
       }
     },
@@ -128,6 +145,7 @@ export function createPrismaServiceRepository(
         );
       } catch (error) {
         if (isUniqueConflict(error)) return "conflict";
+        if (isForeignKeyViolation(error)) return "category_not_found";
         throw error;
       }
     },

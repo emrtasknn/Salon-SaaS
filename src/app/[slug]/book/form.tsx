@@ -9,6 +9,8 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SalonLocationLink, type SalonLocationView } from "../../_ui/salon-location-link";
 import { Button } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
+import { formatServicePrice } from "../../../domain/service-price";
+import { groupServicesByCategory } from "../../../domain/service-category";
 import { BookingConfirmation, type BookingSummary } from "./booking-confirmation";
 import {
   BOOKING_STEP_TITLES,
@@ -25,7 +27,12 @@ type ServiceOption = Readonly<{
   name: string;
   durationMinutes: number;
   bufferMinutes: number;
+  categoryId?: string | null;
+  priceMinor?: number | null;
+  priceIsFrom?: boolean;
 }>;
+
+type CategoryOption = Readonly<{ id: string; name: string; sortOrder: number }>;
 
 type StaffOption = Readonly<{
   id: string;
@@ -74,8 +81,9 @@ function Chevron({ back = false }: { back?: boolean }) {
   );
 }
 
+/** "30 dk · ₺450": the customer sees the service time and price; the buffer stays internal (#189). */
 function serviceMinutes(service: ServiceOption) {
-  return service.bufferMinutes ? `${service.durationMinutes} dk + ${service.bufferMinutes} dk hazırlık` : `${service.durationMinutes} dk`;
+  return [`${service.durationMinutes} dk`, formatServicePrice(service.priceMinor, service.priceIsFrom)].filter(Boolean).join(" · ");
 }
 
 export function PublicBookingForm({
@@ -83,6 +91,7 @@ export function PublicBookingForm({
   legal,
   location = null,
   services,
+  categories = [],
   staff,
   timeZone,
   minDate,
@@ -93,6 +102,8 @@ export function PublicBookingForm({
   /** Salon address + server-computed, allowlisted directions link; null when not set. */
   location?: SalonLocationView | null;
   services: ReadonlyArray<ServiceOption>;
+  /** Owner decision 2026-11-06: service groups shown as headed lists in step 1. */
+  categories?: ReadonlyArray<CategoryOption>;
   staff: ReadonlyArray<StaffOption>;
   timeZone: string;
   minDate: string;
@@ -120,6 +131,7 @@ export function PublicBookingForm({
 
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
   const selectedStaff = useMemo(() => staff.find((member) => member.id === staffId), [staff, staffId]);
+  const serviceGroups = useMemo(() => groupServicesByCategory(categories, services), [categories, services]);
   const days = useMemo(() => dateStrip(minDate, 14), [minDate]);
   const slotGroups = useMemo(() => groupSlots(slots, timeZone), [slots, timeZone]);
 
@@ -350,27 +362,36 @@ export function PublicBookingForm({
                 Bu salon henüz online randevuya açık bir hizmet eklemedi. Lütfen salonla doğrudan iletişime geçin.
               </p>
             ) : (
-              <ul className="inset-group divide-y divide-separator overflow-hidden" aria-label="Hizmetler">
-                {services.map((service) => {
-                  const selected = service.id === serviceId;
-                  return (
-                    <li key={service.id}>
-                      <button
-                        type="button"
-                        aria-pressed={selected}
-                        onClick={() => chooseService(service.id)}
-                        className="pressable focus-ring flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-muted"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-body font-medium text-ink">{service.name}</span>
-                          <span className="block text-footnote tabular-nums text-ink-muted">{serviceMinutes(service)}</span>
-                        </span>
-                        {selected ? <Check /> : <span className="text-ink-muted"><Chevron /></span>}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="space-y-5">
+                {serviceGroups.map((group) => (
+                  <section key={group.id ?? "none"} aria-label={group.name ?? "Hizmetler"} className="space-y-1.5">
+                    {group.name && <h2 className="px-4 text-footnote font-semibold uppercase text-ink-muted">{group.name}</h2>}
+                    <ul className="inset-group divide-y divide-separator overflow-hidden">
+                      {group.services.map((service) => {
+                        const selected = service.id === serviceId;
+                        const price = formatServicePrice(service.priceMinor, service.priceIsFrom);
+                        return (
+                          <li key={service.id}>
+                            <button
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => chooseService(service.id)}
+                              className="pressable focus-ring flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-muted"
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-body font-medium text-ink">{service.name}</span>
+                                <span className="block text-footnote tabular-nums text-ink-muted">{service.durationMinutes} dk</span>
+                              </span>
+                              {price && <span className="shrink-0 text-subhead font-medium tabular-nums text-ink">{price}</span>}
+                              {selected ? <Check /> : <span className="text-ink-muted"><Chevron /></span>}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                ))}
+              </div>
             )
           )}
 

@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { createPublicVitrin } from "../../application/public-vitrin";
+import { formatServicePrice } from "../../domain/service-price";
+import { groupServicesByCategory } from "../../domain/service-category";
 import { createPrismaPublicSalonRepository } from "../../persistence/prisma-public-vitrin";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
 import Link from "next/link";
@@ -66,24 +68,34 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ sl
         </header>
         <section aria-labelledby="services-title" className="mt-8">
           <h2 id="services-title" className="group-label">Hizmetler</h2>
-          <ul className="inset-group">
-            {result.services.map((s) => (
-              <li key={s.id} className="inset-row">
-                <Link
-                  href={`/${slug}/book?service=${encodeURIComponent(s.id)}`}
-                  className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors duration-150 ease-out hover:bg-surface-muted focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-separator"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-body font-medium text-ink">{s.name}</span>
-                    <span className="mt-0.5 block text-footnote tabular-nums text-ink-muted">{s.durationMinutes} dk</span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-action px-3.5 py-1.5 text-footnote font-semibold text-on-action">
-                    Randevu al
-                  </span>
-                </Link>
-              </li>
+          <div className="space-y-6">
+            {groupServicesByCategory(result.categories ?? [], result.services).map((group) => (
+              <div key={group.id ?? "none"}>
+                {group.name && <h3 className="px-4 pb-1.5 text-subhead font-semibold text-ink-muted">{group.name}</h3>}
+                <ul className="inset-group">
+                  {group.services.map((s) => {
+                    const price = formatServicePrice(s.priceMinor, s.priceIsFrom);
+                    return (
+                      <li key={s.id} className="inset-row">
+                        <Link
+                          href={`/${slug}/book?service=${encodeURIComponent(s.id)}`}
+                          className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors duration-150 ease-out hover:bg-surface-muted focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-separator"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-body font-medium text-ink [overflow-wrap:anywhere]">{s.name}</span>
+                            <span className="mt-0.5 block text-footnote tabular-nums text-ink-muted">{s.durationMinutes} dk</span>
+                          </span>
+                          {price && <span className="shrink-0 text-subhead font-semibold tabular-nums text-ink">{price}</span>}
+                          <span aria-hidden="true" className="shrink-0 text-title leading-none text-ink-muted">›</span>
+                          <span className="sr-only">Randevu al</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       </div>
     </main>

@@ -78,3 +78,25 @@ describe("PublicBookingForm steps", () => {
     expect(html).toContain("henüz online randevuya açık bir hizmet eklemedi");
   });
 });
+
+describe("PublicBookingForm catalog (#189)", () => {
+  it("groups services under category headings and shows the price, not the buffer", async () => {
+    const { PublicBookingForm } = await import("./form");
+    const html = renderToStaticMarkup(
+      <PublicBookingForm
+        slug="salon"
+        legal={{ ready: true, noticeVersion: "v", noticeHash: "h", optInVersion: "o", optInHash: "oh", optInLabel: "W", optInHelp: "h", shortNotice: "n", fullNoticePath: "/x" } as never}
+        services={[{ id: "s1", name: "Kesim", durationMinutes: 30, bufferMinutes: 10, categoryId: "c1", priceMinor: 45000, priceIsFrom: false }]}
+        categories={[{ id: "c1", name: "Saç", sortOrder: 0 }]}
+        staff={[{ id: "a", displayName: "Ayşe" }]}
+        timeZone="Europe/Istanbul"
+        minDate="2026-11-07"
+        initialServiceId=""
+      />,
+    );
+    expect(html).toContain(">Saç<");
+    expect(html).toContain("Kesim");
+    expect(html).toMatch(/450/);
+    expect(html).not.toContain("hazırlık");
+  });
+});

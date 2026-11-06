@@ -103,7 +103,11 @@ export default async function BookingPage({
         name: service.name,
         durationMinutes: service.durationMinutes,
         bufferMinutes: service.bufferMinutes,
+        categoryId: service.categoryId ?? null,
+        priceMinor: service.priceMinor ?? null,
+        priceIsFrom: service.priceIsFrom ?? false,
       }))}
+      categories={(vitrin.categories ?? []).map((category) => ({ id: category.id, name: category.name, sortOrder: category.sortOrder }))}
       staff={vitrin.staff.map((member) => ({
         id: member.id,
         displayName: member.displayName,

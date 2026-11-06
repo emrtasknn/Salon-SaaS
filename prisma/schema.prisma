@@ -31,6 +31,7 @@ model Tenant {
   profiles     Profile[]
   staff        Staff[]
   services     Service[]
+  serviceCategories ServiceCategory[]
   appointments Appointment[]
   notificationDeliveries NotificationDelivery[]
   whatsappIntegrations WhatsAppIntegration[]
@@ -158,11 +159,36 @@ model Service {
   durationMinutes Int
   bufferMinutes  Int      @default(0)
   active         Boolean  @default(true)
+  /// Optional category of the same tenant (composite FK; NULL = "Diğer").
+  categoryId     String?
+  /// Optional price in kuruş (TRY minor units). NULL = price not shown.
+  priceMinor     Int?
+  /// true = "₺X ve üzeri" (starting price). Requires priceMinor (CHECK).
+  priceIsFrom    Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  category     ServiceCategory? @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Service_category_tenant_fkey")
   appointments Appointment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, categoryId])
+}
+
+/// Owner decision 2026-11-06: tenant-defined service groups shown on the public page.
+model ServiceCategory {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String   @db.VarChar(60)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  services Service[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, name])
