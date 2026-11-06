@@ -24,13 +24,22 @@ function isSuperAdmin(actor: PlatformActor): boolean {
   return actor !== null && actor.kind === "SUPER_ADMIN" && typeof actor.subjectId === "string" && actor.subjectId.length > 0;
 }
 
-export function createPlatformTenantStatus(dependencies: Readonly<{ repository: PlatformTenantRepository }>) {
+export type PlatformErrorReporter = (event: string, error: unknown) => void;
+
+export function createPlatformTenantStatus(
+  dependencies: Readonly<{ repository: PlatformTenantRepository; reportError?: PlatformErrorReporter }>,
+) {
   return {
     async list(actor: PlatformActor): Promise<PlatformTenantListResult> {
       if (!isSuperAdmin(actor)) return { ok: false, code: "FORBIDDEN" };
       try {
         return { ok: true, tenants: [...(await dependencies.repository.list())] };
-      } catch {
+      } catch (error) {
+        try {
+          dependencies.reportError?.("platform_tenant_list_failed", error);
+        } catch {
+          // Reporting must not change the result.
+        }
         return { ok: false, code: "PERSISTENCE_FAILURE" };
       }
     },
