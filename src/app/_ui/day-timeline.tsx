@@ -273,6 +273,19 @@ function readNowKey() {
   return `${today}|${minutesFromDayStart(current, today)}`;
 }
 
+function readEpochMinute() {
+  return Math.floor(Date.now() / 60_000);
+}
+
+/**
+ * Current time (epoch ms, floored to the minute) for time-based UI rules such as "show
+ * Tamamlandı only after the start". Re-renders every minute; null on the server.
+ */
+export function useMinuteClock(): number | null {
+  const minute = useSyncExternalStore(subscribeMinute, readEpochMinute, () => null);
+  return minute === null ? null : minute * 60_000;
+}
+
 /** Today's date and wall minute in the tenant zone; null on the server. */
 function useNow(): { today: string; minute: number } | null {
   const key = useSyncExternalStore(subscribeMinute, readNowKey, () => null);

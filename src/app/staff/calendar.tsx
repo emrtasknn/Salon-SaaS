@@ -1,13 +1,13 @@
 "use client";
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
-import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
+import { completeStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { PageHeader } from "../_ui/page-header";
 import { AccountLinks } from "../_ui/account-links";
 import { appointmentStatusBadge, badgeBase, fieldInline, statusNote, appointmentStatusLabel } from "../_ui/styles";
-import { AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
+import { useMinuteClock, AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
 import { dateInZone } from "../_ui/timeline-layout";
@@ -47,6 +47,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
+  const nowMs = useMinuteClock();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const sheetTrigger = useRef<HTMLElement | null>(null);
   const move = useAppointmentMove({
@@ -69,6 +70,23 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
     setDate(created.date);
     refresh();
     setFeedback(created.notified ? "Randevu oluşturuldu ve onaylandı. Müşteri bildirimi gönderime alındı." : "Randevu oluşturuldu ve onaylandı.");
+  }
+
+  function complete(appointmentId: string) {
+    haptic("selection");
+    startTransition(async () => {
+      const result = await completeStaffAppointment(appointmentId);
+      haptic(result.status === "updated" ? "success" : "error");
+      const messages: Record<string, string> = {
+        updated: "Randevu tamamlandı.",
+        NOT_STARTED: "Randevu başlamadan tamamlandı olarak işaretlenemez.",
+        UNAUTHORIZED: "Bu randevu için yetkiniz yok.",
+        NOT_FOUND: "Randevu bulunamadı. Liste yenilendi.",
+        INVALID_TRANSITION: "Bu randevu artık tamamlanamaz. Liste yenilendi.",
+      };
+      setFeedback(messages[result.status] ?? "İşlem gerçekleştirilemedi.");
+      if (result.status !== "UNAUTHORIZED") refresh();
+    });
   }
 
   function decide(appointmentId: string, to: "CONFIRMED" | "REJECTED") {
@@ -181,7 +199,10 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
         {selected.status === "PENDING" ? <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="button" disabled={busy} onClick={() => decide(selected.id, "CONFIRMED")} variant="primary" className="sm:flex-1">Onayla</Button>
           <ConfirmButton label="Reddet" question="Talep reddedilsin mi?" detail="Bu işlem geri alınamaz. Müşteri bildirim izni verdiyse bilgilendirilir." confirmLabel="Evet, reddet" disabled={busy} onConfirm={() => decide(selected.id, "REJECTED")} className="sm:flex-1" />
-        </div> : <p className="text-subhead text-ink-muted">İptal ve tamamlama işlemlerini salon yöneticisi yapar.</p>}
+        </div> : selected.status === "CONFIRMED" && nowMs !== null && new Date(selected.startAt).getTime() <= nowMs ? <div className="flex flex-col gap-2">
+          <Button type="button" disabled={busy} onClick={() => complete(selected.id)} variant="primary">Tamamlandı</Button>
+          <p className="text-footnote text-ink-muted">İptal işlemini salon yöneticisi yapar.</p>
+        </div> : <p className="text-subhead text-ink-muted">{selected.status === "CONFIRMED" ? "Randevu başlayınca tamamlandı olarak işaretleyebilirsiniz. İptal işlemini salon yöneticisi yapar." : "Bu randevu için başka işlem yok."}</p>}
       </div>}
     </AppointmentSheet>
     {move.sheet}

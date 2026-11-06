@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { listStaffAppointments } from "./actions";
+import { completeStaffAppointment, listStaffAppointments } from "./actions";
 import { decideAndNotify } from "./decide";
 import { haptic } from "@/lib/haptics";
 import { BookingContactSummary } from "../booking-contact-summary";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "../_ui/confirm-button";
 import { TIMELINE_TIME_ZONE, todayInZone } from "../_ui/timeline-layout";
 import { formatIsoDayLabel } from "../_ui/date-format";
+import { useMinuteClock } from "../_ui/day-timeline";
 
 const formatListDay = (dateIso: string) => formatIsoDayLabel(dateIso, todayInZone());
 
@@ -20,6 +21,7 @@ export function StaffAppointments({ initialDate, initialData, bell }: Props) {
   const [data, setData] = useState(initialData);
   const [busy, startTransition] = useTransition();
   const [feedback, setFeedback] = useState("");
+  const nowMs = useMinuteClock();
 
   function refresh(nextDate = date) {
     startTransition(async () => { const r = await listStaffAppointments(nextDate); setData(r); if (r.status !== "ok") setFeedback("Randevular yüklenemedi."); });
@@ -49,6 +51,7 @@ export function StaffAppointments({ initialDate, initialData, bell }: Props) {
             <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{appointmentStatusLabel[a.status] ?? a.status}</span>
           </div>
           {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2"><Button type="submit" disabled={busy} onClick={() => { haptic("selection"); startTransition(async () => { const r = await decideAndNotify(a.id, "CONFIRMED"); haptic(r.status === "updated" ? "success" : "error"); setFeedback(r.status === "updated" ? "Randevu onaylandı." : "Randevu onaylanamadı."); if (r.status === "updated") refresh(); }); }} variant="primary" className="flex-1 sm:flex-none">Onayla</Button><ConfirmButton label="Reddet" question="Talep reddedilsin mi?" detail="Bu işlem geri alınamaz. Müşteri bildirim izni verdiyse bilgilendirilir." confirmLabel="Evet, reddet" disabled={busy} className="flex-1 sm:flex-none" onConfirm={() => { startTransition(async () => { const r = await decideAndNotify(a.id, "REJECTED"); haptic(r.status === "updated" ? "light" : "error"); setFeedback(r.status === "updated" ? "Randevu reddedildi." : "Randevu reddedilemedi."); if (r.status === "updated") refresh(); }); }} /></div>}
+          {a.status === "CONFIRMED" && nowMs !== null && new Date(a.startAt).getTime() <= nowMs && <div className="mt-3"><Button type="button" disabled={busy} variant="secondary" className="w-full sm:w-auto" onClick={() => { haptic("selection"); startTransition(async () => { const r = await completeStaffAppointment(a.id); haptic(r.status === "updated" ? "success" : "error"); setFeedback(r.status === "updated" ? "Randevu tamamlandı." : r.status === "NOT_STARTED" ? "Randevu başlamadan tamamlandı olarak işaretlenemez." : "Randevu tamamlanamadı."); if (r.status === "updated") refresh(); }); }}>Tamamlandı</Button></div>}
         </article></li>)}</ul>}
     </div>
   </main>;

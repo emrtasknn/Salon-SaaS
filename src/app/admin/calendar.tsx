@@ -20,6 +20,7 @@ import {
   DetailList,
   formatPeriod,
   formatTimeRange,
+  useMinuteClock,
   useCalendarData,
   useCalendarView,
   ViewSwitch,
@@ -40,8 +41,15 @@ import { RotateCw } from "lucide-react";
 type AdminTransitionTarget = "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 type ActionKind = "primary" | "destructive" | "secondary";
 
-/** Same actions per status as the list always offered; the server re-validates every transition. */
-function availableActions(status: string): Array<{ to: AdminTransitionTarget; label: string; kind: ActionKind }> {
+/**
+ * Actions per status; the server re-validates every transition. "Tamamlandı" appears only once the
+ * appointment has started (owner decision 2026-11-06; the server also refuses with NOT_STARTED).
+ */
+function availableActions(
+  appointment: Readonly<{ status: string; startAt: string | Date }>,
+  nowMs: number | null,
+): Array<{ to: AdminTransitionTarget; label: string; kind: ActionKind }> {
+  const status = appointment.status;
   if (status === "PENDING") {
     return [
       { to: "CONFIRMED", label: "Onayla", kind: "primary" },
@@ -50,8 +58,9 @@ function availableActions(status: string): Array<{ to: AdminTransitionTarget; la
     ];
   }
   if (status === "CONFIRMED") {
+    const started = nowMs !== null && new Date(appointment.startAt).getTime() <= nowMs;
     return [
-      { to: "COMPLETED", label: "Tamamlandı", kind: "primary" },
+      ...(started ? [{ to: "COMPLETED" as const, label: "Tamamlandı", kind: "primary" as const }] : []),
       { to: "CANCELLED", label: "İptal et", kind: "secondary" },
     ];
   }
@@ -106,6 +115,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
+  const nowMs = useMinuteClock();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const [closuresOpen, setClosuresOpen] = useState(false);
   const move = useAppointmentMove({
@@ -170,6 +180,8 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
           "Bu randevu için bu işlem artık geçerli değil. Takvim yenilendi.",
         );
         refresh();
+      } else if (result.status === "NOT_STARTED") {
+        setFeedback("Randevu başlamadan tamamlandı olarak işaretlenemez.");
       } else if (result.status === "UNAUTHORIZED") {
         setFeedback("Bu işlem için yetkiniz yok.");
       } else if (result.status === "NOT_FOUND") {
@@ -359,7 +371,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {availableActions(appointment.status).map((action) => {
+                  {availableActions(appointment, nowMs).map((action) => {
                     const ask = confirmCopy[action.to];
                     return ask ? (
                       <ConfirmButton
@@ -433,9 +445,9 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
                 }}
               />
             )}
-            {availableActions(selected.status).length > 0 ? (
+            {availableActions(selected, nowMs).length > 0 ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                {availableActions(selected.status).map((action) => {
+                {availableActions(selected, nowMs).map((action) => {
                   const ask = confirmCopy[action.to];
                   return ask ? (
                     <ConfirmButton
