@@ -1,33 +1,33 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-06 (cloud) — finish the "Next task" list: working hours single save, week view on phones, "any staff", staff–service mapping, multi-service.
+2026-11-06 (cloud) — finish the "Next task" list, migrate staging + pilot, merge, verify.
 
 ## State
-- Merged to main (squash, CI green): #194 (working hours one save + phone week agenda), #195 ("Fark etmez" any staff).
-- Open: **#196** on `feat/completion-rules-pjkk8c` — staff–service mapping + multi-service, **2 migrations**, CI green. Waiting for owner: apply both migrations to staging, then pilot, then merge.
-- main auto-deploys to BOTH staging and pilot (no PR previews). Booking changes reach real customers on merge.
-- Environment touched: staging + pilot read-only (Vercel deployments/runtime errors, Supabase logs). Staging writes: 2 test bookings on `uiux-test-salon`, both cancelled via their status links.
-- Cloud env `Salon-SaaS` (personal) allows `salon-saas-staging.vercel.app`; Vercel share link used for SSO.
+- main @ 069776a (#196). Merged today (squash, CI green): #191, #185, #188, #192, #193, #194, #195, #196. Closed: #186, #187.
+- This branch `feat/completion-rules-pjkk8c`: wording fix + migration gate + runbook/handoff (PR open).
+- Pilot + staging migrations applied up to `20261111100000_appointment_services` (manual method, runbook §4.9).
+- Pilot pooler: transaction pooler (owner switched); no EMAXCONNSESSION since.
+- Cloud env `Salon-SaaS` (personal) allows `salon-saas-staging.vercel.app`; Vercel share links expire after ~23 h.
 
-## Decisions (owner, 2026-11-06)
-- Multi-service = same staff, back to back; time = Σ(duration + buffer); max 5. Public booking only; admin/staff create stays single-service.
-- Staff–service default = no mapping means every service.
-- "Fark etmez" default chip when several staff; server assigns least-busy free staff (retry on race).
+## Done
+- Working hours one save; phone week agenda; "Fark etmez"; staff–service mapping; multi-service (same staff, back to back, max 5).
+- Incident fixed: #189 had been merged without its pilot migration → pilot booking 404 for ~4 h; migration applied, page restored.
+- Staging browser checks: 2-service booking (120 min = 105 service + 15 buffer, ordered rows), status page label, cancel; mapping hides staff for unmapped services.
 
 ## Validation
 | Check | Result |
 |---|---|
-| `npm run typecheck` / `npm run lint` | PASS / 0 errors |
-| `npx vitest run src` (no DB) | 1571 pass |
-| CI #196 (incl. new integration tests) | PASS |
-| Staging browser (#195) | single-staff flow OK; "Fark etmez" not visible there (1 staff) |
+| Typecheck / lint | PASS / 0 errors |
+| `npx vitest run src` (no DB) | PASS |
+| CI incl. integration (#196) | PASS |
+| Staging browser | PASS (see Done) |
 
 ## Open risks / owner actions
-- Apply #196 migrations (staging → pilot), merge, then browser-check: map staff, book 2 services, drag-move it.
-- Staging tenant has 1 staff: add a second one to test "Fark etmez" live.
-- Follow-up: pg@9 `client.query()` deprecation; admin/staff create flows are single-service.
-- Staging test tenant `uiux-test-salon`: delete after the audit.
+- Make `migration-gate` a required status check on main (Settings → Branches); add label `pilot-migrated` to migration PRs after applying.
+- Staging test mapping row `staging-check-map` may still restrict "Test Personel" to "Cilt bakımı" (delete was not confirmed). Test data only.
+- Not verified live: drag-move of a multi-service appointment (needs admin login; covered by CI integration test); "Fark etmez" with 2+ staff (staging tenant has 1 staff).
+- Follow-ups: pg@9 `client.query()` deprecation; multi-service in admin/staff create; delete staging tenant `uiux-test-salon` after the audit.
 
 ## Next task
-- After #196: staging check, then consider multi-service in admin create, price on staff views.
+- Owner: required check + label. Then: multi-service in admin create, price on staff views.

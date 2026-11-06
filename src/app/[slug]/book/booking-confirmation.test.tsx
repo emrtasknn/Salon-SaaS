@@ -180,3 +180,11 @@ describe("multi-service selection (owner decision 2026-11-06)", () => {
     expect(html).toMatch(/aria-pressed="false"[^>]*>[\s\S]*Kesim/);
   });
 });
+
+describe("noStaffMessage", () => {
+  it("speaks about one service or several", async () => {
+    const { noStaffMessage } = await import("./form");
+    expect(noStaffMessage(1)).toContain("Bu hizmet için");
+    expect(noStaffMessage(2)).toContain("hepsini yapan");
+  });
+});
