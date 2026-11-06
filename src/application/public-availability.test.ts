@@ -143,3 +143,18 @@ describe("public availability closed dates (WP-08)", () => {
     expect(result.slots.length).toBeGreaterThan(0);
   });
 });
+
+describe("public availability multi-service (owner decision 2026-11-06)", () => {
+  it("passes valid extra services to the repository and rejects invalid lists without reading", async () => {
+    const repository = { read: vi.fn().mockResolvedValue({ status: "invalid_resource" }) };
+    const availability = createPublicAvailability(repository);
+    await availability.list({ tenantId: "t" as never }, { serviceId: "a", staffId: "s", dateIso: availabilityDate, extraServiceIds: ["b"] });
+    expect(repository.read.mock.calls[0][1]).toEqual({ serviceId: "a", staffId: "s", dateIso: availabilityDate, extraServiceIds: ["b"] });
+
+    for (const extraServiceIds of [["a"], ["b", "b"], "b"]) {
+      await expect(availability.list({ tenantId: "t" as never }, { serviceId: "a", staffId: "s", dateIso: availabilityDate, extraServiceIds }))
+        .resolves.toEqual({ status: "INVALID_INPUT", slots: [] });
+    }
+    expect(repository.read).toHaveBeenCalledTimes(1);
+  });
+});

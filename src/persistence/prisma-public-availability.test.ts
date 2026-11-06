@@ -9,7 +9,10 @@ function makeRepository(timeZone: string, tenantStatus: "ACTIVE" | "INACTIVE" = 
     $executeRaw: vi.fn().mockResolvedValue(1),
     tenantMembership: { findUnique: vi.fn() },
     tenant: { findUnique: vi.fn().mockResolvedValue({ id: "tenant-a", timezone: timeZone, status: tenantStatus }) },
-    service: { findUnique: vi.fn().mockResolvedValue({ id: "service-a", durationMinutes: 30, bufferMinutes: 0, active: true }) },
+    service: {
+      findUnique: vi.fn().mockResolvedValue({ id: "service-a", durationMinutes: 30, bufferMinutes: 0, active: true }),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     staff: { findUnique: vi.fn().mockResolvedValue({ id: "staff-a", status: "ACTIVE" }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([]) },
     staffService: { findMany: vi.fn().mockResolvedValue([]) },
@@ -89,5 +92,26 @@ describe("public availability staff–service mapping (owner decision 2026-11-06
 
     const result = await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09" });
     expect(result.status).toBe("ok");
+  });
+});
+
+describe("public availability multi-service (owner decision 2026-11-06)", () => {
+  it("sums duration + buffer of every service in order", async () => {
+    const { repository, tx } = makeRepository("Europe/Istanbul");
+    tx.service.findMany.mockResolvedValue([{ id: "service-b", durationMinutes: 20, bufferMinutes: 10, active: true }]);
+
+    const result = await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09", extraServiceIds: ["service-b"] });
+
+    expect(tx.service.findMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", id: { in: ["service-b"] } } });
+    expect(result).toMatchObject({ status: "ok", durationMinutes: 50, bufferMinutes: 10 });
+  });
+
+  it("refuses an unknown or inactive extra service", async () => {
+    const { repository, tx } = makeRepository("Europe/Istanbul");
+    tx.service.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "service-b", durationMinutes: 20, bufferMinutes: 0, active: false }]);
+    const input = { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09", extraServiceIds: ["service-b"] };
+
+    await expect(repository.read({ tenantId: "tenant-a" as never }, input)).resolves.toEqual({ status: "invalid_resource" });
+    await expect(repository.read({ tenantId: "tenant-a" as never }, input)).resolves.toEqual({ status: "invalid_resource" });
   });
 });

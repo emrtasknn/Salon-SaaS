@@ -1,3 +1,4 @@
+import { appointmentServiceLabel } from "../domain/multi-service";
 import type { CustomerAppointmentCancelTx, CustomerAppointmentStatusRepository } from "../application/customer-appointment-status";
 import { whatsAppStateOf } from "../domain/appointment-contact";
 import type { AppointmentStatus } from "../domain/appointment";
@@ -22,6 +23,11 @@ type Tx = PrismaTenantTransactionClient & {
   };
   service: {
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } }; select: { name: true } }): Promise<{ name: string } | null>;
+  };
+  appointmentService: {
+    findMany(args: {
+      where: { tenantId: string; appointmentId: string }; orderBy: { position: "asc" }; select: { service: { select: { name: true } } };
+    }): Promise<Array<{ service: { name: string } }>>;
   };
   staff: {
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } }; select: { profileId: true } }): Promise<{ profileId: string } | null>;
@@ -73,9 +79,13 @@ export function createPrismaAppointmentAccessTokenRepository(prisma: PrismaTenan
           ? await tx.profile.findUnique({ where: { tenantId_id: { tenantId, id: staff.profileId } }, select: { displayName: true } })
           : null;
         if (!service || !profile) return null;
+        // Multi-service (owner decision 2026-11-06): the customer sees every booked service.
+        const services = await tx.appointmentService.findMany({
+          where: { tenantId, appointmentId: appointment.id }, orderBy: { position: "asc" }, select: { service: { select: { name: true } } },
+        });
         return {
           appointmentId: appointment.id, status: appointment.status, startAt: appointment.startAt, endAt: appointment.endAt,
-          serviceName: service.name, staffName: profile.displayName, whatsapp: whatsAppStateOf(contact),
+          serviceName: appointmentServiceLabel(service.name, services.map((item) => item.service.name)), staffName: profile.displayName, whatsapp: whatsAppStateOf(contact),
         };
       });
     },

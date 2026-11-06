@@ -55,6 +55,8 @@ export type FullNoticeView = Readonly<{
 export type PublicBookingInput = Readonly<{
   slug: string;
   serviceId: string;
+  /** Multi-service (owner decision 2026-11-06): further services after serviceId, same staff, back to back. */
+  extraServiceIds?: string[];
   staffId: string;
   startAtIso: string;
   displayName: string;

@@ -13,14 +13,17 @@ type ListFn = ReturnType<typeof createPublicAvailability>["list"];
 export async function listForAllStaff(
   tenantContext: Parameters<ListFn>[0],
   staffIds: ReadonlyArray<string>,
-  input: Readonly<{ serviceId: string; dateIso: string }>,
+  input: Readonly<{ serviceId: string; dateIso: string; extraServiceIds?: ReadonlyArray<string> }>,
   list: ListFn,
 ) {
   const byStaff: StaffSlots[] = [];
   let timeZone = "";
   let firstError: Exclude<Awaited<ReturnType<ListFn>>["status"], "ok"> | null = null;
   for (const staffId of staffIds) {
-    const result = await list(tenantContext, { serviceId: input.serviceId, staffId, dateIso: input.dateIso });
+    const result = await list(tenantContext, {
+      serviceId: input.serviceId, staffId, dateIso: input.dateIso,
+      ...(input.extraServiceIds?.length ? { extraServiceIds: input.extraServiceIds } : {}),
+    });
     if (result.status === "ok") {
       timeZone = result.timeZone;
       byStaff.push({ staffId, slots: result.slots });
@@ -39,11 +42,11 @@ export async function listForAllStaff(
 export async function anyStaffCandidates(
   tenantContext: Parameters<ListFn>[0],
   staffIds: ReadonlyArray<string>,
-  input: Readonly<{ serviceId: string; startAt: Date; timeZone: string }>,
+  input: Readonly<{ serviceId: string; startAt: Date; timeZone: string; extraServiceIds?: ReadonlyArray<string> }>,
 ): Promise<string[]> {
   const availability = createPublicAvailability(createPrismaPublicAvailabilityRepository(getPrisma()));
   const dateIso = dateInTimeZone(input.startAt, input.timeZone);
-  const perStaff = await listForAllStaff(tenantContext, staffIds, { serviceId: input.serviceId, dateIso }, availability.list);
+  const perStaff = await listForAllStaff(tenantContext, staffIds, { serviceId: input.serviceId, dateIso, extraServiceIds: input.extraServiceIds }, availability.list);
   return perStaff.status === "ok" ? staffOrderForSlot(perStaff.byStaff, input.startAt.toISOString()) : [];
 }
 

@@ -33,6 +33,7 @@ model Tenant {
   services     Service[]
   serviceCategories ServiceCategory[]
   staffServices StaffService[]
+  appointmentServices AppointmentService[]
   appointments Appointment[]
   notificationDeliveries NotificationDelivery[]
   whatsappIntegrations WhatsAppIntegration[]
@@ -174,11 +175,33 @@ model Service {
   category     ServiceCategory? @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Service_category_tenant_fkey")
   appointments Appointment[]
   staffServices StaffService[]
+  appointmentServices AppointmentService[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, name])
   @@index([tenantId])
   @@index([tenantId, categoryId])
+}
+
+/// Owner decision 2026-11-06: multi-service appointment, same staff, services back to back.
+/// Rows exist only when an appointment has 2+ services; position 0 equals Appointment.serviceId.
+/// Appointment.endAt already covers the sum of (duration + buffer) of all rows.
+/// RLS (ENABLE + FORCE, 4 tenant policies) lives in the migration.
+model AppointmentService {
+  id            String   @id @default(cuid())
+  tenantId      String
+  appointmentId String
+  serviceId     String
+  position      Int
+  createdAt     DateTime @default(now())
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointment Appointment @relation(fields: [tenantId, appointmentId], references: [tenantId, id], onDelete: Cascade, onUpdate: Cascade, map: "AppointmentService_appointment_tenant_fkey")
+  service     Service     @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "AppointmentService_service_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, appointmentId, position])
+  @@index([tenantId, serviceId])
 }
 
 /// Owner decision 2026-11-06: which services a staff member performs. A staff member with NO rows
@@ -418,6 +441,8 @@ model Appointment {
   notificationDeliveries NotificationDelivery[]
   accessTokens    AppointmentAccessToken[]
   contact         AppointmentContact?
+  /// Multi-service booking (owner decision 2026-11-06): every service in order; absent = single service (serviceId).
+  services        AppointmentService[]
 
   @@unique([tenantId, id])
   @@index([tenantId, startAt])

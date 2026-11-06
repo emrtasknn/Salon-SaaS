@@ -1,3 +1,4 @@
+import { appointmentServiceLabel } from "../domain/multi-service";
 import type { CalendarRepository } from "../application/calendar-crm";
 import type { AppointmentRecord } from "../domain/appointment";
 import type {
@@ -22,6 +23,8 @@ type CalendarAppointmentRecord = AppointmentRecord & {
   service: {
     name: string;
   };
+  /** Multi-service list (owner decision 2026-11-06); empty for single-service appointments. */
+  services?: Array<{ service: { name: string } }>;
   contact: ContactRow | null;
 };
 
@@ -35,6 +38,7 @@ type CalendarAppointmentResult = AppointmentRecord & {
 type CustomerHistoryAppointmentRecord = AppointmentRecord & {
   staff: { profile: { displayName: string } };
   service: { name: string };
+  services?: Array<{ service: { name: string } }>;
 };
 
 type CustomerHistoryAppointmentResult = AppointmentRecord & {
@@ -61,6 +65,7 @@ type Tx = PrismaTenantTransactionClient & {
         service?: {
           select: { name: true };
         };
+        services?: { orderBy: { position: "asc" }; select: { service: { select: { name: true } } } };
         contact?: { select: typeof contactSelect };
       };
     }): Promise<Array<AppointmentRecord | CalendarAppointmentRecord>>;
@@ -206,6 +211,7 @@ export function createPrismaCalendarCrmRepository(
               service: {
                 select: { name: true },
               },
+              services: { orderBy: { position: "asc" }, select: { service: { select: { name: true } } } },
               contact: { select: contactSelect },
             },
           });
@@ -232,7 +238,7 @@ export function createPrismaCalendarCrmRepository(
               status: related.status,
               staffDisplayName: related.staff.profile.displayName,
               customerDisplayName: related.customerProfile.displayName,
-              serviceName: related.service.name,
+              serviceName: appointmentServiceLabel(related.service.name, related.services?.map((item) => item.service.name)),
               bookingContact: toBookingContact(related.contact),
             };
           });
@@ -267,6 +273,7 @@ export function createPrismaCalendarCrmRepository(
                 },
               },
               service: { select: { name: true } },
+              services: { orderBy: { position: "asc" }, select: { service: { select: { name: true } } } },
             },
           }),
           tx.customerNote.findMany({
@@ -293,7 +300,7 @@ export function createPrismaCalendarCrmRepository(
             endAt: related.endAt,
             status: related.status,
             staffDisplayName: related.staff.profile.displayName,
-            serviceName: related.service.name,
+            serviceName: appointmentServiceLabel(related.service.name, related.services?.map((item) => item.service.name)),
           };
         });
 

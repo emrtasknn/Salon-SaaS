@@ -1,3 +1,4 @@
+import { appointmentServiceLabel } from "../domain/multi-service";
 import type { NotificationRepository, PushNotificationRepository } from "../application/notification-service";
 import type { NotificationChannel, NotificationEventType, NotificationRecipient } from "../domain/notification";
 import { selectPushRecipients } from "../domain/web-push";
@@ -13,6 +14,7 @@ type Tx = PrismaTenantTransactionClient & {
     customerProfile: { id: string; displayName: string; phone: string | null };
     staff: { profile: { id: string; displayName: string; phone: string | null } };
     service: { name: string };
+    services?: Array<{ service: { name: string } }>;
     contact: { displayName: string; phone: string | null; whatsappOptIn: boolean; optOutAt: Date | null } | null;
   } | null> };
   tenantMembership: {
@@ -49,7 +51,11 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         const appointment = await tx.appointment.findUnique({
           where: { tenantId_id: { tenantId: tenantContext.tenantId, id: appointmentId } },
-          include: { customerProfile: true, staff: { include: { profile: true } }, service: true, contact: true },
+          include: {
+            customerProfile: true, staff: { include: { profile: true } }, service: true, contact: true,
+            // Multi-service list (owner decision 2026-11-06); messages name every service.
+            services: { orderBy: { position: "asc" }, include: { service: true } },
+          },
         });
         if (!appointment) return [];
         const tenant = await tx.tenant.findUnique({ where: { id: tenantContext.tenantId } });
@@ -62,7 +68,7 @@ export function createPrismaNotificationRepository(prisma: PrismaTenantClient): 
         // (contact snapshot), falling back to the CRM profile name for pre-WP-10 bookings.
         const customer = { profileId: appointment.customerProfile.id, displayName: contact?.displayName ?? appointment.customerProfile.displayName, phone: customerPhone };
         const staff = { profileId: appointment.staff.profile.id, displayName: appointment.staff.profile.displayName, phone: appointment.staff.profile.phone };
-        const serviceName = appointment.service.name;
+        const serviceName = appointmentServiceLabel(appointment.service.name, appointment.services?.map((item) => item.service.name));
         const time = new Intl.DateTimeFormat("tr-TR", { timeZone: tenant.timezone, dateStyle: "short", timeStyle: "short" }).format(appointment.startAt);
 
         if (eventType === "APPOINTMENT_CREATED") {

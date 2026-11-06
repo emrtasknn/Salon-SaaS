@@ -1,3 +1,4 @@
+import { appointmentServiceLabel } from "../domain/multi-service";
 import type { StaffAppointmentsRepository } from "../application/staff-appointments";
 import type { AppointmentRecord } from "../domain/appointment";
 import type { PrismaTenantClient, PrismaTenantTransactionClient } from "./prisma-tenant-context";
@@ -9,9 +10,13 @@ const contactSelect = { displayName: true, phone: true, email: true, whatsappOpt
 const listInclude = {
   contact: { select: contactSelect },
   service: { select: { name: true } },
+  // Multi-service list (owner decision 2026-11-06); empty for single-service appointments.
+  services: { orderBy: { position: "asc" }, select: { service: { select: { name: true } } } },
   customerProfile: { select: { displayName: true } },
 } as const;
-type ListRow = AppointmentRecord & { contact: ContactRow | null; service: { name: string }; customerProfile: { displayName: string } };
+type ListRow = AppointmentRecord & {
+  contact: ContactRow | null; service: { name: string }; services?: Array<{ service: { name: string } }>; customerProfile: { displayName: string };
+};
 
 type Tx = PrismaTenantTransactionClient & {
   appointment: {
@@ -39,10 +44,10 @@ export function createPrismaStaffAppointmentsRepository(prisma: PrismaTenantClie
         }),
       );
       // Only the snapshot fields leave persistence (no notice/opt-in evidence columns).
-      return rows.map(({ contact, service, customerProfile, ...appointment }) => ({
+      return rows.map(({ contact, service, services, customerProfile, ...appointment }) => ({
         ...appointment,
         bookingContact: toBookingContact(contact),
-        serviceName: service.name,
+        serviceName: appointmentServiceLabel(service.name, services?.map((item) => item.service.name)),
         customerName: customerProfile.displayName,
       }));
     },

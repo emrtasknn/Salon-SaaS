@@ -10,6 +10,7 @@ import { SalonLocationLink, type SalonLocationView } from "../../_ui/salon-locat
 import { Button } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
 import { ANY_STAFF_ID } from "../../../application/any-staff";
+import { MAX_SERVICES_PER_APPOINTMENT } from "../../../domain/multi-service";
 import { staffPerformsService } from "../../../domain/staff-service";
 import { formatServicePrice } from "../../../domain/service-price";
 import { groupServicesByCategory } from "../../../domain/service-category";
@@ -44,9 +45,29 @@ type StaffOption = Readonly<{
   serviceIds?: ReadonlyArray<string>;
 }>;
 
-/** Staff who perform `serviceId` (all staff while no service is chosen). */
-export function staffForService(staff: ReadonlyArray<StaffOption>, serviceId: string): StaffOption[] {
-  return serviceId ? staff.filter((member) => staffPerformsService(member.serviceIds ?? [], serviceId)) : [...staff];
+/** Staff who perform every chosen service (all staff while nothing is chosen). */
+export function staffForService(staff: ReadonlyArray<StaffOption>, serviceIds: string | ReadonlyArray<string>): StaffOption[] {
+  const wanted = (typeof serviceIds === "string" ? [serviceIds] : [...serviceIds]).filter(Boolean);
+  return wanted.length ? staff.filter((member) => wanted.every((id) => staffPerformsService(member.serviceIds ?? [], id))) : [...staff];
+}
+
+/**
+ * The chosen services as one entry for summaries (owner decision 2026-11-06: same staff, back to back):
+ * "Kesim + Sakal", summed service time, summed price only when every service shows a price.
+ * The buffer stays internal (the server adds it), like for a single service.
+ */
+export function combineSelectedServices(selected: ReadonlyArray<ServiceOption>): ServiceOption | undefined {
+  if (selected.length === 0) return undefined;
+  if (selected.length === 1) return selected[0];
+  const priced = selected.every((service) => typeof service.priceMinor === "number");
+  return {
+    id: selected[0].id,
+    name: selected.map((service) => service.name).join(" + "),
+    durationMinutes: selected.reduce((sum, service) => sum + service.durationMinutes, 0),
+    bufferMinutes: 0,
+    priceMinor: priced ? selected.reduce((sum, service) => sum + (service.priceMinor ?? 0), 0) : null,
+    priceIsFrom: priced && selected.some((service) => service.priceIsFrom),
+  };
 }
 
 type Slot = Readonly<{
@@ -83,7 +104,7 @@ const slotOn = "border-accent-ink bg-accent-soft font-semibold text-on-accent-so
 
 function Check() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="size-5 shrink-0 text-action">
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4 shrink-0">
       <path d="M4.5 10.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -126,7 +147,11 @@ export function PublicBookingForm({
   initialServiceId: string;
 }) {
   const [step, setStep] = useState<BookingStep>(() => initialStep(initialServiceId));
-  const [serviceId, setServiceId] = useState(initialServiceId);
+  // Ordered: the first is the primary service, the rest are booked back to back (max 5).
+  const [serviceIds, setServiceIds] = useState<string[]>(() => (initialServiceId ? [initialServiceId] : []));
+  const serviceId = serviceIds[0] ?? "";
+  const extraServiceIds = useMemo(() => serviceIds.slice(1), [serviceIds]);
+  const extrasKey = extraServiceIds.join(",");
   const [staffId, setStaffId] = useState(() => initialStaffId(staffForService(staff, initialServiceId)));
   const [dateIso, setDateIso] = useState(minDate);
   const [slots, setSlots] = useState<ReadonlyArray<Slot>>([]);
@@ -145,9 +170,12 @@ export function PublicBookingForm({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
 
-  const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
+  const selectedService = useMemo(
+    () => combineSelectedServices(serviceIds.map((id) => services.find((service) => service.id === id)).filter((service): service is ServiceOption => Boolean(service))),
+    [services, serviceIds],
+  );
   const selectedStaff = useMemo(() => staff.find((member) => member.id === staffId), [staff, staffId]);
-  const eligibleStaff = useMemo(() => staffForService(staff, serviceId), [staff, serviceId]);
+  const eligibleStaff = useMemo(() => staffForService(staff, serviceIds), [staff, serviceIds]);
   const staffLabel = staffId === ANY_STAFF_ID ? ANY_STAFF_LABEL : selectedStaff?.displayName ?? "";
   const serviceGroups = useMemo(() => groupServicesByCategory(categories, services), [categories, services]);
   const days = useMemo(() => dateStrip(minDate, 14), [minDate]);
@@ -159,7 +187,7 @@ export function PublicBookingForm({
     }
 
     let active = true;
-    getPublicAvailability({ slug, serviceId, staffId, dateIso }).then((result) => {
+    getPublicAvailability({ slug, serviceId, staffId, dateIso, ...(extrasKey ? { extraServiceIds: extrasKey.split(",") } : {}) }).then((result) => {
       if (!active) return;
       if (result.status === "ok") {
         setSlots(result.slots);
@@ -177,7 +205,7 @@ export function PublicBookingForm({
     return () => {
       active = false;
     };
-  }, [slug, serviceId, staffId, dateIso]);
+  }, [slug, serviceId, extrasKey, staffId, dateIso]);
 
   // Each step change starts at the top with focus on the step title (screen readers hear the new step).
   useEffect(() => {
@@ -194,17 +222,23 @@ export function PublicBookingForm({
     setStep(next);
   }
 
-  function chooseService(id: string) {
-    // Keep the chosen staff member when they perform the new service; otherwise fall back to the default.
-    const eligible = staffForService(staff, id);
+  function toggleService(id: string) {
+    const next = serviceIds.includes(id) ? serviceIds.filter((value) => value !== id) : [...serviceIds, id];
+    if (next.length > MAX_SERVICES_PER_APPOINTMENT) {
+      haptic("warning");
+      setStatus(`En fazla ${MAX_SERVICES_PER_APPOINTMENT} hizmet seçebilirsiniz.`);
+      return;
+    }
+    haptic("selection");
+    // Keep the chosen staff member when they perform every chosen service; otherwise fall back to the default.
+    const eligible = staffForService(staff, next);
     const keep = staffId === ANY_STAFF_ID ? eligible.length > 1 : eligible.some((member) => member.id === staffId);
     const nextStaffId = keep ? staffId : initialStaffId(eligible);
-    setServiceId(id);
+    setServiceIds(next);
     setStaffId(nextStaffId);
     setSelectedSlot("");
-    setStatus("");
-    setAvailabilityStatus(id && nextStaffId && dateIso ? "loading" : "idle");
-    goTo(2);
+    setStatus(next.length && eligible.length === 0 ? "Seçtiğiniz hizmetlerin hepsini yapan bir uzman yok. Hizmetleri ayrı randevularla alabilirsiniz." : "");
+    setAvailabilityStatus(next.length && nextStaffId && dateIso ? "loading" : "idle");
   }
 
   function chooseStaff(id: string) {
@@ -222,7 +256,7 @@ export function PublicBookingForm({
     setAvailabilityStatus(serviceId && staffId ? "loading" : "idle");
   }
 
-  const canContinue = step === 1 ? Boolean(selectedService) : step === 2 ? Boolean(selectedSlot) && availabilityStatus === "ready" : true;
+  const canContinue = step === 1 ? Boolean(selectedService) && eligibleStaff.length > 0 : step === 2 ? Boolean(selectedSlot) && availabilityStatus === "ready" : true;
 
   function submit(formData: FormData) {
     if (!selectedSlot) {
@@ -238,6 +272,7 @@ export function PublicBookingForm({
       const result = await submitBooking({
         slug,
         serviceId,
+        ...(extraServiceIds.length ? { extraServiceIds } : {}),
         staffId,
         startAtIso: selectedSlot,
         displayName: String(formData.get("displayName") ?? ""),
@@ -271,7 +306,7 @@ export function PublicBookingForm({
         setSelectedSlot("");
         setStep(2);
         setAvailabilityStatus("loading");
-        const refreshed = await getPublicAvailability({ slug, serviceId, staffId, dateIso });
+        const refreshed = await getPublicAvailability({ slug, serviceId, staffId, dateIso, ...(extraServiceIds.length ? { extraServiceIds } : {}) });
         if (refreshed.status === "ok") {
           setSlots(refreshed.slots);
           setAvailabilityStatus(refreshed.slots.length ? "ready" : "empty");
@@ -311,7 +346,7 @@ export function PublicBookingForm({
   const barSummary =
     step === 1
       ? selectedService
-        ? `${selectedService.name} · ${selectedService.durationMinutes} dk`
+        ? `${serviceIds.length > 1 ? `${serviceIds.length} hizmet` : selectedService.name} · ${serviceMinutes(selectedService)}`
         : "Bir hizmet seçin"
       : step === 2
         ? selectedSlot
@@ -386,19 +421,20 @@ export function PublicBookingForm({
               </p>
             ) : (
               <div className="space-y-5">
+                <p className="px-1 text-subhead text-ink-muted">Birden fazla hizmet seçebilirsiniz; aynı uzman art arda yapar.</p>
                 {serviceGroups.map((group) => (
                   <section key={group.id ?? "none"} aria-label={group.name ?? "Hizmetler"} className="space-y-1.5">
                     {group.name && <h2 className="px-4 text-footnote font-semibold uppercase text-ink-muted">{group.name}</h2>}
                     <ul className="inset-group divide-y divide-separator overflow-hidden">
                       {group.services.map((service) => {
-                        const selected = service.id === serviceId;
+                        const selected = serviceIds.includes(service.id);
                         const price = formatServicePrice(service.priceMinor, service.priceIsFrom);
                         return (
                           <li key={service.id}>
                             <button
                               type="button"
                               aria-pressed={selected}
-                              onClick={() => chooseService(service.id)}
+                              onClick={() => toggleService(service.id)}
                               className="pressable focus-ring flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-muted"
                             >
                               <span className="min-w-0 flex-1">
@@ -406,7 +442,12 @@ export function PublicBookingForm({
                                 <span className="block text-footnote tabular-nums text-ink-muted">{service.durationMinutes} dk</span>
                               </span>
                               {price && <span className="shrink-0 text-subhead font-medium tabular-nums text-ink">{price}</span>}
-                              {selected ? <Check /> : <span className="text-ink-muted"><Chevron /></span>}
+                              <span
+                                aria-hidden="true"
+                                className={`flex size-6 shrink-0 items-center justify-center rounded-full border ${selected ? "border-action bg-action text-on-action" : "border-field-border"}`}
+                              >
+                                {selected && <Check />}
+                              </span>
                             </button>
                           </li>
                         );

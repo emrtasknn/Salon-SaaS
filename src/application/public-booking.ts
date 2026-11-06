@@ -2,6 +2,7 @@ import type { TenantContext } from "../domain/tenant-context";
 import { generateAppointmentAccessToken } from "../domain/appointment-access-token";
 import { CUSTOMER_NOTICE, WHATSAPP_OPTIN } from "../domain/legal-notice";
 import { normalizeE164Phone } from "../domain/tenant";
+import { normalizeExtraServiceIds } from "../domain/multi-service";
 
 export type PublicBookingRepository = Readonly<{
   /**
@@ -14,6 +15,8 @@ export type PublicBookingRepository = Readonly<{
     tenantContext: TenantContext,
     input: Readonly<{
       serviceId: string; staffId: string; startAt: Date;
+      /** Further services after serviceId, same staff, back to back (owner decision 2026-11-06). */
+      extraServiceIds?: ReadonlyArray<string>;
       displayName: string; email: string; phone: string | null;
       /** SHA-256 hex of the status-link token; the raw token never reaches persistence. */
       accessTokenHash: string;
@@ -48,6 +51,7 @@ export function createPublicBooking(repository: PublicBookingRepository) {
   return {
     async create(tenantContext: TenantContext, input: Readonly<{
       serviceId: string; staffId: string; startAt: unknown; displayName: unknown; email: unknown; phone?: unknown;
+      extraServiceIds?: unknown;
       /** Versions the form displayed; must equal the current server templates. */
       noticeVersion?: unknown; whatsappOptIn?: unknown; optInVersion?: unknown;
       /** Hashes of the displayed texts (PublicLegalView); compared in the booking tx. */
@@ -59,6 +63,8 @@ export function createPublicBooking(repository: PublicBookingRepository) {
         displayName.length > DISPLAY_NAME_MAX || email.length > EMAIL_MAX || !EMAIL.test(email) ||
         !(input.startAt instanceof Date) || Number.isNaN(input.startAt.getTime()) ||
         (input.whatsappOptIn !== undefined && typeof input.whatsappOptIn !== "boolean")) return { status: "INVALID_INPUT" as const };
+      const extraServiceIds = normalizeExtraServiceIds(input.serviceId, input.extraServiceIds);
+      if (extraServiceIds === "INVALID") return { status: "INVALID_INPUT" as const };
       const whatsappOptIn = input.whatsappOptIn === true;
       const noticeHash = input.noticeHash;
       const optInHash = whatsappOptIn ? input.optInHash : null;
@@ -73,6 +79,7 @@ export function createPublicBooking(repository: PublicBookingRepository) {
       const { token, tokenHash } = generateAppointmentAccessToken();
       const result = await repository.create(tenantContext, {
         serviceId: input.serviceId, staffId: input.staffId, startAt: input.startAt,
+        ...(extraServiceIds.length ? { extraServiceIds } : {}),
         displayName, email, phone: phone.value, accessTokenHash: tokenHash, whatsappOptIn,
         shownNoticeHash: noticeHash, shownOptInHash: typeof optInHash === "string" ? optInHash : null,
       });

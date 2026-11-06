@@ -121,3 +121,21 @@ describe("public booking", () => {
     await expect(createPublicBooking(repository).create(tenant, validInput)).resolves.toEqual({ status: "NOTICE_STALE" });
   });
 });
+
+describe("public booking multi-service (owner decision 2026-11-06)", () => {
+  it("passes valid extra services through and omits them for a single service", async () => {
+    const repository = { create: vi.fn().mockResolvedValue({ status: "created", appointmentId: "appointment-a" }) };
+    await createPublicBooking(repository).create(tenant, { ...validInput, extraServiceIds: ["svc-b"] });
+    expect(repository.create.mock.calls[0][1].extraServiceIds).toEqual(["svc-b"]);
+    await createPublicBooking(repository).create(tenant, validInput);
+    expect(repository.create.mock.calls[1][1]).not.toHaveProperty("extraServiceIds");
+  });
+
+  it("rejects duplicates, the primary repeated and too many services before persistence", async () => {
+    const repository = { create: vi.fn() };
+    for (const extraServiceIds of [["svc-b", "svc-b"], ["svc-a"], ["1", "2", "3", "4", "5"], "svc-b"]) {
+      await expect(createPublicBooking(repository).create(tenant, { ...validInput, extraServiceIds })).resolves.toEqual({ status: "INVALID_INPUT" });
+    }
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+});

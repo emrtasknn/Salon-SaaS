@@ -5,11 +5,15 @@ import type { AppointmentRecord } from "../domain/appointment";
 import { localWallTimeToUtc } from "../domain/availability";
 import { readClosedDates, type ClosureDateReadTransaction } from "./prisma-booking-engine";
 import { staffServesService, type StaffServiceReadTransaction } from "./prisma-staff-services";
+import { combineServiceTimings } from "../domain/multi-service";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
 type Tx = PrismaTenantTransactionClient & ClosureDateReadTransaction & StaffServiceReadTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string; status: "ACTIVE" | "INACTIVE" } | null> };
-  service: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null> };
+  service: {
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
+    findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
+  };
   staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
   workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
   appointment: { findMany(args: { where: { tenantId: string; staffId: string; startAt: { lt: Date }; endAt: { gt: Date } } }): Promise<AppointmentRecord[]> };
@@ -34,7 +38,15 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
           ]);
           if (!tenant || !service || !staff) return { status: "invalid_resource" as const };
           // Owner decision 2026-11-06: staff only offer the services they perform (no mapping = every service).
-          if (!(await staffServesService(tx, tenantContext.tenantId, input.staffId, input.serviceId))) return { status: "invalid_resource" as const };
+          const extraIds = [...(input.extraServiceIds ?? [])];
+          for (const serviceId of [input.serviceId, ...extraIds]) {
+            if (!(await staffServesService(tx, tenantContext.tenantId, input.staffId, serviceId))) return { status: "invalid_resource" as const };
+          }
+          // Multi-service (owner decision 2026-11-06): every extra service must exist in this tenant and be active.
+          const extras = extraIds.length ? await tx.service.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: extraIds } } }) : [];
+          if (extras.length !== extraIds.length || extras.some((extra) => !extra.active)) return { status: "invalid_resource" as const };
+          const ordered = [service, ...extraIds.map((id) => extras.find((extra) => extra.id === id)!)];
+          const timing = combineServiceTimings(ordered);
           // WP-07: an inactive salon offers no slots (distinct from invalid_resource).
           if (tenant.status !== "ACTIVE") return { status: "tenant_inactive" as const };
 
@@ -55,8 +67,8 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
           return {
             status: "ok" as const,
             timeZone: tenant.timezone,
-            durationMinutes: service.durationMinutes,
-            bufferMinutes: service.bufferMinutes,
+            durationMinutes: timing.durationMinutes,
+            bufferMinutes: timing.bufferMinutes,
             workingHours,
             appointments,
             closedDates,

@@ -33,7 +33,11 @@ function makeTransaction(overrides: Readonly<{
     tenant: { findUnique: vi.fn().mockResolvedValue({ ...legalTenant, ...(overrides.tenant ?? {}) }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([{ id: "wh", tenantId: "tenant-a", dayOfWeek: 1, openMinute: 540, closeMinute: 1080 }]) },
     staffService: { findMany: vi.fn().mockResolvedValue([]) },
-    service: { findUnique: vi.fn().mockResolvedValue(overrides.service !== undefined ? overrides.service : { id: "svc-a", durationMinutes: 60, bufferMinutes: 15, active: true }) },
+    service: {
+      findUnique: vi.fn().mockResolvedValue(overrides.service !== undefined ? overrides.service : { id: "svc-a", durationMinutes: 60, bufferMinutes: 15, active: true }),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    appointmentService: { createMany: vi.fn().mockResolvedValue({ count: 0 }) },
     staff: { findUnique: vi.fn().mockResolvedValue(overrides.staff !== undefined ? overrides.staff : { id: "staff-a", status: "ACTIVE" }) },
     profile: { findUnique: vi.fn().mockResolvedValue(overrides.profile !== undefined ? overrides.profile : { id: "c" }), create: vi.fn() },
     appointment: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: "a" }) },
@@ -369,5 +373,42 @@ describe("public booking staff–service mapping (owner decision 2026-11-06)", (
     await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("invalid_resource");
     expect(transaction.appointment.create).not.toHaveBeenCalled();
     expect(transaction.appointmentAccessToken.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("public booking multi-service (owner decision 2026-11-06)", () => {
+  it("books the full time of all services and stores the ordered list in the same transaction", async () => {
+    const transaction = makeTransaction();
+    transaction.service.findMany.mockResolvedValue([{ id: "svc-b", durationMinutes: 30, bufferMinutes: 0, active: true }]);
+
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, { ...validInput, extraServiceIds: ["svc-b"] }))
+      .resolves.toEqual({ status: "created", appointmentId: "a" });
+
+    // 60 + 15 (svc-a) + 30 + 0 (svc-b) = 105 minutes.
+    const created = transaction.appointment.create.mock.calls[0][0].data;
+    expect(created.serviceId).toBe("svc-a");
+    expect(created.endAt.getTime() - created.startAt.getTime()).toBe(105 * 60_000);
+    expect(transaction.appointmentService.createMany).toHaveBeenCalledWith({
+      data: [
+        { tenantId: "tenant-a", appointmentId: "a", serviceId: "svc-a", position: 0 },
+        { tenantId: "tenant-a", appointmentId: "a", serviceId: "svc-b", position: 1 },
+      ],
+    });
+  });
+
+  it("writes no service rows for a single-service booking", async () => {
+    const transaction = makeTransaction();
+    await createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput);
+    expect(transaction.appointmentService.createMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses an extra service the staff member does not perform, before any write", async () => {
+    const transaction = makeTransaction();
+    transaction.staffService.findMany.mockResolvedValue([{ staffId: "staff-a", serviceId: "svc-a" }]);
+    transaction.service.findMany.mockResolvedValue([{ id: "svc-b", durationMinutes: 30, bufferMinutes: 0, active: true }]);
+
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, { ...validInput, extraServiceIds: ["svc-b"] }))
+      .resolves.toBe("invalid_resource");
+    expect(transaction.appointment.create).not.toHaveBeenCalled();
   });
 });
