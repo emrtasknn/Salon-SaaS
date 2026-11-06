@@ -19,6 +19,9 @@ import { AccountLinks } from "../_ui/account-links";
 import { PageHeader } from "../_ui/page-header";
 import { formatGreetingDate, localDateIso } from "../_ui/greeting";
 import { readViewerGreeting } from "../_ui/viewer-greeting";
+import { pendingSummaryText } from "./dashboard-summary";
+import { setupSteps } from "./setup-steps";
+import { Check } from "lucide-react";
 
 /**
  * Navigation only: the login form sends every tenant user to /admin, so staff
@@ -77,7 +80,7 @@ function Chevron() {
 }
 
 /** iOS-Settings style row: label, optional detail value, chevron. Whole row is the link. */
-function SettingsRow({ href, label, detail }: { href: string; label: string; detail?: string }) {
+function SettingsRow({ href, label, detail, warn = false }: { href: string; label: string; detail?: string; warn?: boolean }) {
   return (
     <li className="inset-row">
       <Link
@@ -85,7 +88,11 @@ function SettingsRow({ href, label, detail }: { href: string; label: string; det
         className="focus-ring tap-target flex items-center gap-3 px-4 py-3 text-body text-ink [outline-offset:-2px] hover:bg-surface-muted active:bg-surface-muted"
       >
         <span className="min-w-0 flex-1">{label}</span>
-        {detail && <span className="shrink-0 text-subhead text-ink-muted tabular-nums">{detail}</span>}
+        {detail && (
+          <span className={`shrink-0 text-subhead tabular-nums ${warn ? "font-semibold text-status-pending" : "text-ink-muted"}`}>
+            {detail}
+          </span>
+        )}
         <Chevron />
       </Link>
     </li>
@@ -113,6 +120,12 @@ export default async function AdminPage() {
     : null;
   const openDays = data.workingHours.status === "listed" ? data.workingHours.workingHours.length : null;
   const salonName = (settings.ok ? settings.settings.name : null) ?? greeting.tenantName;
+  const allPending = notifications.status === "ok" ? notifications.pendingCount : null;
+  const legal = settings.ok ? settings.settings.legal : null;
+  const legalMissing = legal ? !(legal.legalName && legal.legalAddress && legal.kvkkContactEmail) : false;
+  const steps = setupSteps({ staffCount, serviceCount, openDays, legalMissing });
+  const remaining = steps.filter((step) => !step.done).length;
+  const anyPending = (allPending ?? 0) > 0 || (today?.pending ?? 0) > 0;
 
   return (
     <main className="min-h-screen bg-canvas text-ink">
@@ -131,6 +144,37 @@ export default async function AdminPage() {
 
       <div className="mx-auto w-full max-w-xl space-y-8 px-4 pb-10 pt-4 sm:px-6">
         {pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" /> : null}
+        {remaining > 0 && (
+          <section aria-labelledby="setup-title">
+            <h2 id="setup-title" className="group-label">Kurulum · {remaining} adım kaldı</h2>
+            <p className="px-4 pb-2 text-subhead text-ink-muted">Bu adımlar bitince müşterileriniz online randevu alabilir.</p>
+            <ol className="inset-group">
+              {steps.map((step, index) => (
+                <li key={step.href} className="inset-row">
+                  <Link
+                    href={step.href}
+                    className="focus-ring tap-target flex items-center gap-3 px-4 py-3 text-body text-ink [outline-offset:-2px] hover:bg-surface-muted active:bg-surface-muted"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`flex size-7 shrink-0 items-center justify-center rounded-full text-footnote font-semibold tabular-nums ${
+                        step.done ? "bg-status-confirmed-bg text-status-confirmed" : "bg-surface-muted text-ink"
+                      }`}
+                    >
+                      {step.done ? <Check className="size-4" strokeWidth={2.5} /> : index + 1}
+                    </span>
+                    <span className={`min-w-0 flex-1 ${step.done ? "text-ink-muted line-through" : ""}`}>
+                      {step.label}
+                      <span className="sr-only">{step.done ? " (tamamlandı)" : " (yapılacak)"}</span>
+                    </span>
+                    <Chevron />
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
         <section aria-labelledby="today-title">
           <h2 id="today-title" className="group-label">Bugün</h2>
           <Link
@@ -143,8 +187,8 @@ export default async function AdminPage() {
                   <p className="text-title tabular-nums">
                     {today.total} <span className="text-headline font-semibold">randevu</span>
                   </p>
-                  <p className={`mt-1 text-subhead tabular-nums ${today.pending > 0 ? "font-semibold text-status-pending" : "text-ink-muted"}`}>
-                    {today.pending > 0 ? `${today.pending} talep onay bekliyor` : "Onay bekleyen talep yok"}
+                  <p className={`mt-1 text-subhead tabular-nums ${anyPending ? "font-semibold text-status-pending" : "text-ink-muted"}`}>
+                    {pendingSummaryText(today.pending, allPending)}
                   </p>
                 </>
               ) : (
@@ -162,7 +206,12 @@ export default async function AdminPage() {
             <SettingsRow href="/admin/staff" label="Personel" detail={staffCount === null ? undefined : `${staffCount} aktif`} />
             <SettingsRow href="/admin/services" label="Hizmetler" detail={serviceCount === null ? undefined : `${serviceCount} aktif`} />
             <SettingsRow href="/admin/hours" label="Çalışma saatleri" detail={openDays === null ? undefined : `${openDays} gün açık`} />
-            <SettingsRow href="/admin/salon" label="Salon bilgileri" detail="Konum, KVKK" />
+            <SettingsRow
+              href="/admin/salon"
+              label="Salon bilgileri"
+              detail={legalMissing ? "Yasal bilgi eksik" : "Konum, KVKK"}
+              warn={legalMissing}
+            />
           </ul>
         </section>
 

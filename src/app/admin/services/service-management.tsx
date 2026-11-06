@@ -28,7 +28,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                 durationMinutes: Number(formData.get("durationMinutes") ?? 0),
                 bufferMinutes: Number(formData.get("bufferMinutes") ?? 0),
               });
-              setFeedback(message(result.status));
+              setFeedback(message(result.status, "Hizmet eklendi."));
               if (result.status === "created") refresh();
             })
           }
@@ -75,7 +75,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                     onToggle={() =>
                       startTransition(async () => {
                         const result = await toggleServiceAction(item.id, !item.active);
-                        setFeedback(message(result.status));
+                        setFeedback(message(result.status, "Hizmet durumu güncellendi."));
                         if (result.status === "updated") refresh();
                       })
                     }
@@ -93,7 +93,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                       setFeedback(
                         result.status === "updated"
                           ? "Hizmet bilgileri güncellendi."
-                          : message(result.status),
+                          : message(result.status, "Hizmet bilgileri kaydedildi."),
                       );
                       if (result.status === "updated") refresh();
                     })

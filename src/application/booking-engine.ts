@@ -1,5 +1,5 @@
 import type { ApplicationIdentity } from "../domain/auth-identity";
-import { canRescheduleAppointment, type AppointmentRecord, type AppointmentStatus } from "../domain/appointment";
+import { canCompleteAppointment, canRescheduleAppointment, type AppointmentRecord, type AppointmentStatus } from "../domain/appointment";
 import { calculateAvailability, isSlotOnClosedDate, utcToLocalDateAndMinute } from "../domain/availability";
 import { generateAppointmentAccessToken } from "../domain/appointment-access-token";
 import { createTenantContactPhone, type TenantStatus } from "../domain/tenant";
@@ -89,6 +89,8 @@ export type AppointmentCreateScope = Readonly<{ kind: "admin" }> | Readonly<{ ki
 export type BookingAuthorizer = Readonly<{
   authorize(identity: ApplicationIdentity, tenantContext: TenantContext, role: "TENANT_ADMIN" | "STAFF" | "CUSTOMER"): Promise<boolean>;
   authorizeStaffDecision(identity: ApplicationIdentity, tenantContext: TenantContext, appointment: AppointmentRecord): Promise<boolean>;
+  /** Assigned ACTIVE staff completing their own CONFIRMED appointment. Absent = staff cannot complete. */
+  authorizeStaffCompletion?(identity: ApplicationIdentity, tenantContext: TenantContext, appointment: AppointmentRecord): Promise<boolean>;
   /**
    * TENANT_ADMIN (or higher) -> admin; ACTIVE STAFF -> staff with their own staffId read from the
    * server (never from client input); anyone else -> null.
@@ -314,8 +316,14 @@ export function createBookingEngine(dependencies: Readonly<{ repository: Booking
     async transition(identity: ApplicationIdentity, tenantContext: TenantContext, appointment: AppointmentRecord, to: AppointmentStatus) {
       const authorized = to === "CONFIRMED" || to === "REJECTED"
         ? await dependencies.authorizer.authorizeStaffDecision(identity, tenantContext, appointment)
-        : await dependencies.authorizer.authorize(identity, tenantContext, "TENANT_ADMIN");
+        : to === "COMPLETED"
+          ? (await dependencies.authorizer.authorize(identity, tenantContext, "TENANT_ADMIN")) ||
+            (await dependencies.authorizer.authorizeStaffCompletion?.(identity, tenantContext, appointment)) === true
+          : await dependencies.authorizer.authorize(identity, tenantContext, "TENANT_ADMIN");
       if (!authorized) return { status: "UNAUTHORIZED" as const };
+      if (to === "COMPLETED" && appointment.status === "CONFIRMED" && !canCompleteAppointment(appointment, now())) {
+        return { status: "NOT_STARTED" as const };
+      }
       const result = await dependencies.repository.transition(tenantContext, appointment.id, appointment.status, to);
       if (result === "updated") return { status: "updated" as const };
       if (result === "not_found") return { status: "NOT_FOUND" as const };

@@ -1,16 +1,18 @@
 "use client";
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
-import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
+import { completeStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { PageHeader } from "../_ui/page-header";
 import { AccountLinks } from "../_ui/account-links";
 import { appointmentStatusBadge, badgeBase, fieldInline, statusNote, appointmentStatusLabel } from "../_ui/styles";
-import { AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
+import { useMinuteClock, AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
 import { dateInZone } from "../_ui/timeline-layout";
+import { formatDayLabel } from "../_ui/date-format";
+import { ConfirmButton } from "../_ui/confirm-button";
 import { Button } from "@/components/ui/button";
 
 // Staff create for themselves only (staffId derived server-side), guest customer only.
@@ -18,6 +20,7 @@ const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listS
 import { decideAndNotify } from "./decide";
 import { BookingContactSummary } from "../booking-contact-summary";
 import { haptic } from "@/lib/haptics";
+import { RotateCw } from "lucide-react";
 
 type Props = {
   initialDate: string;
@@ -44,6 +47,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
+  const nowMs = useMinuteClock();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const sheetTrigger = useRef<HTMLElement | null>(null);
   const move = useAppointmentMove({
@@ -66,6 +70,23 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
     setDate(created.date);
     refresh();
     setFeedback(created.notified ? "Randevu oluşturuldu ve onaylandı. Müşteri bildirimi gönderime alındı." : "Randevu oluşturuldu ve onaylandı.");
+  }
+
+  function complete(appointmentId: string) {
+    haptic("selection");
+    startTransition(async () => {
+      const result = await completeStaffAppointment(appointmentId);
+      haptic(result.status === "updated" ? "success" : "error");
+      const messages: Record<string, string> = {
+        updated: "Randevu tamamlandı.",
+        NOT_STARTED: "Randevu başlamadan tamamlandı olarak işaretlenemez.",
+        UNAUTHORIZED: "Bu randevu için yetkiniz yok.",
+        NOT_FOUND: "Randevu bulunamadı. Liste yenilendi.",
+        INVALID_TRANSITION: "Bu randevu artık tamamlanamaz. Liste yenilendi.",
+      };
+      setFeedback(messages[result.status] ?? "İşlem gerçekleştirilemedi.");
+      if (result.status !== "UNAUTHORIZED") refresh();
+    });
   }
 
   function decide(appointmentId: string, to: "CONFIRMED" | "REJECTED") {
@@ -95,7 +116,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const loadError = data.status !== "ok" ? "Randevular yüklenemedi." : "";
   // Day and list show only the anchor date (data may still hold a wider range while reloading).
   const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
-  const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setSelectedId(id); };
+  const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setFeedback(""); setSelectedId(id); };
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const customerOf = (a: (typeof appointments)[number]) => a.bookingContact?.displayName ?? a.customerName;
   const movableOf = (a: (typeof appointments)[number]) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, title: customerOf(a), detail: a.serviceName });
@@ -112,7 +133,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <p className="mr-auto text-subhead font-semibold text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
         <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
-        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary">{loading ? "Yükleniyor…" : "Yenile"}</Button>
+        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary" leadingIcon={RotateCw} aria-label={loading ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span></Button>
       </div>
       {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
       <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
@@ -160,7 +181,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
 
     <AppointmentSheet
       open={selected !== null}
-      title={selected ? formatTimeRange(selected.startAt, selected.endAt) : ""}
+      title={selected ? `${formatDayLabel(selected.startAt)} · ${formatTimeRange(selected.startAt, selected.endAt)}` : ""}
       onClose={() => { setSelectedId(null); sheetTrigger.current?.focus(); }}
     >
       {selected && <div className="space-y-4">
@@ -177,8 +198,11 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
         />}
         {selected.status === "PENDING" ? <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="button" disabled={busy} onClick={() => decide(selected.id, "CONFIRMED")} variant="primary" className="sm:flex-1">Onayla</Button>
-          <Button type="button" disabled={busy} onClick={() => decide(selected.id, "REJECTED")} variant="danger-outline" className="sm:flex-1">Reddet</Button>
-        </div> : <p className="text-subhead text-ink-muted">Bu randevu için başka işlem yok.</p>}
+          <ConfirmButton label="Reddet" question="Talep reddedilsin mi?" detail="Bu işlem geri alınamaz. Müşteri bildirim izni verdiyse bilgilendirilir." confirmLabel="Evet, reddet" disabled={busy} onConfirm={() => decide(selected.id, "REJECTED")} className="sm:flex-1" />
+        </div> : selected.status === "CONFIRMED" && nowMs !== null && new Date(selected.startAt).getTime() <= nowMs ? <div className="flex flex-col gap-2">
+          <Button type="button" disabled={busy} onClick={() => complete(selected.id)} variant="primary">Tamamlandı</Button>
+          <p className="text-footnote text-ink-muted">İptal işlemini salon yöneticisi yapar.</p>
+        </div> : <p className="text-subhead text-ink-muted">{selected.status === "CONFIRMED" ? "Randevu başlayınca tamamlandı olarak işaretleyebilirsiniz. İptal işlemini salon yöneticisi yapar." : "Bu randevu için başka işlem yok."}</p>}
       </div>}
     </AppointmentSheet>
     {move.sheet}

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createAuthenticatedIdentity } from "../domain/auth-identity";
 import type { AppointmentRecord } from "../domain/appointment";
 import type { TenantContext } from "../domain/tenant-context";
-import { authorizeStaffDecision } from "./staff-appointment-authorization";
+import { authorizeStaffCompletion, authorizeStaffDecision } from "./staff-appointment-authorization";
 
 const tenantContext = { tenantId: "tenant-a" as never } satisfies TenantContext;
 const identity = createAuthenticatedIdentity("subject-a", "profile-a");
@@ -135,5 +135,36 @@ describe("authorizeStaffDecision tenant boundary", () => {
       ),
     ).resolves.toBe(false);
     expect(alreadyDecided.readMembership).not.toHaveBeenCalled();
+  });
+});
+
+describe("authorizeStaffCompletion (owner decision 2026-11-06)", () => {
+  const confirmed = { ...appointment, status: "CONFIRMED" } as AppointmentRecord;
+
+  it("allows the active staff member assigned to their own confirmed appointment", async () => {
+    await expect(authorizeStaffCompletion(dependencies().value, identity, tenantContext, confirmed)).resolves.toBe(true);
+  });
+
+  it("denies pending or terminal appointments", async () => {
+    for (const status of ["PENDING", "CANCELLED", "REJECTED", "COMPLETED"] as const) {
+      await expect(
+        authorizeStaffCompletion(dependencies().value, identity, tenantContext, { ...confirmed, status }),
+      ).resolves.toBe(false);
+    }
+  });
+
+  it("denies another staff member's appointment, inactive staff and other tenants", async () => {
+    await expect(authorizeStaffCompletion(dependencies().value, identity, tenantContext, { ...confirmed, staffId: "staff-b" })).resolves.toBe(false);
+    const inactive = dependencies({ staff: { id: "staff-a", tenantId: "tenant-a", profileId: "profile-a", status: "INACTIVE" } });
+    await expect(authorizeStaffCompletion(inactive.value, identity, tenantContext, confirmed)).resolves.toBe(false);
+    const deps = dependencies();
+    await expect(authorizeStaffCompletion(deps.value, identity, tenantContext, { ...confirmed, tenantId: "tenant-b" })).resolves.toBe(false);
+    expect(deps.readMembership).not.toHaveBeenCalled();
+  });
+
+  it("denies customers and platform admins", async () => {
+    for (const role of ["CUSTOMER", "SUPER_ADMIN"] as const) {
+      await expect(authorizeStaffCompletion(dependencies({ role }).value, identity, tenantContext, confirmed)).resolves.toBe(false);
+    }
   });
 });

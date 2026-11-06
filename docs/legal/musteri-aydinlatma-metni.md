@@ -19,7 +19,7 @@
 | `{{salonAdresi}}` | Salonun tebligat adresi | — |
 | `{{salonEposta}}` | KVKK başvuru e-postası | kvkk@salonada.com |
 | `{{salonTelefon}}` | `Tenant.contactPhone` | +90 555 111 22 33 |
-| `{{platformUnvani}}` | Platform işletmecisi | — |
+| `{{platformUnvani}}` | Platform işletmecisi. Sahip kararı 2026-11-06: tüzel kişilik adı belli olana kadar "RandevuN platformu" (`PLATFORM_PROVIDER_NAME`) | RandevuN platformu |
 | `{{saklamaSuresi}}` | Avukat/salon kararı | Son randevudan itibaren 2 yıl |
 | `{{metinSurumu}}` | Sabit | v1 |
 
