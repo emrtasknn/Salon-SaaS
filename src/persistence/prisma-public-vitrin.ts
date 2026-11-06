@@ -11,6 +11,7 @@ type Tx = PrismaTenantTransactionClient & {
     publicAddress: string | null; mapsUrl: string | null;
   } | null> };
   service: { findMany(args: { where: { tenantId: string; active: boolean }; orderBy: { name: "asc" } }): Promise<ServiceRecord[]> };
+  serviceCategory: { findMany(args: { where: { tenantId: string }; orderBy: Array<{ sortOrder: "asc" } | { name: "asc" }>; select: { id: true; name: true; sortOrder: true } }): Promise<Array<{ id: string; name: string; sortOrder: number }>> };
   staff: { findMany(args: { where: { tenantId: string; status: "ACTIVE" }; orderBy: { id: "asc" } }): Promise<Array<{ id: string; profileId: string; status: "ACTIVE" }>> };
   profile: { findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; displayName: string }>> };
   workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
@@ -35,10 +36,17 @@ export function createPrismaPublicSalonRepository(prisma: PrismaTenantClient): P
           tx.staff.findMany({ where: { tenantId: tenantContext.tenantId, status: "ACTIVE" }, orderBy: { id: "asc" } }),
           tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
         ]);
+        // Sequential on purpose: queries inside one interactive transaction share a connection.
+        const categories = await tx.serviceCategory.findMany({
+          where: { tenantId: tenantContext.tenantId },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+          select: { id: true, name: true, sortOrder: true },
+        });
         const profiles = await tx.profile.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: staff.map((s) => s.profileId) } } });
         const names = new Map(profiles.map((p) => [p.id, p.displayName]));
         return {
           services,
+          categories,
           staff: staff.map((s) => ({ ...s, displayName: names.get(s.profileId) ?? "Staff" })),
           workingHours,
         };

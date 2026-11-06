@@ -1,5 +1,7 @@
 "use client";
 
+import { formatServicePrice } from "../../../domain/service-price";
+import { groupServicesByCategory } from "../../../domain/service-category";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { PublicLegalView } from "../../legal-consent-contract";
 import { getPublicAvailability } from "./actions";
@@ -14,7 +16,18 @@ type ServiceOption = Readonly<{
   name: string;
   durationMinutes: number;
   bufferMinutes: number;
+  categoryId?: string | null;
+  priceMinor?: number | null;
+  priceIsFrom?: boolean;
 }>;
+
+type CategoryOption = Readonly<{ id: string; name: string; sortOrder: number }>;
+
+/** "Kesim · 30 dk · ₺450": the customer sees the service time; the buffer stays internal. */
+function serviceOptionLabel(service: ServiceOption) {
+  const price = formatServicePrice(service.priceMinor, service.priceIsFrom);
+  return [service.name, `${service.durationMinutes} dk`, price].filter(Boolean).join(" · ");
+}
 
 type StaffOption = Readonly<{
   id: string;
@@ -47,6 +60,7 @@ export function PublicBookingForm({
   legal,
   location = null,
   services,
+  categories = [],
   staff,
   timeZone,
   minDate,
@@ -57,6 +71,8 @@ export function PublicBookingForm({
   /** Salon address + server-computed, allowlisted directions link; null when not set. */
   location?: SalonLocationView | null;
   services: ReadonlyArray<ServiceOption>;
+  /** Owner decision 2026-11-06: service groups for the select (optgroup). */
+  categories?: ReadonlyArray<CategoryOption>;
   staff: ReadonlyArray<StaffOption>;
   timeZone: string;
   minDate: string;
@@ -211,11 +227,19 @@ export function PublicBookingForm({
                 className={field}
               >
                 <option value="">Hizmet seçin</option>
-                {services.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name} · {service.durationMinutes + service.bufferMinutes} dk
-                  </option>
-                ))}
+                {groupServicesByCategory(categories, services).map((group) =>
+                  group.name ? (
+                    <optgroup key={group.id ?? "none"} label={group.name}>
+                      {group.services.map((service) => (
+                        <option key={service.id} value={service.id}>{serviceOptionLabel(service)}</option>
+                      ))}
+                    </optgroup>
+                  ) : (
+                    group.services.map((service) => (
+                      <option key={service.id} value={service.id}>{serviceOptionLabel(service)}</option>
+                    ))
+                  ),
+                )}
               </select>
             </label>
 

@@ -5,6 +5,10 @@ export type ServiceRecord = Readonly<{
   durationMinutes: number;
   bufferMinutes: number;
   active: boolean;
+  /** Owner decision 2026-11-06: optional category (same tenant) and price in kuruş. */
+  categoryId?: string | null;
+  priceMinor?: number | null;
+  priceIsFrom?: boolean;
 }>;
 
 export const SERVICE_NAME_MAX_LENGTH = 120;

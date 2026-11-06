@@ -3,6 +3,8 @@
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import { createServiceManager } from "../../application/service-management";
+import { createServiceCategoryManager } from "../../application/service-categories";
+import { createPrismaServiceCategoryRepository } from "../../persistence/prisma-service-categories";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { createStaffManager } from "../../application/staff-management";
 import { createWorkingHoursManager } from "../../application/working-hours-management";
@@ -50,6 +52,20 @@ async function getAdminContext() {
       membership.membership.profileId,
     ),
   };
+}
+
+/** Owner decision 2026-11-06: service categories; TENANT_ADMIN re-checked on the server. */
+function categories(prisma: ReturnType<typeof getPrisma>) {
+  return createServiceCategoryManager({
+    authorizer: {
+      async authorize(identity, tenantContext, requiredRole) {
+        const reader = createPrismaMembershipReader({ prisma });
+        const decision = await enforceServerAuthorization({ identity, tenantContext, requiredRole }, reader);
+        return decision.authorization.status === "allowed";
+      },
+    },
+    repository: createPrismaServiceCategoryRepository(prisma),
+  });
 }
 
 function services(prisma: ReturnType<typeof getPrisma>) {
@@ -116,8 +132,9 @@ export async function listAdminData() {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
 
-  const [serviceResult, hoursResult, staffResult, selfStaffResult] = await Promise.all([
+  const [serviceResult, categoryResult, hoursResult, staffResult, selfStaffResult] = await Promise.all([
     services(context.prisma).list(context.identity, context.tenantContext),
+    categories(context.prisma).list(context.identity, context.tenantContext),
     workingHours(context.prisma).list(context.identity, context.tenantContext),
     staff(context.prisma).list(context.identity, context.tenantContext),
     adminServesAsStaff(context.prisma).read(context.identity, context.tenantContext),
@@ -126,6 +143,7 @@ export async function listAdminData() {
   return {
     status: "ok" as const,
     services: serviceResult,
+    serviceCategories: categoryResult.status === "listed" ? categoryResult.categories : [],
     workingHours: hoursResult,
     staff: staffResult,
     /** Whether the signed-in TENANT_ADMIN also serves customers (own ACTIVE Staff row). */
@@ -133,11 +151,17 @@ export async function listAdminData() {
   };
 }
 
+type ServiceCatalogInput = {
+  categoryId?: string | null;
+  priceMinor?: number | null;
+  priceIsFrom?: boolean;
+};
+
 export async function createServiceAction(input: {
   name: string;
   durationMinutes: number;
   bufferMinutes: number;
-}) {
+} & ServiceCatalogInput) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
   return services(context.prisma).create({
@@ -164,7 +188,7 @@ export async function updateServiceAction(
     name?: string;
     durationMinutes?: number;
     bufferMinutes?: number;
-  },
+  } & ServiceCatalogInput,
 ) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
@@ -174,6 +198,30 @@ export async function updateServiceAction(
     serviceId,
     ...input,
   });
+}
+
+export async function createServiceCategoryAction(name: string) {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+  return categories(context.prisma).create(context.identity, context.tenantContext, name);
+}
+
+export async function renameServiceCategoryAction(categoryId: string, name: string) {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+  return categories(context.prisma).rename(context.identity, context.tenantContext, categoryId, name);
+}
+
+export async function moveServiceCategoryAction(categoryId: string, direction: "up" | "down") {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+  return categories(context.prisma).move(context.identity, context.tenantContext, categoryId, direction);
+}
+
+export async function deleteServiceCategoryAction(categoryId: string) {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+  return categories(context.prisma).remove(context.identity, context.tenantContext, categoryId);
 }
 
 export async function saveWorkingHoursAction(input: {

@@ -7,6 +7,7 @@ import {
   normalizeServiceName,
   type ServiceRecord,
 } from "../domain/service";
+import { createServicePrice } from "../domain/service-price";
 
 type ServiceManageRole = Extract<TenantRole, "TENANT_ADMIN" | "SUPER_ADMIN">;
 
@@ -16,6 +17,11 @@ export type ServiceCreateInput = Readonly<{
   name: unknown;
   durationMinutes: unknown;
   bufferMinutes?: unknown;
+  /** Category of the same tenant, or null for none (owner decision 2026-11-06). */
+  categoryId?: unknown;
+  /** Kuruş or null. */
+  priceMinor?: unknown;
+  priceIsFrom?: unknown;
 }>;
 
 export type ServiceUpdateInput = Readonly<{
@@ -25,18 +31,25 @@ export type ServiceUpdateInput = Readonly<{
   name?: unknown;
   durationMinutes?: unknown;
   bufferMinutes?: unknown;
+  categoryId?: unknown;
+  /** Price fields are updated together (priceMinor + priceIsFrom). */
+  priceMinor?: unknown;
+  priceIsFrom?: unknown;
 }>;
+
+/** Optional catalogue fields; only keys that were provided are written. */
+export type ServiceCatalogPatch = { categoryId?: string | null; priceMinor?: number | null; priceIsFrom?: boolean };
 
 export type ServiceRepository = Readonly<{
   create(
     tenantContext: TenantContext,
-    input: Readonly<{ name: string; durationMinutes: number; bufferMinutes: number }>,
-  ): Promise<"created" | "conflict">;
+    input: Readonly<{ name: string; durationMinutes: number; bufferMinutes: number } & ServiceCatalogPatch>,
+  ): Promise<"created" | "conflict" | "category_not_found">;
   update(
     tenantContext: TenantContext,
     serviceId: string,
-    patch: Readonly<{ name?: string; durationMinutes?: number; bufferMinutes?: number }>,
-  ): Promise<"updated" | "not_found" | "conflict">;
+    patch: Readonly<{ name?: string; durationMinutes?: number; bufferMinutes?: number } & ServiceCatalogPatch>,
+  ): Promise<"updated" | "not_found" | "conflict" | "category_not_found">;
   setActive(
     tenantContext: TenantContext,
     serviceId: string,
@@ -77,6 +90,35 @@ function normalizeOptionalNumber(
   }
 }
 
+const ID_MAX_LENGTH = 100;
+
+function readCategoryId(value: unknown): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string" || value.length === 0 || value.length > ID_MAX_LENGTH || value !== value.trim() || /[\u0000-\u001f\u007f]/.test(value)) {
+    throw new TypeError("Category id is invalid");
+  }
+  return value;
+}
+
+/**
+ * Reads the optional category/price fields. `requirePricePair` (updates) demands priceMinor and
+ * priceIsFrom together so the DB CHECK (starting price needs a price) can never be half-applied.
+ */
+function readCatalogPatch(input: Readonly<Record<string, unknown>>, requirePricePair: boolean): ServiceCatalogPatch {
+  const patch: ServiceCatalogPatch = {};
+  if ("categoryId" in input && input.categoryId !== undefined) patch.categoryId = readCategoryId(input.categoryId);
+  const hasPrice = "priceMinor" in input && input.priceMinor !== undefined;
+  const hasFlag = "priceIsFrom" in input && input.priceIsFrom !== undefined;
+  if (hasPrice || hasFlag) {
+    if (requirePricePair && !(hasPrice && hasFlag)) throw new TypeError("Price fields must be updated together");
+    if (!hasPrice) throw new TypeError("A starting price needs a price");
+    const price = createServicePrice(input.priceMinor, hasFlag ? input.priceIsFrom : false);
+    patch.priceMinor = price.priceMinor;
+    patch.priceIsFrom = price.priceIsFrom;
+  }
+  return patch;
+}
+
 export function createServiceManager(dependencies: Readonly<{
   authorizer: ServiceManagementAuthorizer;
   repository: ServiceRepository;
@@ -90,10 +132,12 @@ export function createServiceManager(dependencies: Readonly<{
       let name: string;
       let durationMinutes: number;
       let bufferMinutes: number;
+      let catalog: ServiceCatalogPatch;
       try {
         name = normalizeServiceName(input.name);
         durationMinutes = createServiceDurationMinutes(input.durationMinutes);
         bufferMinutes = createServiceBufferMinutes(input.bufferMinutes ?? 0);
+        catalog = readCatalogPatch(input, false);
       } catch {
         return { status: "INVALID_INPUT" };
       }
@@ -103,8 +147,11 @@ export function createServiceManager(dependencies: Readonly<{
           name,
           durationMinutes,
           bufferMinutes,
+          ...catalog,
         });
-        return result === "created" ? { status: "created" } : { status: "CONFLICT" };
+        if (result === "created") return { status: "created" };
+        if (result === "category_not_found") return { status: "NOT_FOUND" };
+        return { status: "CONFLICT" };
       } catch {
         return { status: "PERSISTENCE_FAILURE" };
       }
@@ -118,7 +165,7 @@ export function createServiceManager(dependencies: Readonly<{
         return { status: "INVALID_INPUT" };
       }
 
-      const patch: { name?: string; durationMinutes?: number; bufferMinutes?: number } = {};
+      const patch: { name?: string; durationMinutes?: number; bufferMinutes?: number } & ServiceCatalogPatch = {};
 
       if ("name" in input) {
         try {
@@ -137,12 +184,17 @@ export function createServiceManager(dependencies: Readonly<{
         if (value === "INVALID") return { status: "INVALID_INPUT" };
         patch.bufferMinutes = value;
       }
+      try {
+        Object.assign(patch, readCatalogPatch(input, true));
+      } catch {
+        return { status: "INVALID_INPUT" };
+      }
       if (Object.keys(patch).length === 0) return { status: "INVALID_INPUT" };
 
       try {
         const result = await dependencies.repository.update(input.tenantContext, input.serviceId, patch);
         if (result === "updated") return { status: "updated" };
-        if (result === "not_found") return { status: "NOT_FOUND" };
+        if (result === "not_found" || result === "category_not_found") return { status: "NOT_FOUND" };
         return { status: "CONFLICT" };
       } catch {
         return { status: "PERSISTENCE_FAILURE" };
