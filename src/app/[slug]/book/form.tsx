@@ -10,6 +10,7 @@ import { SalonLocationLink, type SalonLocationView } from "../../_ui/salon-locat
 import { Button } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
 import { ANY_STAFF_ID } from "../../../application/any-staff";
+import { staffPerformsService } from "../../../domain/staff-service";
 import { formatServicePrice } from "../../../domain/service-price";
 import { groupServicesByCategory } from "../../../domain/service-category";
 import { BookingConfirmation, type BookingSummary } from "./booking-confirmation";
@@ -39,7 +40,14 @@ type CategoryOption = Readonly<{ id: string; name: string; sortOrder: number }>;
 type StaffOption = Readonly<{
   id: string;
   displayName: string;
+  /** Services this staff member performs; empty/absent = every service. */
+  serviceIds?: ReadonlyArray<string>;
 }>;
+
+/** Staff who perform `serviceId` (all staff while no service is chosen). */
+export function staffForService(staff: ReadonlyArray<StaffOption>, serviceId: string): StaffOption[] {
+  return serviceId ? staff.filter((member) => staffPerformsService(member.serviceIds ?? [], serviceId)) : [...staff];
+}
 
 type Slot = Readonly<{
   startAtIso: string;
@@ -119,12 +127,12 @@ export function PublicBookingForm({
 }) {
   const [step, setStep] = useState<BookingStep>(() => initialStep(initialServiceId));
   const [serviceId, setServiceId] = useState(initialServiceId);
-  const [staffId, setStaffId] = useState(() => initialStaffId(staff));
+  const [staffId, setStaffId] = useState(() => initialStaffId(staffForService(staff, initialServiceId)));
   const [dateIso, setDateIso] = useState(minDate);
   const [slots, setSlots] = useState<ReadonlyArray<Slot>>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>(() =>
-    initialServiceId && initialStaffId(staff) ? "loading" : "idle",
+    initialServiceId && initialStaffId(staffForService(staff, initialServiceId)) ? "loading" : "idle",
   );
   const [status, setStatus] = useState("");
   const [booked, setBooked] = useState<BookingSummary | null>(null);
@@ -139,6 +147,7 @@ export function PublicBookingForm({
 
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
   const selectedStaff = useMemo(() => staff.find((member) => member.id === staffId), [staff, staffId]);
+  const eligibleStaff = useMemo(() => staffForService(staff, serviceId), [staff, serviceId]);
   const staffLabel = staffId === ANY_STAFF_ID ? ANY_STAFF_LABEL : selectedStaff?.displayName ?? "";
   const serviceGroups = useMemo(() => groupServicesByCategory(categories, services), [categories, services]);
   const days = useMemo(() => dateStrip(minDate, 14), [minDate]);
@@ -186,10 +195,15 @@ export function PublicBookingForm({
   }
 
   function chooseService(id: string) {
+    // Keep the chosen staff member when they perform the new service; otherwise fall back to the default.
+    const eligible = staffForService(staff, id);
+    const keep = staffId === ANY_STAFF_ID ? eligible.length > 1 : eligible.some((member) => member.id === staffId);
+    const nextStaffId = keep ? staffId : initialStaffId(eligible);
     setServiceId(id);
+    setStaffId(nextStaffId);
     setSelectedSlot("");
     setStatus("");
-    setAvailabilityStatus(id && staffId && dateIso ? "loading" : "idle");
+    setAvailabilityStatus(id && nextStaffId && dateIso ? "loading" : "idle");
     goTo(2);
   }
 
@@ -423,10 +437,10 @@ export function PublicBookingForm({
 
               <section aria-labelledby="staff-title" className="space-y-2">
                 <h2 id="staff-title" className="px-1 text-headline">Uzman</h2>
-                {staff.length === 0 ? (
+                {eligibleStaff.length === 0 ? (
                   <p className="px-1 text-subhead text-ink-muted">Şu anda online randevu alan uzman yok.</p>
-                ) : staff.length === 1 ? (
-                  <p className="px-1 text-body">{staff[0].displayName}</p>
+                ) : eligibleStaff.length === 1 ? (
+                  <p className="px-1 text-body">{eligibleStaff[0].displayName}</p>
                 ) : (
                   <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
                     <button
@@ -437,7 +451,7 @@ export function PublicBookingForm({
                     >
                       {ANY_STAFF_LABEL}
                     </button>
-                    {staff.map((member) => (
+                    {eligibleStaff.map((member) => (
                       <button
                         key={member.id}
                         type="button"

@@ -12,11 +12,12 @@ function makeRepository(timeZone: string, tenantStatus: "ACTIVE" | "INACTIVE" = 
     service: { findUnique: vi.fn().mockResolvedValue({ id: "service-a", durationMinutes: 30, bufferMinutes: 0, active: true }) },
     staff: { findUnique: vi.fn().mockResolvedValue({ id: "staff-a", status: "ACTIVE" }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([]) },
+    staffService: { findMany: vi.fn().mockResolvedValue([]) },
     appointment: { findMany: appointmentFindMany },
     closureDate: { findMany: closureFindMany },
   };
   const prisma = { $transaction: vi.fn(async (callback: (value: unknown) => unknown) => callback(tx)) } as unknown as PrismaTenantClient;
-  return { repository: createPrismaPublicAvailabilityRepository(prisma), appointmentFindMany, closureFindMany };
+  return { repository: createPrismaPublicAvailabilityRepository(prisma), appointmentFindMany, closureFindMany, tx };
 }
 
 describe("public availability local day boundaries", () => {
@@ -68,5 +69,25 @@ describe("public availability closed dates (WP-08)", () => {
     const { repository, closureFindMany } = makeRepository("Europe/Istanbul", "INACTIVE");
     await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09" });
     expect(closureFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("public availability staff–service mapping (owner decision 2026-11-06)", () => {
+  it("offers no slots when the staff member is mapped to other services only", async () => {
+    const { repository, tx, appointmentFindMany } = makeRepository("Europe/Istanbul");
+    tx.staffService.findMany.mockResolvedValue([{ staffId: "staff-a", serviceId: "service-other" }]);
+
+    await expect(repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09" }))
+      .resolves.toEqual({ status: "invalid_resource" });
+    expect(tx.staffService.findMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", staffId: "staff-a" }, select: { staffId: true, serviceId: true } });
+    expect(appointmentFindMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps offering slots for a mapped service", async () => {
+    const { repository, tx } = makeRepository("Europe/Istanbul");
+    tx.staffService.findMany.mockResolvedValue([{ staffId: "staff-a", serviceId: "service-a" }]);
+
+    const result = await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09" });
+    expect(result.status).toBe("ok");
   });
 });

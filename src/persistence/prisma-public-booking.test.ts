@@ -32,6 +32,7 @@ function makeTransaction(overrides: Readonly<{
     tenantMembership: { findUnique: vi.fn() },
     tenant: { findUnique: vi.fn().mockResolvedValue({ ...legalTenant, ...(overrides.tenant ?? {}) }) },
     workingHours: { findMany: vi.fn().mockResolvedValue([{ id: "wh", tenantId: "tenant-a", dayOfWeek: 1, openMinute: 540, closeMinute: 1080 }]) },
+    staffService: { findMany: vi.fn().mockResolvedValue([]) },
     service: { findUnique: vi.fn().mockResolvedValue(overrides.service !== undefined ? overrides.service : { id: "svc-a", durationMinutes: 60, bufferMinutes: 15, active: true }) },
     staff: { findUnique: vi.fn().mockResolvedValue(overrides.staff !== undefined ? overrides.staff : { id: "staff-a", status: "ACTIVE" }) },
     profile: { findUnique: vi.fn().mockResolvedValue(overrides.profile !== undefined ? overrides.profile : { id: "c" }), create: vi.fn() },
@@ -357,5 +358,16 @@ describe("WP-10 contact snapshot and notice record", () => {
       ...validInput, phone: "+905551112233", whatsappOptIn: true, shownOptInHash: whatsAppOptInHash({ name: "Old Salon Name" }),
     })).resolves.toBe("notice_stale");
     expect(transaction.appointmentContact.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("public booking staff–service mapping (owner decision 2026-11-06)", () => {
+  it("refuses a staff member mapped to other services, inside the booking transaction, without writing", async () => {
+    const transaction = makeTransaction();
+    transaction.staffService.findMany.mockResolvedValue([{ staffId: "staff-a", serviceId: "svc-other" }]);
+
+    await expect(createPrismaPublicBookingRepository(makePrisma(transaction)).create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("invalid_resource");
+    expect(transaction.appointment.create).not.toHaveBeenCalled();
+    expect(transaction.appointmentAccessToken.create).not.toHaveBeenCalled();
   });
 });

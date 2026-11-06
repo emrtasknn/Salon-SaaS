@@ -108,3 +108,17 @@ describe("getPublicAvailability with \"Fark etmez\"", () => {
     await expect(getPublicAvailability({ ...input, staffId: "any" })).resolves.toEqual({ status: "INVALID_RESOURCE", slots: [] });
   });
 });
+
+describe("getPublicAvailability \"Fark etmez\" with staff–service mapping", () => {
+  it("only reads staff who perform the service (no mapping = every service)", async () => {
+    vitrinLoad.mockResolvedValue({
+      status: "ok", active: true, tenantContext,
+      staff: [{ id: "staff-a", serviceIds: ["service-other"] }, { id: "staff-b", serviceIds: [] }, { id: "staff-c", serviceIds: ["service-1"] }],
+    });
+    availabilityList.mockResolvedValue({ status: "ok", timeZone: "Europe/Istanbul", slots: [] });
+
+    await getPublicAvailability({ ...input, staffId: "any" });
+
+    expect(availabilityList.mock.calls.map((call) => call[1].staffId)).toEqual(["staff-b", "staff-c"]);
+  });
+});

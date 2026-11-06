@@ -7,9 +7,10 @@ import { addDaysToDateIso, calculateAvailability, isSlotOnClosedDate, utcToLocal
 import { appointmentAccessTokenExpiry } from "../domain/appointment-access-token";
 import { readTenantStatusForShare, type TenantStatusQueryTransaction } from "./tenant-status-guard";
 import { readClosedDates, type ClosureDateReadTransaction } from "./prisma-booking-engine";
+import { staffServesService, type StaffServiceReadTransaction } from "./prisma-staff-services";
 import { CUSTOMER_NOTICE, WHATSAPP_OPTIN, customerNoticeHash, isLegalReady, whatsAppOptInHash } from "../domain/legal-notice";
 
-type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & ClosureDateReadTransaction & {
+type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & ClosureDateReadTransaction & StaffServiceReadTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{
     id: string; timezone: string; name: string; contactPhone: string | null;
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
@@ -56,6 +57,8 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
             tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
           ]);
           if (!tenant || !service || !staff || !service.active || staff.status !== "ACTIVE") return "invalid_resource";
+          // Owner decision 2026-11-06: the staff member must perform this service (no mapping = every service).
+          if (!(await staffServesService(tx, tenantContext.tenantId, input.staffId, input.serviceId))) return "invalid_resource";
           // WP-10: legal fields re-checked on the row locked FOR SHARE above (a concurrent settings
           // update waits for this tx), so the recorded notice hash matches the text in force.
           if (!isLegalReady(tenant)) return "tenant_legal_incomplete";

@@ -111,6 +111,7 @@ export default async function BookingPage({
       staff={vitrin.staff.map((member) => ({
         id: member.id,
         displayName: member.displayName,
+        serviceIds: member.serviceIds ?? [],
       }))}
       timeZone={vitrin.timezone}
       minDate={todayInTimeZone(vitrin.timezone)}

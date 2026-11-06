@@ -32,6 +32,7 @@ model Tenant {
   staff        Staff[]
   services     Service[]
   serviceCategories ServiceCategory[]
+  staffServices StaffService[]
   appointments Appointment[]
   notificationDeliveries NotificationDelivery[]
   whatsappIntegrations WhatsAppIntegration[]
@@ -146,6 +147,7 @@ model Staff {
   profile      Profile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Staff_profile_tenant_fkey")
   appointments Appointment[]
   closureDates ClosureDate[]
+  staffServices StaffService[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, profileId])
@@ -171,11 +173,31 @@ model Service {
   tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   category     ServiceCategory? @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Service_category_tenant_fkey")
   appointments Appointment[]
+  staffServices StaffService[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, name])
   @@index([tenantId])
   @@index([tenantId, categoryId])
+}
+
+/// Owner decision 2026-11-06: which services a staff member performs. A staff member with NO rows
+/// performs every service (default, so existing salons are unchanged). Composite FKs keep both
+/// ends in the same tenant. RLS (ENABLE + FORCE, 4 tenant policies) lives in the migration.
+model StaffService {
+  id        String   @id @default(cuid())
+  tenantId  String
+  staffId   String
+  serviceId String
+  createdAt DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff   Staff   @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Cascade, onUpdate: Cascade, map: "StaffService_staff_tenant_fkey")
+  service Service @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Cascade, onUpdate: Cascade, map: "StaffService_service_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, staffId, serviceId])
+  @@index([tenantId, serviceId])
 }
 
 /// Owner decision 2026-11-06: tenant-defined service groups shown on the public page.

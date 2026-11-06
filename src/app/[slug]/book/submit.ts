@@ -10,6 +10,7 @@ import { checkRateLimit, readClientIp } from "../../rate-limit-runtime";
 import type { PublicBookingInput, PublicBookingResult } from "../../legal-consent-contract";
 import { ANY_STAFF_ID } from "../../../application/any-staff";
 import { anyStaffCandidates } from "./any-staff-runtime";
+import { staffPerformsService } from "../../../domain/staff-service";
 export async function submitBooking(input:PublicBookingInput):Promise<PublicBookingResult>{const prisma=getPrisma();const v=await createPublicVitrin(createPrismaPublicSalonRepository(prisma)).load(input.slug);if(v.status!=="ok")return{status:"NOT_FOUND" as const};
 // WP-07: fast-fail for an inactive salon; the authoritative check is the in-tx FOR SHARE read in persistence.
 if(!v.active)return{status:"TENANT_INACTIVE" as const};
@@ -23,6 +24,6 @@ const create=(staffId:string)=>booking.create(v.tenantContext,{serviceId:input.s
 // "Fark etmez" (owner decision 2026-11-06): the server picks a free ACTIVE staff member from its own catalog,
 // least busy first, and moves to the next one if the slot was taken meanwhile. The booking tx re-checks as usual.
 let result:Awaited<ReturnType<typeof create>>;let staffId=input.staffId;
-if(input.staffId===ANY_STAFF_ID){if(Number.isNaN(startAt.getTime()))return{status:"INVALID_INPUT" as const};const candidates=await anyStaffCandidates(v.tenantContext,v.staff.map((m)=>m.id),{serviceId:input.serviceId,startAt,timeZone:v.timezone});result={status:"SLOT_UNAVAILABLE" as const};for(const candidate of candidates){result=await create(candidate);staffId=candidate;if(result.status!=="SLOT_UNAVAILABLE")break;}}
+if(input.staffId===ANY_STAFF_ID){if(Number.isNaN(startAt.getTime()))return{status:"INVALID_INPUT" as const};const candidates=await anyStaffCandidates(v.tenantContext,v.staff.filter((m)=>staffPerformsService(m.serviceIds??[],input.serviceId)).map((m)=>m.id),{serviceId:input.serviceId,startAt,timeZone:v.timezone});result={status:"SLOT_UNAVAILABLE" as const};for(const candidate of candidates){result=await create(candidate);staffId=candidate;if(result.status!=="SLOT_UNAVAILABLE")break;}}
 else{result=await create(input.staffId);}
 if(result.status!=="created")return result;await publishAppointmentNotification(v.tenantContext,result.appointmentId,"APPOINTMENT_CREATED");return{status:"created" as const,appointmentId:result.appointmentId,statusPath:`/${encodeURIComponent(input.slug)}/randevu/${result.accessToken}`,...(input.staffId===ANY_STAFF_ID?{staffDisplayName:v.staff.find((m)=>m.id===staffId)?.displayName}:{})};}

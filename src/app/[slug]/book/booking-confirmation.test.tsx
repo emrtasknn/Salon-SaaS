@@ -101,3 +101,37 @@ describe("PublicBookingForm catalog (#189)", () => {
     expect(html).not.toContain("hazırlık");
   });
 });
+
+describe("staff–service mapping in the form (owner decision 2026-11-06)", () => {
+  const staff = [
+    { id: "a", displayName: "Ayşe", serviceIds: ["s1"] },
+    { id: "b", displayName: "Burak", serviceIds: [] },
+    { id: "c", displayName: "Cem", serviceIds: ["s2"] },
+  ];
+
+  it("keeps staff without a mapping for every service and drops staff mapped elsewhere", async () => {
+    const { staffForService } = await import("./form");
+    expect(staffForService(staff, "s1").map((m) => m.id)).toEqual(["a", "b"]);
+    expect(staffForService(staff, "s3").map((m) => m.id)).toEqual(["b"]);
+    expect(staffForService(staff, "").map((m) => m.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("shows only the staff who perform the preselected service", async () => {
+    const { PublicBookingForm } = await import("./form");
+    const html = renderToStaticMarkup(
+      <PublicBookingForm
+        slug="salon"
+        legal={{ ready: true, noticeVersion: "v", noticeHash: "h", optInVersion: "o", optInHash: "oh", optInLabel: "W", optInHelp: "h", shortNotice: "n", fullNoticePath: "/x" } as never}
+        services={[{ id: "s1", name: "Kesim", durationMinutes: 30, bufferMinutes: 0 }]}
+        staff={staff}
+        timeZone="Europe/Istanbul"
+        minDate="2026-11-07"
+        initialServiceId="s1"
+      />,
+    );
+    expect(html).toContain(">Ayşe<");
+    expect(html).toContain(">Burak<");
+    expect(html).not.toContain(">Cem<");
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Fark etmez/);
+  });
+});
