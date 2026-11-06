@@ -3,7 +3,7 @@
 import { createBookingEngine } from "../../application/booking-engine";
 import { createStaffAppointments } from "../../application/staff-appointments";
 import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
-import { authorizeStaffDecision } from "../../application/staff-appointment-authorization";
+import { authorizeStaffCompletion, authorizeStaffDecision } from "../../application/staff-appointment-authorization";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
@@ -72,6 +72,14 @@ function staffAppointments(prisma: ReturnType<typeof getPrisma>, reader: ReturnT
           appointment,
         );
       },
+      async authorizeStaffCompletion(identity, tenantContext, appointment) {
+        return authorizeStaffCompletion(
+          staffDecisionAuthorization(prisma, reader),
+          identity,
+          tenantContext,
+          appointment,
+        );
+      },
       async authorizeAdmin(identity, tenantContext) {
         const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
         return result.authorization.status === "allowed";
@@ -90,6 +98,14 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
       },
       async authorizeStaffDecision(identity, tenantContext, appointment) {
         return authorizeStaffDecision(
+          staffDecisionAuthorization(prisma, reader),
+          identity,
+          tenantContext,
+          appointment,
+        );
+      },
+      async authorizeStaffCompletion(identity, tenantContext, appointment) {
+        return authorizeStaffCompletion(
           staffDecisionAuthorization(prisma, reader),
           identity,
           tenantContext,
@@ -133,6 +149,22 @@ export async function decideStaffAppointment(
   if (checked.status !== "AUTHORIZED") return checked;
   const result = await booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, checked.appointment, to);
   return result.status === "updated" ? { ...result, tenantId: context.tenantContext.tenantId } : result;
+}
+
+/**
+ * Owner decision 2026-11-06: the signed-in staff member marks their own CONFIRMED appointment
+ * COMPLETED once it has started. Tenant, staff and appointment ownership are re-checked on the
+ * server; the booking engine enforces the start-time rule (NOT_STARTED).
+ */
+export async function completeStaffAppointment(appointmentId: string) {
+  const context = await getStaffContext();
+  if (!context) return { status: "UNAUTHORIZED" as const };
+  if (typeof appointmentId !== "string" || !appointmentId.trim() || appointmentId.length > 100 || /[\u0000-\u001f\u007f]/.test(appointmentId)) {
+    return { status: "INVALID_INPUT" as const };
+  }
+  const checked = await staffAppointments(context.prisma, context.reader).complete(context.identity, context.tenantContext, appointmentId);
+  if (checked.status !== "AUTHORIZED") return checked;
+  return booking(context.prisma, context.reader).transition(context.identity, context.tenantContext, checked.appointment, "COMPLETED");
 }
 
 /**

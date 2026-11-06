@@ -9,12 +9,18 @@ import { createTenantKvkkContactEmail, createTenantLegalAddress, createTenantLeg
 
 export type LegalTemplate = Readonly<{ version: string; draft: boolean }>;
 
-export const CUSTOMER_NOTICE: LegalTemplate = Object.freeze({ version: "draft-2026-11-05", draft: true });
+export const CUSTOMER_NOTICE: LegalTemplate = Object.freeze({ version: "draft-2026-11-06", draft: true });
 export const WHATSAPP_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-05", draft: true });
 export const STAFF_VERBAL_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-04", draft: true });
 
 /** Visible marker for values not decided yet (retention periods, platform legal name, ...). */
 export const LEGAL_PLACEHOLDER_PENDING = "[belirlenecek]";
+
+/**
+ * Platform (data processor) name shown to customers. Owner decision 2026-11-06:
+ * "RandevuN platformu" until the legal entity name is registered.
+ */
+export const PLATFORM_PROVIDER_NAME = "RandevuN platformu";
 
 /** Tenant fields the notice is rendered from (server-side only). */
 export type LegalNoticeTenant = Readonly<{
@@ -51,7 +57,7 @@ function field(value: string | null): string {
 export function renderShortNotice(tenant: LegalNoticeTenant): string {
   return [
     "Kişisel verileriniz hakkında",
-    `Randevunuz için verdiğiniz ad soyad, e-posta ve telefon bilgilerinizi veri sorumlusu ${tenant.name}, randevunuzu oluşturmak ve yönetmek amacıyla işler. Bilgileriniz, randevu sistemini sağlayan ${LEGAL_PLACEHOLDER_PENDING} ve altyapı hizmet sağlayıcıları (bir kısmı yurt dışında) tarafından salon adına işlenir. Haklarınız ve ayrıntılar için Aydınlatma Metni'ni inceleyebilirsiniz.`,
+    `Randevunuz için verdiğiniz ad soyad, e-posta ve telefon bilgilerinizi veri sorumlusu ${tenant.name}, randevunuzu oluşturmak ve yönetmek amacıyla işler. Bilgileriniz, randevu sistemini sağlayan ${PLATFORM_PROVIDER_NAME} ve altyapı hizmet sağlayıcıları (bir kısmı yurt dışında) tarafından salon adına işlenir. Haklarınız ve ayrıntılar için Aydınlatma Metni'ni inceleyebilirsiniz.`,
   ].join("\n");
 }
 
@@ -69,7 +75,7 @@ export function renderFullNotice(tenant: LegalNoticeTenant): string {
     "1. Veri sorumlusu",
     `Kişisel verileriniz, veri sorumlusu sıfatıyla ${field(tenant.legalName)} ("Salon") tarafından işlenmektedir.`,
     contact.join(" · "),
-    `Online randevu sistemi ${P} ("Platform") tarafından sağlanır. Platform, verilerinizi yalnızca Salon adına ve Salon'un talimatıyla işleyen veri işleyendir.`,
+    `Online randevu sistemi ${PLATFORM_PROVIDER_NAME} ("Platform") tarafından sağlanır. Platform, verilerinizi yalnızca Salon adına ve Salon'un talimatıyla işleyen veri işleyendir.`,
     "",
     "2. İşlenen kişisel veriler",
     "- Kimlik: Ad soyad",

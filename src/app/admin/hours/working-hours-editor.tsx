@@ -47,7 +47,7 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
                         return;
                       }
                       const result = await saveWorkingHoursAction({ dayOfWeek: index, openMinute, closeMinute });
-                      setFeedback(result.status === "INVALID_INPUT" ? INVALID_HOURS : message(result.status));
+                      setFeedback(result.status === "INVALID_INPUT" ? INVALID_HOURS : message(result.status, "Çalışma saati kaydedildi."));
                       if (result.status === "created" || result.status === "updated") refresh();
                     })
                   }
@@ -80,7 +80,7 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
                         onClick={() =>
                           startTransition(async () => {
                             const result = await removeWorkingHoursAction(index);
-                            setFeedback(message(result.status));
+                            setFeedback(message(result.status, "Gün kapalı olarak kaydedildi."));
                             if (result.status === "removed") refresh();
                           })
                         }

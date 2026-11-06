@@ -18,6 +18,7 @@ export type StaffAppointmentsRepository = Readonly<{
 
 export type StaffAppointmentsAuthorizer = Readonly<{
   authorizeStaffDecision(identity: ApplicationIdentity, tenantContext: TenantContext, appointment: AppointmentRecord): Promise<boolean>;
+  authorizeStaffCompletion(identity: ApplicationIdentity, tenantContext: TenantContext, appointment: AppointmentRecord): Promise<boolean>;
   authorizeAdmin(identity: ApplicationIdentity, tenantContext: TenantContext): Promise<boolean>;
 }>;
 
@@ -41,6 +42,17 @@ export function createStaffAppointments(dependencies: Readonly<{ repository: Sta
         return { status: "UNAUTHORIZED" as const };
       }
       if (appointment.status !== "PENDING") return { status: "INVALID_TRANSITION" as const };
+      return { status: "AUTHORIZED" as const, appointment };
+    },
+
+    /** Owner decision 2026-11-06: staff complete their own CONFIRMED appointment (time rule in the booking engine). */
+    async complete(identity: ApplicationIdentity, tenantContext: TenantContext, appointmentId: string) {
+      if (!appointmentId) return { status: "INVALID_INPUT" as const };
+      const appointment = await dependencies.repository.findById(tenantContext, appointmentId);
+      if (!appointment) return { status: "NOT_FOUND" as const };
+      if (!(await dependencies.authorizer.authorizeStaffCompletion(identity, tenantContext, appointment))) {
+        return { status: "UNAUTHORIZED" as const };
+      }
       return { status: "AUTHORIZED" as const, appointment };
     },
   };
