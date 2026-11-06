@@ -98,7 +98,7 @@ describeDatabase("appointment reschedule integration", () => {
 
   const cleanupTenant = async (fixture: Fixture) => {
     const p = db();
-    for (const table of ["AppointmentAccessToken", "NotificationDelivery", "AppointmentContact", "Appointment", "WorkingHours", "Staff", "Service", "Profile"]) {
+    for (const table of ["AppointmentService", "AppointmentAccessToken", "NotificationDelivery", "AppointmentContact", "Appointment", "WorkingHours", "Staff", "Service", "Profile"]) {
       await p.query(`DELETE FROM "${table}" WHERE "tenantId" = $1`, [fixture.tenantId]);
     }
     await p.query('DELETE FROM "Tenant" WHERE "id" = $1', [fixture.tenantId]);
@@ -165,5 +165,25 @@ describeDatabase("appointment reschedule integration", () => {
     });
     expect(result === "stale" || result === "invalid_resource").toBe(true);
     expect((await record(tenantA, id)).startAt.getTime()).toBe(at(17 * 60).getTime());
+  });
+
+  it("keeps the full time of a multi-service appointment when moved (owner decision 2026-11-06)", async () => {
+    // A week later so earlier scenarios cannot conflict. Primary 30+15, extra 20+10 = 75 minutes.
+    const nextWeek = (minute: number) => localWallTimeToUtc(addDaysToDateIso(monday, 7), minute, TZ);
+    const extraServiceId = `${tenantA.serviceId}-extra`;
+    await db().query(`INSERT INTO "Service" ("id", "tenantId", "name", "durationMinutes", "bufferMinutes", "active", "createdAt", "updatedAt")
+       VALUES ($1, $2, 'Extra A', 20, 10, true, now(), now())`, [extraServiceId, tenantA.tenantId]);
+    const id = await create(tenantA, nextWeek(10 * 60));
+    await db().query(`UPDATE "Appointment" SET "endAt" = $3 WHERE "tenantId" = $1 AND "id" = $2`, [tenantA.tenantId, id, nextWeek(11 * 60 + 15)]);
+    await db().query(
+      `INSERT INTO "AppointmentService" ("id", "tenantId", "appointmentId", "serviceId", "position") VALUES ($1, $2, $3, $4, 0), ($5, $2, $3, $6, 1)`,
+      [`${id}-s0`, tenantA.tenantId, id, tenantA.serviceId, `${id}-s1`, extraServiceId],
+    );
+
+    const result = await engine().reschedule(identity, ctx(tenantA), await record(tenantA, id), nextWeek(13 * 60));
+    expect(result.status).toBe("RESCHEDULED");
+    const moved = await record(tenantA, id);
+    expect(moved.startAt.getTime()).toBe(nextWeek(13 * 60).getTime());
+    expect(moved.endAt.getTime()).toBe(nextWeek(14 * 60 + 15).getTime());
   });
 });
