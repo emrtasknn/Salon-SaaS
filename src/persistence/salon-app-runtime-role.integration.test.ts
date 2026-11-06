@@ -227,6 +227,8 @@ describeRuntimeRole("salon_app runtime role enforces RLS (NOBYPASSRLS)", () => {
     const catalog = await salons.catalog(tenantContext(fixtureA.tenantId));
     expect(catalog.services.map((s) => s.id)).toEqual([fixtureA.serviceId]);
     expect(catalog.staff.map((s) => s.id)).toEqual([fixtureA.staffId]);
+    // ServiceCategory (20261109100000) is readable by salon_app via default privileges, under RLS.
+    expect(catalog.categories).toEqual([]);
   });
 
   it("auth: membership and staff lookups work in the trusted tenant and not across tenants", async () => {
