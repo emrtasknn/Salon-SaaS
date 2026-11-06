@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DayTimeline, formatPeriod, parseStoredView, ViewSwitch } from "./day-timeline";
-import { WeekView } from "./week-view";
+import { agendaDays, WeekView } from "./week-view";
 import { countByDay, MonthView } from "./month-view";
 
 const noop = () => {};
@@ -65,6 +65,28 @@ describe("WeekView", () => {
     const html = renderToStaticMarkup(<WeekView date="2026-11-05" items={items.slice(0, 1)} perStaffColors={false} onSelect={noop} onOpenDay={noop} />);
     expect(html).not.toContain("Tümü");
     expect(html).toContain('aria-label="10:00–10:30, Can, Kesim, Onaylandı. Ayrıntıları aç"');
+  });
+
+  it("gives phones a day-by-day agenda with times, status text and empty days", () => {
+    const html = renderToStaticMarkup(<WeekView date="2026-11-05" items={items} perStaffColors onSelect={noop} onOpenDay={noop} />);
+    expect(html).toMatch(/<ol aria-label="Hafta görünümü" class="[^"]*md:hidden/);
+    expect(html).toContain("2 Kas Pzt");
+    expect(html).toContain("10:00–10:30");
+    expect(html).toContain("Ayşe · Kesim");
+    expect(html).toContain(">Bekliyor<");
+    expect(html).toContain("Randevu yok");
+  });
+});
+
+describe("agendaDays", () => {
+  it("groups items by local day in start order", () => {
+    const days = agendaDays(["2026-11-02", "2026-11-03"], [
+      { startAt: "2026-11-02T10:00:00.000Z" },
+      { startAt: "2026-11-02T07:00:00.000Z" },
+      { startAt: "2026-11-02T22:30:00.000Z" }, // 01:30 on 3 Nov in Istanbul
+    ]);
+    expect(days[0].items.map((i) => i.startAt)).toEqual(["2026-11-02T07:00:00.000Z", "2026-11-02T10:00:00.000Z"]);
+    expect(days[1].items).toHaveLength(1);
   });
 });
 
