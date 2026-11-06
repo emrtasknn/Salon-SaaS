@@ -377,6 +377,12 @@ body {
   flex: 1 1 auto;
 }
 
+/* The booking flow has its own fixed action bar; keep the install banner out of the way there. */
+body:has([data-booking-bar]) [data-install-banner],
+body:has([data-booking-bar]) [data-install-banner-spacer] {
+  display: none;
+}
+
 /* On phones, when the app tab bar is present, lift the install banner above it
    instead of covering it (tab bar height: 3.5rem + safe-area padding). */
 @media (max-width: 767.98px) {
