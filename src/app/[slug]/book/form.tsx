@@ -9,6 +9,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SalonLocationLink, type SalonLocationView } from "../../_ui/salon-location-link";
 import { Button } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
+import { ANY_STAFF_ID } from "../../../application/any-staff";
 import { formatServicePrice } from "../../../domain/service-price";
 import { groupServicesByCategory } from "../../../domain/service-category";
 import { BookingConfirmation, type BookingSummary } from "./booking-confirmation";
@@ -55,10 +56,16 @@ const legalErrors: Record<string, string> = {
   INVALID_PHONE: "Telefon numarası geçersiz. Ülke koduyla girin, örn. +905551234567.",
 };
 
-/** Preselect staff only when there is no real choice; otherwise the customer picks. */
+/**
+ * One staff member: preselected (no real choice). Several: "Fark etmez" (owner decision 2026-11-06),
+ * so slots show straight away and the server assigns a free staff member. Never the first person.
+ */
 export function initialStaffId(staff: ReadonlyArray<StaffOption>): string {
-  return staff.length === 1 ? staff[0].id : "";
+  if (staff.length === 1) return staff[0].id;
+  return staff.length > 1 ? ANY_STAFF_ID : "";
 }
+
+const ANY_STAFF_LABEL = "Fark etmez";
 
 const chip = "pressable focus-ring tap-target shrink-0 rounded-control border px-3.5 py-2 text-subhead font-medium";
 const chipOn = "border-action bg-action text-on-action";
@@ -132,6 +139,7 @@ export function PublicBookingForm({
 
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [services, serviceId]);
   const selectedStaff = useMemo(() => staff.find((member) => member.id === staffId), [staff, staffId]);
+  const staffLabel = staffId === ANY_STAFF_ID ? ANY_STAFF_LABEL : selectedStaff?.displayName ?? "";
   const serviceGroups = useMemo(() => groupServicesByCategory(categories, services), [categories, services]);
   const days = useMemo(() => dateStrip(minDate, 14), [minDate]);
   const slotGroups = useMemo(() => groupSlots(slots, timeZone), [slots, timeZone]);
@@ -233,7 +241,7 @@ export function PublicBookingForm({
         const statusPath = "statusPath" in result && typeof result.statusPath === "string" ? result.statusPath : "";
         setBooked({
           serviceName: selectedService?.name ?? "",
-          staffName: selectedStaff?.displayName ?? "",
+          staffName: ("staffDisplayName" in result && result.staffDisplayName) || selectedStaff?.displayName || ANY_STAFF_LABEL,
           startAtIso: selectedSlot,
           timeZone,
           statusUrl: statusPath ? `${window.location.origin}${statusPath}` : "",
@@ -421,6 +429,14 @@ export function PublicBookingForm({
                   <p className="px-1 text-body">{staff[0].displayName}</p>
                 ) : (
                   <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+                    <button
+                      type="button"
+                      aria-pressed={staffId === ANY_STAFF_ID}
+                      onClick={() => chooseStaff(ANY_STAFF_ID)}
+                      className={`${chip} ${staffId === ANY_STAFF_ID ? chipOn : chipOff}`}
+                    >
+                      {ANY_STAFF_LABEL}
+                    </button>
                     {staff.map((member) => (
                       <button
                         key={member.id}
@@ -523,7 +539,10 @@ export function PublicBookingForm({
                 <div className="flex items-start gap-3 border-t border-separator pt-3">
                   <div className="min-w-0 flex-1">
                     <dt className="text-footnote text-ink-muted">Uzman ve saat</dt>
-                    <dd className="text-body font-medium">{selectedStaff?.displayName}</dd>
+                    <dd className="text-body font-medium">
+                      {staffLabel}
+                      {staffId === ANY_STAFF_ID && <span className="block text-footnote font-normal text-ink-muted">Uygun bir uzman atanacak</span>}
+                    </dd>
                     <dd className="text-subhead tabular-nums text-ink-muted">{formatDateLong(dateIso)} · {timeLabel}</dd>
                   </div>
                   <button type="button" onClick={() => goTo(2)} className="focus-ring tap-target -my-2 rounded-control px-2 text-subhead font-medium text-action">

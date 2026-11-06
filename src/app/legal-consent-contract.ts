@@ -72,7 +72,8 @@ export type PublicBookingInput = Readonly<{
 }>;
 
 export type PublicBookingResult =
-  | Readonly<{ status: "created"; appointmentId: string; statusPath: string }>
+  /** staffDisplayName: the assigned staff member (set when the server picked one for "Fark etmez"). */
+  | Readonly<{ status: "created"; appointmentId: string; statusPath: string; staffDisplayName?: string }>
   | Readonly<{ status: "RATE_LIMITED"; retryAfterSeconds: number }>
   | Readonly<{
       status:

@@ -6,6 +6,8 @@ import { createPublicVitrin } from "../../../application/public-vitrin";
 import { createPrismaPublicSalonRepository } from "../../../persistence/prisma-public-vitrin";
 import { getPrisma } from "../../../infrastructure/prisma-runtime";
 import { checkRateLimit, readClientIp } from "../../rate-limit-runtime";
+import { ANY_STAFF_ID, mergeAnyStaffSlots } from "../../../application/any-staff";
+import { listForAllStaff } from "./any-staff-runtime";
 
 async function loadTenant(slug: string) {
   const prisma = getPrisma();
@@ -27,9 +29,11 @@ export async function getPublicAvailability(input: {
   if (limit.status === "RATE_LIMITED") {
     return { status: "RATE_LIMITED" as const, retryAfterSeconds: limit.retryAfterSeconds, slots: [] as const };
   }
-  return createPublicAvailability(createPrismaPublicAvailabilityRepository(getPrisma())).list(v.tenantContext, input);
+  const availability = createPublicAvailability(createPrismaPublicAvailabilityRepository(getPrisma()));
+  if (input.staffId !== ANY_STAFF_ID) return availability.list(v.tenantContext, input);
+  // "Fark etmez": union of the salon's ACTIVE staff (server catalog, never client input). One rate-limit
+  // charge for the whole request; staff are read one after another to stay light on the DB pool.
+  const perStaff = await listForAllStaff(v.tenantContext, v.staff.map((member) => member.id), input, availability.list);
+  if (perStaff.status !== "ok") return { status: perStaff.status, slots: [] as const };
+  return { status: "ok" as const, timeZone: perStaff.timeZone, slots: mergeAnyStaffSlots(perStaff.byStaff) };
 }
-
-// Booking submission lives only in `./submit.ts` (`submitBooking`), which also
-// publishes APPOINTMENT_CREATED. Do not add a second booking server action here;
-// `submit.test.ts` pins this module's exports.
