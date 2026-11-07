@@ -88,7 +88,7 @@ type AvailabilityStatus = "idle" | "loading" | "ready" | "empty" | "error" | "li
 const legalErrors: Record<string, string> = {
   TENANT_LEGAL_INCOMPLETE: "Bu salon online randevu için henüz hazır değil. Lütfen salonla doğrudan iletişime geçin.",
   NOTICE_STALE: "Bilgilendirme metni güncellendi, lütfen sayfayı yenileyin.",
-  OPT_IN_REQUIRES_PHONE: "WhatsApp bilgilendirmesi için telefon numaranızı girin veya kutunun işaretini kaldırın.",
+  OPT_IN_REQUIRES_PHONE: "SMS/WhatsApp bilgilendirmesi için telefon numaranızı girin veya kutunun işaretini kaldırın.",
   INVALID_PHONE: "Telefon numarası geçersiz. Ülke koduyla girin, örn. +905551234567.",
 };
 

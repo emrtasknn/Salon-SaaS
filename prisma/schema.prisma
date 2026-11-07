@@ -109,6 +109,7 @@ enum NotificationEventType {
 enum NotificationChannel {
   WHATSAPP
   WEB_PUSH
+  SMS
 }
 
 enum NotificationDeliveryStatus {

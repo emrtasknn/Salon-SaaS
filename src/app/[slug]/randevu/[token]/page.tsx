@@ -206,8 +206,8 @@ function AppointmentDetails({
 
         {whatsapp === "OPTED_IN" && (
           <section aria-labelledby="whatsapp-title" className="inset-group space-y-2 p-4">
-            <h2 id="whatsapp-title" className="text-headline">WhatsApp bildirimleri</h2>
-            <p className="text-subhead text-ink-muted">Bu randevuyla ilgili bilgilendirmeler WhatsApp üzerinden gönderiliyor.</p>
+            <h2 id="whatsapp-title" className="text-headline">SMS ve WhatsApp bildirimleri</h2>
+            <p className="text-subhead text-ink-muted">Bu randevuyla ilgili bilgilendirmeler SMS veya WhatsApp üzerinden gönderiliyor.</p>
             <WhatsAppOptOutForm slug={slug} token={token} />
           </section>
         )}

@@ -9,9 +9,10 @@ import { createTenantKvkkContactEmail, createTenantLegalAddress, createTenantLeg
 
 export type LegalTemplate = Readonly<{ version: string; draft: boolean }>;
 
-export const CUSTOMER_NOTICE: LegalTemplate = Object.freeze({ version: "draft-2026-11-06", draft: true });
-export const WHATSAPP_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-05", draft: true });
-export const STAFF_VERBAL_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-04", draft: true });
+export const CUSTOMER_NOTICE: LegalTemplate = Object.freeze({ version: "draft-2026-11-07", draft: true });
+// Owner decision 2026-11-07: one opt-in covers SMS (Twilio) and WhatsApp; texts are channel-neutral.
+export const WHATSAPP_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-07", draft: true });
+export const STAFF_VERBAL_OPTIN: LegalTemplate = Object.freeze({ version: "draft-2026-11-07", draft: true });
 
 /** Visible marker for values not decided yet (retention periods, platform legal name, ...). */
 export const LEGAL_PLACEHOLDER_PENDING = "[belirlenecek]";
@@ -32,7 +33,7 @@ export type LegalNoticeTenant = Readonly<{
 }>;
 
 /** Customer-facing opt-out method (status-link button, WP-10). */
-const OPT_OUT_METHOD = "randevu durum bağlantınızdaki \"WhatsApp bildirimlerini durdur\" düğmesiyle";
+const OPT_OUT_METHOD = "randevu durum bağlantınızdaki \"Bildirimleri durdur\" düğmesiyle";
 
 /** SHA-256 of the exact UTF-8 text, lowercase hex (matches the DB CHECK on AppointmentContact). */
 export function sha256Hex(text: string): string {
@@ -82,12 +83,12 @@ export function renderFullNotice(tenant: LegalNoticeTenant): string {
     "- İletişim: E-posta adresi; telefon numarası (isteğe bağlı)",
     "- Müşteri işlem: Seçilen hizmet, personel, randevu tarihi ve saati, randevu durumu (beklemede, onaylandı, reddedildi, iptal edildi, tamamlandı) ve değişiklik zamanları; Salon çalışanlarının müşteri kaydınıza eklediği notlar",
     "- İşlem güvenliği: Kötüye kullanımı önlemek için IP adresiniz ve telefon numaranızdan gizli bir anahtarla türetilen (takma adlandırılmış) sayaç anahtarları; randevu durum bağlantınızın hash değeri; barındırma hizmet sağlayıcısının istek kayıtlarında IP adresiniz, tarayıcı bilgileriniz ve ziyaret ettiğiniz sayfa adresleri",
-    "- Bildirim kayıtları: İzin vermeniz hâlinde gönderilen WhatsApp mesajlarının gönderim ve teslim durumu",
+    "- Bildirim kayıtları: İzin vermeniz hâlinde gönderilen SMS ve WhatsApp mesajlarının gönderim ve teslim durumu",
     "Salon, randevu notlarına sağlık bilgisi gibi özel nitelikli kişisel veri yazmamakla yükümlüdür; sistem bu tür verilerin işlenmesi için tasarlanmamıştır.",
     "",
     "3. İşleme amaçları ve hukuki sebepler (KVKK m.5/2)",
     "- Randevu talebinizi almak, uygunluk kontrolü, onay/ret/iptal işlemleri, size randevu durum bağlantısı vermek: (c) Bir sözleşmenin kurulması veya ifasıyla doğrudan ilgili olması",
-    "- İzin vermeniz hâlinde randevunuzla ilgili WhatsApp bilgilendirmesi göndermek (talep alındı, onaylandı, reddedildi): (c) Sözleşmenin ifası. WhatsApp kanalının kullanımı ayrıca isteğinize bağlıdır.",
+    "- İzin vermeniz hâlinde randevunuzla ilgili SMS veya WhatsApp bilgilendirmesi göndermek (talep alındı, onaylandı, reddedildi, saati değişti): (c) Sözleşmenin ifası. Bu kanalların kullanımı ayrıca isteğinize bağlıdır.",
     "- Salon'un müşteri kayıtlarını ve randevu geçmişini tutması: (f) Veri sorumlusunun meşru menfaati",
     "- Sistemin kötüye kullanılmasını ve aşırı istekleri önlemek, bilgi güvenliğini sağlamak: (f) Veri sorumlusunun meşru menfaati",
     "- Mevzuattan doğan saklama ve bilgi verme yükümlülükleri, yetkili makam talepleri: (ç) Veri sorumlusunun hukuki yükümlülüğü",
@@ -99,10 +100,10 @@ export function renderFullNotice(tenant: LegalNoticeTenant): string {
     "",
     "5. Aktarım",
     "Kişisel verileriniz, yukarıdaki amaçlarla sınırlı olarak:",
-    `- Veri işleyenlere: Platform'a ve Platform'un altyapı için kullandığı hizmet sağlayıcılara (barındırma ve veri tabanı, uygulama sunumu, WhatsApp mesaj iletimi). Güncel liste: ${P}.`,
+    `- Veri işleyenlere: Platform'a ve Platform'un altyapı için kullandığı hizmet sağlayıcılara (barındırma ve veri tabanı, uygulama sunumu, SMS ve WhatsApp mesaj iletimi). Güncel liste: ${P}.`,
     "- Yetkili kamu kurum ve kuruluşlarına: mevzuatın gerektirdiği hâllerde",
     "aktarılabilir.",
-    "Yurt dışına aktarım: Bu hizmet sağlayıcıların bir kısmı verileri yurt dışındaki sunucularda işler (örneğin WhatsApp mesajları Meta Platforms altyapısı üzerinden iletilir). Bu aktarımlar KVKK m.9'da öngörülen uygun güvencelerden biri (Kurul'un ilan ettiği standart sözleşme) kullanılarak yapılır.",
+    "Yurt dışına aktarım: Bu hizmet sağlayıcıların bir kısmı verileri yurt dışındaki sunucularda işler (örneğin SMS mesajları Twilio, WhatsApp mesajları Meta Platforms altyapısı üzerinden iletilir). Bu aktarımlar KVKK m.9'da öngörülen uygun güvencelerden biri (Kurul'un ilan ettiği standart sözleşme) kullanılarak yapılır.",
     "",
     "6. Saklama süresi",
     `Kişisel verileriniz ${P} süreyle saklanır; bu sürenin sonunda veya işleme şartları ortadan kalktığında silinir, yok edilir ya da anonim hâle getirilir. Kötüye kullanım önleme sayaçları en fazla 1 saatlik süreler için kullanılır ve en geç ${P} içinde silinir; barındırma istek kayıtları ${P} saklanır; randevu durum bağlantınız randevu bitiminden 7 gün sonrasına kadar geçerlidir.`,
@@ -123,7 +124,7 @@ export function renderFullNotice(tenant: LegalNoticeTenant): string {
     "8. Başvuru",
     `Taleplerinizi, Veri Sorumlusuna Başvuru Usul ve Esasları Hakkında Tebliğ'e uygun olarak; ${field(tenant.legalAddress)} adresine yazılı olarak, ${field(tenant.kvkkContactEmail)} adresine Salon'a daha önce bildirdiğiniz ve sistemde kayıtlı e-posta adresinizden ya da kayıtlı elektronik posta (KEP) ile iletebilirsiniz. Başvurunuz en geç 30 gün içinde ücretsiz olarak sonuçlandırılır; işlemin ayrıca bir maliyet gerektirmesi hâlinde Kurul'ca belirlenen tarife uygulanabilir.`,
     "Platform'a doğrudan gelen başvurular, cevaplanmak üzere gecikmeksizin Salon'a iletilir.",
-    `WhatsApp bilgilendirme iznini geri almak için: ${OPT_OUT_METHOD}.`,
+    `SMS ve WhatsApp bilgilendirme iznini geri almak için: ${OPT_OUT_METHOD}.`,
   ].join("\n");
 }
 
@@ -136,11 +137,11 @@ export function customerNoticeHash(tenant: LegalNoticeTenant): string {
   return sha256Hex(renderNoticeRecordText(tenant));
 }
 
-/** Public-form WhatsApp opt-in checkbox label + help text. */
+/** Public-form notification (SMS / WhatsApp) opt-in checkbox label + help text. */
 export function renderWhatsAppOptIn(tenant: Pick<LegalNoticeTenant, "name">): Readonly<{ label: string; help: string }> {
   return {
-    label: `${tenant.name} randevumla ilgili bilgilendirmeleri (talebimin alınması, onaylanması veya reddedilmesi) WhatsApp üzerinden, girdiğim telefon numarasına almak istiyorum. (isteğe bağlı)`,
-    help: `Mesajlar ${tenant.name} adına, randevu sistemimizin WhatsApp hesabından gönderilir. Bu kanaldan reklam veya kampanya mesajı gönderilmez. İzninizi istediğiniz zaman ${OPT_OUT_METHOD} geri alabilirsiniz.`,
+    label: `${tenant.name} randevumla ilgili bilgilendirmeleri (talebimin alınması, onaylanması, reddedilmesi veya saatinin değişmesi) SMS veya WhatsApp üzerinden, girdiğim telefon numarasına almak istiyorum. (isteğe bağlı)`,
+    help: `Mesajlar ${tenant.name} adına, randevu sistemimizin SMS hattından veya WhatsApp hesabından gönderilir. Bu kanallardan reklam veya kampanya mesajı gönderilmez. İzninizi istediğiniz zaman ${OPT_OUT_METHOD} geri alabilirsiniz.`,
   };
 }
 
@@ -149,9 +150,9 @@ export function whatsAppOptInHash(tenant: Pick<LegalNoticeTenant, "name">): stri
   return sha256Hex(`${label}\n${help}`);
 }
 
-/** Staff/admin create form: checkbox recording a verbal WhatsApp opt-in given by the customer. */
+/** Staff/admin create form: checkbox recording a verbal notification (SMS / WhatsApp) opt-in given by the customer. */
 export function renderStaffVerbalOptIn(): string {
-  return "Müşteri, randevusuyla ilgili bilgilendirmeleri (talep alındı, onaylandı, reddedildi) WhatsApp üzerinden girilen telefon numarasına almaya sözlü olarak izin verdi.";
+  return "Müşteri, randevusuyla ilgili bilgilendirmeleri (talep alındı, onaylandı, reddedildi, saati değişti) SMS veya WhatsApp üzerinden girilen telefon numarasına almaya sözlü olarak izin verdi.";
 }
 
 export function staffVerbalOptInHash(): string {

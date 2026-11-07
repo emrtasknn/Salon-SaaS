@@ -1,5 +1,12 @@
 import type { TenantContext } from "../domain/tenant-context";
-import { DEFAULT_NOTIFICATION_EVENT_KEY, NotificationProviderError, type NotificationChannel, type NotificationEventType } from "../domain/notification";
+import {
+  DEFAULT_NOTIFICATION_EVENT_KEY,
+  NotificationProviderError,
+  SMS_TEMPLATE_KEYS,
+  toSmsText,
+  type NotificationChannel,
+  type NotificationEventType,
+} from "../domain/notification";
 import type { NotificationProvider } from "../infrastructure/notifications";
 import { logError } from "../infrastructure/log-redaction";
 import {
@@ -118,23 +125,37 @@ export function createNotificationService(
     provider: NotificationProvider | null;
     /** Optional Web Push channel (WP-09). */
     webPush?: WebPushDependencies | null;
+    /**
+     * Optional customer SMS channel (owner decision 2026-11-07). Uses the same recipient list
+     * (customer phone only with an active opt-in) filtered to SMS_TEMPLATE_KEYS, so staff and
+     * tenant admins never get SMS.
+     */
+    sms?: NotificationProvider | null;
   }>,
 ) {
-  async function publishWhatsApp(
+  type MessagingChannel = Readonly<{
+    channel: "WHATSAPP" | "SMS";
+    provider: NotificationProvider;
+    includes: (templateKey: string) => boolean;
+    body: (text: string) => string;
+  }>;
+
+  async function publishMessages(
+    messaging: MessagingChannel,
     tenantContext: TenantContext,
     appointmentId: string,
     eventType: NotificationEventType,
     eventKey: string,
   ): Promise<NotificationResult[]> {
-    const whatsApp = dependencies.provider;
+    const { channel, provider } = messaging;
     // Only repeatable events carry a key; one-off events keep the original repository input shape.
     const keyed = eventKey === "" ? {} : { eventKey };
-    if (!whatsApp) return [];
-    const recipients = await dependencies.repository.recipients(
+    const allRecipients = await dependencies.repository.recipients(
       tenantContext,
       appointmentId,
       eventType,
     );
+    const recipients = allRecipients.filter((recipient) => messaging.includes(recipient.templateKey));
     const results: NotificationResult[] = [];
 
     for (const recipient of recipients) {
@@ -142,7 +163,7 @@ export function createNotificationService(
         appointmentId,
         eventType,
         ...keyed,
-        channel: "WHATSAPP",
+        channel,
         recipientProfileId: recipient.profileId,
         templateKey: recipient.templateKey,
       });
@@ -155,7 +176,7 @@ export function createNotificationService(
               ? "UNKNOWN"
               : "PENDING";
 
-        results.push({ profileId: recipient.profileId, status, channel: "WHATSAPP" });
+        results.push({ profileId: recipient.profileId, status, channel });
         continue;
       }
 
@@ -164,20 +185,20 @@ export function createNotificationService(
           appointmentId,
           eventType,
           ...keyed,
-          channel: "WHATSAPP",
+          channel,
           recipientProfileId: recipient.profileId,
           errorCode: "RECIPIENT_PHONE_MISSING",
         });
-        results.push({ profileId: recipient.profileId, status: "FAILED", channel: "WHATSAPP" });
+        results.push({ profileId: recipient.profileId, status: "FAILED", channel });
         continue;
       }
 
       let sent: Awaited<ReturnType<NotificationProvider["send"]>>;
 
       try {
-        sent = await whatsApp.send({
+        sent = await provider.send({
           to: recipient.phone,
-          body: recipient.body,
+          body: messaging.body(recipient.body),
           templateKey: recipient.templateKey,
           templateParameters: recipient.templateParameters,
         });
@@ -187,18 +208,18 @@ export function createNotificationService(
             appointmentId,
             eventType,
             ...keyed,
-            channel: "WHATSAPP",
+            channel,
             recipientProfileId: recipient.profileId,
             errorCode: error.errorCode,
           });
-          results.push({ profileId: recipient.profileId, status: "FAILED", channel: "WHATSAPP" });
+          results.push({ profileId: recipient.profileId, status: "FAILED", channel });
           continue;
         }
 
         logError("notification_delivery_unknown", {
           tenantId: tenantContext.tenantId,
           appointmentId,
-          channel: "WHATSAPP",
+          channel,
           recipientProfileId: recipient.profileId,
           errorCode: "PROVIDER_OUTCOME_UNKNOWN",
         });
@@ -206,11 +227,11 @@ export function createNotificationService(
           appointmentId,
           eventType,
           ...keyed,
-          channel: "WHATSAPP",
+          channel,
           recipientProfileId: recipient.profileId,
           errorCode: "PROVIDER_OUTCOME_UNKNOWN",
         });
-        results.push({ profileId: recipient.profileId, status: "UNKNOWN", channel: "WHATSAPP" });
+        results.push({ profileId: recipient.profileId, status: "UNKNOWN", channel });
         continue;
       }
 
@@ -219,15 +240,44 @@ export function createNotificationService(
         appointmentId,
         eventType,
         ...keyed,
-        channel: "WHATSAPP",
+        channel,
         recipientProfileId: recipient.profileId,
         providerMessageId: sent.providerMessageId,
       });
 
-      results.push({ profileId: recipient.profileId, status: "SENT", channel: "WHATSAPP" });
+      results.push({ profileId: recipient.profileId, status: "SENT", channel });
     }
 
     return results;
+  }
+
+  async function publishWhatsApp(
+    tenantContext: TenantContext,
+    appointmentId: string,
+    eventType: NotificationEventType,
+    eventKey: string,
+  ): Promise<NotificationResult[]> {
+    const provider = dependencies.provider;
+    if (!provider) return [];
+    return publishMessages(
+      { channel: "WHATSAPP", provider, includes: () => true, body: (text) => text },
+      tenantContext, appointmentId, eventType, eventKey,
+    );
+  }
+
+  async function publishSms(
+    provider: NotificationProvider,
+    tenantContext: TenantContext,
+    appointmentId: string,
+    eventType: NotificationEventType,
+    eventKey: string,
+  ): Promise<NotificationResult[]> {
+    // No SMS template for APPOINTMENT_CREATED: skip the recipient read entirely.
+    if (eventType === "APPOINTMENT_CREATED") return [];
+    return publishMessages(
+      { channel: "SMS", provider, includes: (templateKey) => SMS_TEMPLATE_KEYS.has(templateKey), body: toSmsText },
+      tenantContext, appointmentId, eventType, eventKey,
+    );
   }
 
   async function publishWebPush(
@@ -319,28 +369,28 @@ export function createNotificationService(
       eventKey: string = DEFAULT_NOTIFICATION_EVENT_KEY,
     ) {
       const webPush = dependencies.webPush;
-      if (!webPush) {
+      const sms = dependencies.sms;
+      if (!webPush && !sms) {
         // Pre-WP-09 behaviour: WhatsApp errors propagate to the caller.
         const results = await publishWhatsApp(tenantContext, appointmentId, eventType, eventKey);
         return { status: "processed" as const, results };
       }
 
-      // Channels are independent: one channel's failure never blocks the other.
-      const [whatsApp, push] = await Promise.allSettled([
-        publishWhatsApp(tenantContext, appointmentId, eventType, eventKey),
-        publishWebPush(webPush, tenantContext, appointmentId, eventType),
-      ]);
-      if (whatsApp.status === "rejected" && push.status === "rejected") throw whatsApp.reason;
-      if (whatsApp.status === "rejected") {
-        logError("notification_channel_failed", { tenantId: tenantContext.tenantId, appointmentId, channel: "WHATSAPP" });
-      }
-      if (push.status === "rejected") {
-        logError("notification_channel_failed", { tenantId: tenantContext.tenantId, appointmentId, channel: "WEB_PUSH" });
-      }
-      const results: NotificationResult[] = [
-        ...(whatsApp.status === "fulfilled" ? whatsApp.value : []),
-        ...(push.status === "fulfilled" ? push.value : []),
+      // Channels are independent: one channel's failure never blocks the others.
+      const channels: Array<Readonly<{ channel: NotificationChannel; run: Promise<NotificationResult[]> }>> = [
+        { channel: "WHATSAPP", run: publishWhatsApp(tenantContext, appointmentId, eventType, eventKey) },
       ];
+      if (sms) channels.push({ channel: "SMS", run: publishSms(sms, tenantContext, appointmentId, eventType, eventKey) });
+      if (webPush) channels.push({ channel: "WEB_PUSH", run: publishWebPush(webPush, tenantContext, appointmentId, eventType) });
+
+      const settled = await Promise.allSettled(channels.map((entry) => entry.run));
+      const first = settled[0];
+      if (first.status === "rejected" && settled.every((outcome) => outcome.status === "rejected")) throw first.reason;
+      const results: NotificationResult[] = [];
+      settled.forEach((outcome, index) => {
+        if (outcome.status === "fulfilled") results.push(...outcome.value);
+        else logError("notification_channel_failed", { tenantId: tenantContext.tenantId, appointmentId, channel: channels[index].channel });
+      });
       return { status: "processed" as const, results };
     },
   };

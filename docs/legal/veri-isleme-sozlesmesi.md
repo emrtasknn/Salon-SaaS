@@ -132,7 +132,7 @@ Platform, Kişisel Verileri herhangi bir yapay zekâ veya makine öğrenmesi mod
 | **Veri kategorileri — müşteri** | Kimlik (ad soyad); iletişim (e-posta, telefon); müşteri işlem (hizmet, personel, randevu zamanı ve durumu, Salon notları); aydınlatma bildirimi ve WhatsApp izin kayıtları; işlem güvenliği (HMAC ile türetilmiş IP/telefon sayaç anahtarları, durum bağlantısı hash'i); bildirim teslim kayıtları |
 | **Veri kategorileri — çalışan** | Kimlik (ad soyad); iletişim (e-posta, telefon); rol ve üyelik; personele özel kapalı günler ve serbest metin açıklaması; giriş bilgileri (Alt İşleyen tarafından hash'lenerek saklanan parola); Web Push aboneliği (uç nokta, şifreleme anahtarları, tarayıcı user-agent bilgisi, son başarılı/başarısız gönderim zamanları) |
 | **Özel nitelikli veri** | **İşlenmez.** (Salon'un §10(c) yükümlülüğü) |
-| **İşlemenin niteliği** | Toplama, kaydetme, depolama, düzenleme, görüntüleme, WhatsApp ve Web Push ile bildirim iletimi, silme |
+| **İşlemenin niteliği** | Toplama, kaydetme, depolama, düzenleme, görüntüleme, SMS, WhatsApp ve Web Push ile bildirim iletimi, silme |
 | **Amaç** | Salon'un online randevu almasını, randevuları yönetmesini, müşteri kayıtlarını tutmasını ve müşteri/çalışanlarına bildirim göndermesini sağlamak; Hizmetin güvenliği |
 | **Süre** | Ana Sözleşme süresince ve §13'teki iade/silme süreleri |
 | **Saklama** | Salon'un belirlediği süre ({{saklamaSuresi}}); işlem güvenliği sayaçları en fazla 1 saatlik pencerelerle (silme: fırsat düştükçe, 1 günden eski kayıtlar — düzenli temizlik gerekli); durum bağlantısı randevu bitiminden 7 gün sonra geçersiz |

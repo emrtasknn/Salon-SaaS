@@ -2,6 +2,7 @@ import "server-only";
 import { createNotificationService } from "../application/notification-service";
 import { createMetaWhatsAppProvider } from "../infrastructure/notifications";
 import { createWebPushProvider } from "../infrastructure/web-push-provider";
+import { createTwilioSmsProvider, readTwilioSmsConfig } from "../infrastructure/twilio-sms";
 import { createPrismaNotificationRepository } from "../persistence/prisma-notification";
 import { createPrismaPushNotificationRepository } from "../persistence/prisma-push-subscription";
 import type { TenantContext } from "../domain/tenant-context";
@@ -31,18 +32,29 @@ function webPushProvider() {
   return config ? createWebPushProvider(config) : null;
 }
 
+function smsProvider() {
+  // Customer-only SMS (owner decision 2026-11-07). Partial config = SMS off, logged without values.
+  const config=readTwilioSmsConfig(process.env);
+  if(!config&&Object.keys(process.env).some((name)=>name.startsWith("TWILIO_")&&process.env[name])) {
+    logError("sms_config_invalid",{errorCode:"TWILIO_CONFIG_INCOMPLETE"});
+  }
+  return config ? createTwilioSmsProvider(config) : null;
+}
+
 /** `eventKey`: one key per occurrence for repeatable events (APPOINTMENT_RESCHEDULED); omit otherwise. */
 export async function publishAppointmentNotification(tenantContext:TenantContext,appointmentId:string,eventType:NotificationEventType,eventKey?:string) {
-  // Channels are configured independently; NOT_CONFIGURED only when neither is available.
+  // Channels are configured independently; NOT_CONFIGURED only when none is available.
   const p=provider();
   const push=webPushProvider();
-  if(!p&&!push) return {status:"NOT_CONFIGURED" as const};
+  const sms=smsProvider();
+  if(!p&&!push&&!sms) return {status:"NOT_CONFIGURED" as const};
   try {
     const prisma=getPrisma();
     return await createNotificationService({
       repository:createPrismaNotificationRepository(prisma),
       provider:p,
       webPush:push?{repository:createPrismaPushNotificationRepository(prisma),provider:push}:null,
+      sms,
     }).publish(tenantContext,appointmentId,eventType,eventKey);
   } catch {
     return {status:"FAILED" as const};

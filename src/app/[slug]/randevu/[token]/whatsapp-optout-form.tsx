@@ -8,9 +8,9 @@ import { statusNote } from "../../../_ui/styles";
 import { Button } from "@/components/ui/button";
 
 const resultMessages: Record<StopWhatsAppResult["status"], string> = {
-  stopped: "WhatsApp bildirimleri durduruldu. Bu randevu için WhatsApp mesajı gönderilmeyecek.",
-  already_stopped: "WhatsApp bildirimleri zaten kapalı.",
-  not_opted_in: "Bu randevu için WhatsApp bildirimi izni yok.",
+  stopped: "Bildirimler durduruldu. Bu randevu için SMS veya WhatsApp mesajı gönderilmeyecek.",
+  already_stopped: "Bildirimler zaten kapalı.",
+  not_opted_in: "Bu randevu için bildirim izni yok.",
   not_found: "Bu bağlantı geçersiz veya süresi dolmuş.",
   rate_limited: "Çok fazla deneme, lütfen biraz sonra tekrar deneyin.",
 };
@@ -33,7 +33,7 @@ export function WhatsAppOptOutForm({ slug, token }: { slug: string; token: strin
           router.refresh();
         }
       } catch {
-        setMessage("WhatsApp bildirimleri durdurulamadı. Lütfen daha sonra tekrar deneyin.");
+        setMessage("Bildirimler durdurulamadı. Lütfen daha sonra tekrar deneyin.");
       }
     });
   }
@@ -49,12 +49,12 @@ export function WhatsAppOptOutForm({ slug, token }: { slug: string; token: strin
           }}
           variant="secondary" className="w-full"
         >
-          WhatsApp bildirimlerini durdur
+          Bildirimleri durdur
         </Button>
       ) : (
         <div role="group" aria-labelledby="whatsapp-stop-confirm-title" className="space-y-3 rounded-control bg-surface-muted p-4">
           <p id="whatsapp-stop-confirm-title" className="text-subhead font-medium text-ink">
-            Bu randevuyla ilgili WhatsApp bildirimlerini durdurmak istiyor musunuz? Randevunuz iptal edilmez.
+            Bu randevuyla ilgili SMS ve WhatsApp bildirimlerini durdurmak istiyor musunuz? Randevunuz iptal edilmez.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button

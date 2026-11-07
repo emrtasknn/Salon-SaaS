@@ -62,7 +62,7 @@ const createErrors: Record<string, string> = {
   CUSTOMER_NOT_FOUND: "Seçilen müşteri bulunamadı. Müşteriyi yeniden arayın.",
   INVALID_INPUT: "Bilgileri kontrol edin. Telefonu ülke koduyla girin, örn. +905551234567.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
-  OPT_IN_REQUIRES_PHONE: "WhatsApp izni için müşterinin telefon numarası gerekli. Telefonu girin veya izin kutusunun işaretini kaldırın.",
+  OPT_IN_REQUIRES_PHONE: "Bildirim izni için müşterinin telefon numarası gerekli. Telefonu girin veya izin kutusunun işaretini kaldırın.",
 };
 
 /** Today's local calendar date in the tenant timezone. */
@@ -633,7 +633,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                   </label>
                   <p id={`${fieldId}-notify-hint`} className="text-xs text-ink-muted">
                     {hasPhone
-                      ? "Randevu onay mesajı WhatsApp ile, yalnızca müşterinin izni kayıtlıysa gönderilir."
+                      ? "Randevu onay mesajı SMS veya WhatsApp ile, yalnızca müşterinin izni kayıtlıysa gönderilir."
                       : "Bildirim için müşterinin telefon numarası gerekli."}
                   </p>
                 </div>

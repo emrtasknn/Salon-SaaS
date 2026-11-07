@@ -25,7 +25,7 @@ describe("BookingContactSummary", () => {
       <BookingContactSummary contact={contact} profile={{ displayName: "Ayşe Yılmaz", phone: contact.phone, email: contact.email }} />,
     );
     expect(html).not.toContain("Randevuda girilen iletişim");
-    expect(html).toContain("WhatsApp: izin var");
+    expect(html).toContain("Bildirim izni: var (SMS/WhatsApp)");
   });
 
   it("shows only differing fields read-only", () => {
@@ -36,6 +36,6 @@ describe("BookingContactSummary", () => {
     expect(html).toContain("+905551234567");
     expect(html).toContain("ayse@example.com");
     expect(html).not.toContain("<input");
-    expect(html).toContain("WhatsApp: müşteri durdurdu");
+    expect(html).toContain("Bildirim izni: müşteri durdurdu");
   });
 });

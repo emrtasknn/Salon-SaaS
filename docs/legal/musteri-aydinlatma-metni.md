@@ -57,7 +57,7 @@ Online randevu sistemi **{{platformUnvani}}** ("**Platform**") tarafından sağl
 | İletişim | E-posta adresi; telefon numarası (isteğe bağlı) |
 | Müşteri işlem | Seçilen hizmet, personel, randevu tarihi ve saati, randevu durumu (beklemede, onaylandı, reddedildi, iptal edildi, tamamlandı) ve değişiklik zamanları; Salon çalışanlarının müşteri kaydınıza eklediği notlar |
 | İşlem güvenliği | Kötüye kullanımı önlemek için IP adresiniz ve telefon numaranızdan gizli bir anahtarla türetilen (takma adlandırılmış) sayaç anahtarları; randevu durum bağlantınızın hash değeri; barındırma hizmet sağlayıcısının istek kayıtlarında IP adresiniz, tarayıcı bilgileriniz ve ziyaret ettiğiniz sayfa adresleri |
-| Bildirim kayıtları | İzin vermeniz hâlinde gönderilen WhatsApp mesajlarının gönderim ve teslim durumu |
+| Bildirim kayıtları | İzin vermeniz hâlinde gönderilen SMS ve WhatsApp mesajlarının gönderim ve teslim durumu |
 
 Salon, randevu notlarına sağlık bilgisi gibi **özel nitelikli kişisel veri** yazmamakla yükümlüdür; sistem bu tür verilerin işlenmesi için tasarlanmamıştır.
 
@@ -66,7 +66,7 @@ Salon, randevu notlarına sağlık bilgisi gibi **özel nitelikli kişisel veri*
 | Amaç | Hukuki sebep (KVKK m.5/2) |
 |---|---|
 | Randevu talebinizi almak, uygunluk kontrolü, onay/ret/iptal işlemleri, size randevu durum bağlantısı vermek | (c) Bir sözleşmenin kurulması veya ifasıyla doğrudan ilgili olması |
-| İzin vermeniz hâlinde randevunuzla ilgili WhatsApp bilgilendirmesi göndermek (talep alındı, onaylandı, reddedildi) | (c) Sözleşmenin ifası. WhatsApp kanalının kullanımı ayrıca isteğinize bağlıdır. |
+| İzin vermeniz hâlinde randevunuzla ilgili SMS veya WhatsApp bilgilendirmesi göndermek (talep alındı, onaylandı, reddedildi, saati değişti) | (c) Sözleşmenin ifası. Bu kanalların kullanımı ayrıca isteğinize bağlıdır. |
 | Salon'un müşteri kayıtlarını ve randevu geçmişini tutması | (f) Veri sorumlusunun meşru menfaati |
 | Sistemin kötüye kullanılmasını ve aşırı istekleri önlemek, bilgi güvenliğini sağlamak | (f) Veri sorumlusunun meşru menfaati |
 | Mevzuattan doğan saklama ve bilgi verme yükümlülükleri, yetkili makam talepleri | (ç) Veri sorumlusunun hukuki yükümlülüğü |
@@ -82,12 +82,12 @@ Kişisel verileriniz; Salon'un online randevu formunu doldurmanız yoluyla **ele
 
 Kişisel verileriniz, yukarıdaki amaçlarla sınırlı olarak:
 
-- **Veri işleyenlere:** Platform'a ve Platform'un altyapı için kullandığı hizmet sağlayıcılara (barındırma ve veri tabanı, uygulama sunumu, WhatsApp mesaj iletimi). Güncel liste: {{altIsleyenListesiUrl}}.
+- **Veri işleyenlere:** Platform'a ve Platform'un altyapı için kullandığı hizmet sağlayıcılara (barındırma ve veri tabanı, uygulama sunumu, SMS ve WhatsApp mesaj iletimi). Güncel liste: {{altIsleyenListesiUrl}}.
 - **Yetkili kamu kurum ve kuruluşlarına:** mevzuatın gerektirdiği hâllerde.
 
 aktarılabilir.
 
-**Yurt dışına aktarım:** Bu hizmet sağlayıcıların bir kısmı verileri yurt dışındaki sunucularda işler (örneğin WhatsApp mesajları Meta Platforms altyapısı üzerinden iletilir). Bu aktarımlar KVKK m.9'da öngörülen uygun güvencelerden biri (Kurul'un ilan ettiği standart sözleşme) kullanılarak yapılır. *[AVUKAT: sağlayıcı bazında aktarım aracı teyit edilecek; bkz. `veri-isleme-sozlesmesi.md` §8.]*
+**Yurt dışına aktarım:** Bu hizmet sağlayıcıların bir kısmı verileri yurt dışındaki sunucularda işler (örneğin SMS mesajları Twilio, WhatsApp mesajları Meta Platforms altyapısı üzerinden iletilir). Bu aktarımlar KVKK m.9'da öngörülen uygun güvencelerden biri (Kurul'un ilan ettiği standart sözleşme) kullanılarak yapılır. *[AVUKAT: sağlayıcı bazında aktarım aracı teyit edilecek; bkz. `veri-isleme-sozlesmesi.md` §8.]*
 
 #### 6. Saklama süresi
 
@@ -115,4 +115,4 @@ Taleplerinizi, Veri Sorumlusuna Başvuru Usul ve Esasları Hakkında Tebliğ'e u
 
 Platform'a doğrudan gelen başvurular, cevaplanmak üzere gecikmeksizin Salon'a iletilir.
 
-WhatsApp bilgilendirme iznini geri almak için: {{whatsappIzinGeriAlmaYontemi}}.
+SMS ve WhatsApp bilgilendirme iznini geri almak için: {{whatsappIzinGeriAlmaYontemi}}.
