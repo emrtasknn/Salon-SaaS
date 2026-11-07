@@ -4,9 +4,9 @@
 import type { BookingContactView, CustomerWhatsAppState } from "./legal-consent-contract";
 
 export const whatsappStateLabels: Record<CustomerWhatsAppState, string> = {
-  NONE: "WhatsApp: izin yok",
-  OPTED_IN: "WhatsApp: izin var",
-  OPTED_OUT: "WhatsApp: müşteri durdurdu",
+  NONE: "Bildirim izni: yok",
+  OPTED_IN: "Bildirim izni: var (SMS/WhatsApp)",
+  OPTED_OUT: "Bildirim izni: müşteri durdurdu",
 };
 
 /** Profile values the surrounding view already shows. `undefined` = not shown/unknown. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeRecipients, phoneDedupeKey, type NotificationRecipient } from "./notification";
+import { SMS_TEMPLATE_KEYS, dedupeRecipients, phoneDedupeKey, toSmsText, type NotificationRecipient } from "./notification";
 
 function recipient(profileId: string, phone: string | null, templateKey = "appointment-created-staff"): NotificationRecipient {
   return { profileId, displayName: profileId, phone, templateKey, body: "body", templateParameters: ["a", "b", "c"] };
@@ -118,5 +118,34 @@ describe("dedupeRecipients without a customer recipient (WP-10)", () => {
     const staff = recipient("staff-1", "+905550000001");
     const result = dedupeRecipients({ staff, customer: null, admins: [recipient("admin-1", "+905550000011"), recipient("admin-2", "+905550000001")] });
     expect(result.map((r) => r.profileId)).toEqual(["staff-1", "admin-1"]);
+  });
+});
+
+describe("toSmsText (customer SMS, owner decision 2026-11-07)", () => {
+  it("transliterates Turkish letters and typographic punctuation to plain ASCII", () => {
+    expect(toSmsText("Şule Çağrı: İğne ölçüsü ü — “özel” ‘not’ …")).toBe("Sule Cagri: Igne olcusu u - \"ozel\" 'not' ...");
+    expect(toSmsText("ı İ ş Ş ğ Ğ ç Ç ö Ö ü Ü")).toBe("i I s S g G c C o O u U");
+  });
+
+  it("strips other accents, emoji and control characters and collapses spaces", () => {
+    expect(toSmsText("  Café  Noël \u{1F487} \t ok  ")).toBe("Cafe Noel ok");
+  });
+
+  it("keeps a typical confirmation inside one 160-character GSM segment", () => {
+    const text = toSmsText("Salon Ada: randevunuz onaylandı. Saç kesimi + Fön — 08.11.2026 14:00 — Ayşe Yılmaz.");
+    expect(text).toMatch(/^[\x20-\x7E]+$/);
+    expect(text.length).toBeLessThanOrEqual(160);
+  });
+});
+
+describe("SMS_TEMPLATE_KEYS", () => {
+  it("allows only customer confirmed / rejected / rescheduled templates", () => {
+    expect([...SMS_TEMPLATE_KEYS].sort()).toEqual([
+      "appointment-confirmed-customer",
+      "appointment-rejected-customer",
+      "appointment-rescheduled-customer",
+    ]);
+    expect(SMS_TEMPLATE_KEYS.has("appointment-created-staff")).toBe(false);
+    expect(SMS_TEMPLATE_KEYS.has("appointment-created-customer")).toBe(false);
   });
 });

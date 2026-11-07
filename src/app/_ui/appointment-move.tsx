@@ -69,7 +69,7 @@ export function useAppointmentMove({
       if (result.status === "RESCHEDULED") {
         haptic("success");
         const notice = result.notified
-          ? "Müşteriye WhatsApp ile bildirildi."
+          ? "Müşteriye bildirim gönderildi."
           : "Müşteriye otomatik bildirim ulaşmadı; gerekirse siz haber verin.";
         onDone(`Randevu ${formatTimeRange(result.startAt, result.endAt)} saatine taşındı. ${notice}`, true);
       } else {

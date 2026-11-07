@@ -59,10 +59,10 @@ describe("legal notice templates (WP-10)", () => {
     expect(customerNoticeHash({ ...tenant, name: "Salon Ada 2" })).not.toBe(base);
   });
 
-  it("names the business in the WhatsApp opt-in text (Meta) and hashes label + help", () => {
+  it("names the business and both channels (SMS + WhatsApp) in the opt-in text and hashes label + help", () => {
     const optIn = renderWhatsAppOptIn(tenant);
     expect(optIn.label).toContain("Salon Ada");
-    expect(optIn.label).toContain("WhatsApp");
+    expect(optIn.label).toContain("SMS veya WhatsApp");
     expect(optIn.help).toContain("reklam veya kampanya mesajı gönderilmez");
     expect(whatsAppOptInHash(tenant)).toBe(sha256Hex(`${optIn.label}\n${optIn.help}`));
   });
@@ -87,8 +87,16 @@ describe("legal notice templates (WP-10)", () => {
     expect(whatsAppOptInHash({ name: "Salon Ada 2" })).not.toBe(whatsAppOptInHash(tenant));
   });
 
+  it("names SMS and its provider in the full notice (owner decision 2026-11-07)", () => {
+    const full = renderFullNotice(tenant);
+    expect(full).toContain("SMS ve WhatsApp mesajlarının gönderim ve teslim durumu");
+    expect(full).toContain("SMS mesajları Twilio");
+    expect(full).toContain("\"Bildirimleri durdur\" düğmesiyle");
+  });
+
   it("has a fixed staff verbal opt-in label and hash", () => {
     expect(renderStaffVerbalOptIn()).toContain("sözlü");
+    expect(renderStaffVerbalOptIn()).toContain("SMS veya WhatsApp");
     expect(staffVerbalOptInHash()).toBe(sha256Hex(renderStaffVerbalOptIn()));
   });
 });

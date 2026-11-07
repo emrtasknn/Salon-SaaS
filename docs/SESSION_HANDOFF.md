@@ -1,33 +1,36 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-06 (cloud) — finish the "Next task" list, migrate staging + pilot, merge, verify.
+2026-11-07 — customer SMS via Twilio (trial) instead of waiting for a WhatsApp number.
 
 ## State
-- main @ 069776a (#196). Merged today (squash, CI green): #191, #185, #188, #192, #193, #194, #195, #196. Closed: #186, #187.
-- This branch `feat/completion-rules-pjkk8c`: wording fix + migration gate + runbook/handoff (PR open).
-- Pilot + staging migrations applied up to `20261111100000_appointment_services` (manual method, runbook §4.9).
-- Pilot pooler: transaction pooler (owner switched); no EMAXCONNSESSION since.
-- Cloud env `Salon-SaaS` (personal) allows `salon-saas-staging.vercel.app`; Vercel share links expire after ~23 h.
+- Branch `feat/twilio-sms` (from main @ a18a48d, #198). Nothing committed, nothing pushed, no PR.
+- Uncommitted: `prisma/schema.prisma`, new migration `20261112100000_notification_channel_sms`, `src/infrastructure/twilio-sms.ts` (+test), `src/application/notification-service.ts` (+ `.sms.test.ts`), `src/domain/notification.ts`, `src/domain/legal-notice.ts`, `src/app/notification-runtime.ts`, customer/staff copy in `src/app/**`, `docs/legal/*`, `.env.example`.
+- Environment touched: local only (`prisma generate` with a dummy URL). No DB, Vercel or Twilio calls.
+- Meta: business "Salon SaaS" profile complete, not verified (owner has no company yet); no WhatsApp number added.
 
 ## Done
-- Working hours one save; phone week agenda; "Fark etmez"; staff–service mapping; multi-service (same staff, back to back, max 5).
-- Incident fixed: #189 had been merged without its pilot migration → pilot booking 404 for ~4 h; migration applied, page restored.
-- Staging browser checks: 2-service booking (120 min = 105 service + 15 buffer, ordered rows), status page label, cancel; mapping hides staff for unmapped services.
+- SMS channel (`NotificationChannel.SMS`), Twilio provider (basic auth: auth token or API key; sender: messaging service or number).
+- SMS only to customers with the existing opt-in, only for confirmed / rejected / rescheduled; never staff/admin, never "created". Text converted to plain ASCII (1 GSM segment).
+- Opt-in + notice texts made channel-neutral (SMS or WhatsApp), versions bumped to `draft-2026-11-07`; Twilio added to sub-processors.
 
 ## Validation
-| Check | Result |
-|---|---|
-| Typecheck / lint | PASS / 0 errors |
-| `npx vitest run src` (no DB) | PASS |
-| CI incl. integration (#196) | PASS |
-| Staging browser | PASS (see Done) |
+| Check | Command | Result |
+|---|---|---|
+| Typecheck | `npm run typecheck` | PASS |
+| Lint | `npx eslint <changed files>` | PASS |
+| Unit tests | `npx vitest run --exclude "**/*.integration.test.ts"` (no DATABASE_URL) | PASS (135 files, 1597 tests) |
+| Integration / build | CI | not run (no PR yet) |
+
+## Decisions (owner, 2026-11-07)
+- One channel-neutral opt-in for SMS + WhatsApp; SMS events = confirmed / rejected / rescheduled; ASCII text; add enum migration.
 
 ## Open risks / owner actions
-- Make `migration-gate` a required status check on main (Settings → Branches); add label `pilot-migrated` to migration PRs after applying.
-- Staging test mapping row `staging-check-map` may still restrict "Test Personel" to "Cilt bakımı" (delete was not confirmed). Test data only.
-- Not verified live: drag-move of a multi-service appointment (needs admin login; covered by CI integration test); "Fark etmez" with 2+ staff (staging tenant has 1 staff).
-- Follow-ups: pg@9 `client.query()` deprecation; multi-service in admin/staff create; delete staging tenant `uiux-test-salon` after the audit.
+- Migration must be applied to staging, then pilot, BEFORE merge (code writes `SMS` rows when Twilio env is set). Without Twilio env the code does not need it. PR needs label `pilot-migrated`.
+- Set Twilio env on Vercel (staging first): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (or `TWILIO_API_KEY_SID`+`TWILIO_API_KEY_SECRET`), `TWILIO_FROM_NUMBER` (or `TWILIO_MESSAGING_SERVICE_SID`).
+- Trial: delivers only to numbers verified in Twilio; adds a trial prefix; Turkey must be enabled in Messaging Geo Permissions. Unverified recipient → FAILED `TWILIO_21608`.
+- Legal texts are still drafts; Twilio (US transfer) needs lawyer review before real customers.
+- Not verified live: real SMS send (needs Twilio env on staging).
 
 ## Next task
-- Owner: required check + label. Then: multi-service in admin create, price on staff views.
+- Owner: review diff → commit/PR → apply migration (staging, pilot) → set Twilio env on staging → book + confirm a test appointment with a verified number.
