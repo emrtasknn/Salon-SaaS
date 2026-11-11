@@ -4,6 +4,8 @@
 Use intent tokens such as:
 surface.default, surface.raised, text.primary, text.muted, action.primary, action.destructive, focus.default, status.pending, status.confirmed, status.rejected, status.cancelled, status.completed.
 
+Implemented tokens live in `src/app/globals.css`; the brand rules (palette "Çam & Lila", Fraunces display type, logo) are in `.claude/skills/salon-saas-uiux/references/apple-design-rules.md` (owner approval 2026-11-11).
+
 ## Interaction states
 default, hover, focus, active/pressed, disabled, loading, error, success, selected where applicable.
 

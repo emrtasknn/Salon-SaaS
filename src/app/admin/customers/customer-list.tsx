@@ -36,7 +36,7 @@ export function CustomerList({ customers, now }: { customers: ReadonlyArray<Cust
             >
               <span
                 aria-hidden="true"
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-muted text-footnote font-semibold text-ink"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-tint text-footnote font-semibold text-on-tint"
               >
                 {initials(customer.displayName)}
               </span>

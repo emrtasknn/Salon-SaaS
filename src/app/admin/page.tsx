@@ -187,7 +187,7 @@ export default async function AdminPage() {
               {today ? (
                 <>
                   <p className="text-title tabular-nums">
-                    {today.total} <span className="text-headline font-semibold">randevu</span>
+                    {today.total} <span className="font-sans text-headline font-semibold">randevu</span>
                   </p>
                   <p className={`mt-1 text-subhead tabular-nums ${anyPending ? "font-semibold text-status-pending" : "text-ink-muted"}`}>
                     {pendingSummaryText(today.pending, allPending)}

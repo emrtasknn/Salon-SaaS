@@ -7,4 +7,4 @@ UI components adapted (copied and restyled) into this repository:
 | [BoardUI](https://www.boardui.com) — free components, [github.com/BoardUI/boardui](https://github.com/BoardUI/boardui) | `src/components/ui/button.tsx`, `input.tsx`, `breadcrumb.tsx`, `notice.tsx` (Button, Input, Breadcrumb, Notification); agent skill in `.claude/skills/boardui/` | MIT |
 | [Amicro](https://amicro.dev) by Syed Subhan Uddin, [github.com/Subhan-code/Amicro--Micro-transitions-](https://github.com/Subhan-code/Amicro--Micro-transitions-) | `src/components/ui/motion-icons.tsx` (btn-10 "ring", btn-12 "Theme" morph, btn-18 "Visibility" morph); vibration patterns in `src/lib/haptics.ts` (`use-web-haptics`) | MIT (attribution requested) |
 
-Icons: [Lucide](https://lucide.dev) (`lucide-react`, ISC). Font: [Inter](https://rsms.me/inter/) via `next/font` (SIL OFL 1.1).
+Icons: [Lucide](https://lucide.dev) (`lucide-react`, ISC). Fonts: [Inter](https://rsms.me/inter/) and [Fraunces](https://github.com/undercasetype/Fraunces) via `next/font` (both SIL OFL 1.1). The logo and icon outlines are generated from these two typefaces.
