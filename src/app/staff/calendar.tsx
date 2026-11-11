@@ -6,7 +6,8 @@ import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { PageHeader } from "../_ui/page-header";
 import { AccountLinks } from "../_ui/account-links";
-import { appointmentStatusBadge, badgeBase, fieldInline, statusNote, appointmentStatusLabel } from "../_ui/styles";
+import { appointmentStatusBadge, badgeBase, statusNote, appointmentStatusLabel } from "../_ui/styles";
+import { DateField } from "../_ui/date-field";
 import { useMinuteClock, AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
@@ -125,7 +126,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
     <PageHeader eyebrow={eyebrow ?? "RandevuN"} title={title} accessory={bell} widthClassName="max-w-5xl">
       <ViewSwitch view={view} onChange={(next) => { setSelectedId(null); setView(next); }} />
       <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
-        <input aria-label="Tarih" type="date" value={date} onChange={(e) => { if (e.target.value) changeDate(e.target.value); }} className={`${fieldInline} tabular-nums`} />
+        <DateField value={date} onChange={changeDate} disabled={busy} />
       </DateStepper>
     </PageHeader>
     <div className="mx-auto max-w-5xl px-4 pb-10 pt-4 sm:px-6">

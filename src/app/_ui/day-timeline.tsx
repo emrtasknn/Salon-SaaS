@@ -222,7 +222,7 @@ export function DateStepper({
   view?: CalendarView;
   onChange: (date: string) => void;
   disabled?: boolean;
-  /** The existing date input, kept between the arrows. */
+  /** The date control (`DateField`), kept between the arrows. */
   children: ReactNode;
 }) {
   const today = todayInZone();
@@ -235,7 +235,7 @@ export function DateStepper({
       <button type="button" aria-label={previousLabel} disabled={disabled} onClick={() => { haptic("selection"); onChange(stepDate(view, date, -1)); }} className={stepButton}>
         <span aria-hidden="true" className="text-headline">‹</span>
       </button>
-      <div className="min-w-0 flex-1 sm:flex-none [&>input]:w-full [&>input]:min-w-0">{children}</div>
+      <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">{children}</div>
       <button type="button" aria-label={nextLabel} disabled={disabled} onClick={() => { haptic("selection"); onChange(stepDate(view, date, 1)); }} className={stepButton}>
         <span aria-hidden="true" className="text-headline">›</span>
       </button>

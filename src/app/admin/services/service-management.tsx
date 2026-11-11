@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { field } from "../../_ui/styles";
+import { checkboxClassName, field } from "../../_ui/styles";
 import {
   createServiceAction,
   createServiceCategoryAction,
@@ -84,7 +84,7 @@ function CatalogFields({
         <p id={`${idPrefix}-price-hint`} className="mt-1 text-footnote text-ink-muted">{PRICE_HINT}</p>
       </div>
       <label className="tap-target flex items-center gap-3 text-body text-ink">
-        <input type="checkbox" name="priceIsFrom" defaultChecked={priceIsFrom ?? false} className="size-5 accent-[var(--color-action)]" />
+        <input type="checkbox" name="priceIsFrom" defaultChecked={priceIsFrom ?? false} className={checkboxClassName} />
         Başlangıç fiyatı (“ve üzeri” yazar)
       </label>
     </>
@@ -105,7 +105,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
       <section aria-labelledby="category-title">
         <h2 id="category-title" className="group-label">Kategoriler</h2>
         <p className="px-4 pb-2 text-subhead text-ink-muted">
-          Müşteri sayfasında hizmetler bu başlıklar altında, bu sırayla görünür. İsteğe bağlıdır.
+          Müşteri sayfasında hizmetler bu başlıklar altında, bu sırayla görünür. İsteğe bağlıdır. Örneğin: Saç, Cilt bakımı.
         </p>
         <div className="inset-group">
           {categories.length > 0 && (
@@ -204,7 +204,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
               required
               maxLength={60}
               autoComplete="off"
-              placeholder="Yeni kategori (ör. Saç, Cilt bakımı)"
+              placeholder="Yeni kategori"
               className={`${field} min-w-0 flex-1`}
             />
             <Button type="submit" variant="secondary" disabled={busy}>Ekle</Button>
@@ -249,7 +249,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
               <input id="service-new-duration" name="durationMinutes" required type="number" min="1" inputMode="numeric" className={`${field} tabular-nums`} />
             </div>
             <div className="w-1/2">
-              <label htmlFor="service-new-buffer" className={label}>Ara (dk)</label>
+              <label htmlFor="service-new-buffer" className={label}>Sonrası boşluk (dk)</label>
               <input id="service-new-buffer" name="bufferMinutes" type="number" min="0" inputMode="numeric" className={`${field} tabular-nums`} />
             </div>
           </div>
@@ -278,7 +278,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                           <div className="min-w-0">
                             <p className="text-headline [overflow-wrap:anywhere]">{item.name}</p>
                             <p className="text-footnote text-ink-muted tabular-nums">
-                              {item.durationMinutes} dk · {item.bufferMinutes} dk ara{price ? ` · ${price}` : ""}
+                              {item.durationMinutes} dk · {item.bufferMinutes} dk boşluk{price ? ` · ${price}` : ""}
                             </p>
                           </div>
                           <StatusToggle
@@ -334,7 +334,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                                 min="0"
                                 inputMode="numeric"
                                 defaultValue={item.bufferMinutes}
-                                aria-label="Ara süresi (dk)"
+                                aria-label="Randevu sonrası boşluk (dk)"
                                 className={`${field} tabular-nums`}
                               />
                             </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAppointmentDateTime, formatDateInZone, formatDayLabel, formatIsoDayLabel } from "./date-format";
+import { formatAppointmentDateTime, formatDateFieldLabel, formatDateInZone, formatDayLabel, formatIsoDayLabel, formatShortDate } from "./date-format";
 
 describe("formatAppointmentDateTime", () => {
   it("shows the salon's wall-clock time, not the server's UTC time", () => {
@@ -35,5 +35,29 @@ describe("formatIsoDayLabel", () => {
   });
   it("shows other days plainly", () => {
     expect(formatIsoDayLabel("2026-11-07", "2026-11-06")).toBe("7 Kas Cmt");
+  });
+});
+
+describe("formatDateFieldLabel", () => {
+  it("writes a wall date as day, short month and year", () => {
+    expect(formatDateFieldLabel("2026-11-10")).toBe("10 Kas 2026");
+  });
+
+  it("never shifts the day with the server's time zone", () => {
+    expect(formatDateFieldLabel("2026-01-01")).toBe("1 Oca 2026");
+  });
+});
+
+describe("formatShortDate", () => {
+  it("drops the year inside the current year", () => {
+    expect(formatShortDate("2026-11-06T09:00:00.000Z", new Date("2026-11-10T09:00:00.000Z"))).toBe("6 Kas");
+  });
+
+  it("keeps the year for older dates", () => {
+    expect(formatShortDate("2025-12-30T09:00:00.000Z", new Date("2026-11-10T09:00:00.000Z"))).toBe("30 Ara 2025");
+  });
+
+  it("uses the salon's calendar day", () => {
+    expect(formatShortDate("2026-11-06T22:30:00.000Z", new Date("2026-11-10T09:00:00.000Z"))).toBe("7 Kas");
   });
 });

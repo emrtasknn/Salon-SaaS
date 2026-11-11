@@ -62,6 +62,7 @@
   --color-destructive: #c41e1e;
   --color-destructive-hover: #a31919;
   --color-focus: #2563eb;
+  --color-switch-thumb: #ffffff; /* same in both themes: the thumb must stay light on the green track */
 
   /* Appointment status (text always paired with a label; never color-only) */
   --color-status-pending: #8a4b00;
@@ -145,6 +146,7 @@
     --color-destructive: #ff6961;
     --color-destructive-hover: #ff8a84;
     --color-focus: #60a5fa;
+    --color-switch-thumb: #ffffff;
     --color-status-pending: #ffb340;
     --color-status-pending-bg: #3a2a10;
     --color-status-confirmed: #30d158;
@@ -196,6 +198,7 @@
   --color-destructive: #ff6961;
   --color-destructive-hover: #ff8a84;
   --color-focus: #60a5fa;
+  --color-switch-thumb: #ffffff;
   --color-status-pending: #ffb340;
   --color-status-pending-bg: #3a2a10;
   --color-status-confirmed: #30d158;

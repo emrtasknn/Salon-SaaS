@@ -1,14 +1,13 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { House, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { field } from "../../_ui/styles";
-import { House } from "lucide-react";
 import { PageHeader } from "../../_ui/page-header";
 import { getCustomer, getCustomers } from "./actions";
-import { appointmentStatusBadge, appointmentStatusLabel, badgeBase } from "../../_ui/styles";
-import { formatAppointmentDateTime, formatDateInZone } from "../../_ui/date-format";
+import { appointmentStatusBadge, appointmentStatusLabel, badgeBase, field } from "../../_ui/styles";
+import { formatAppointmentDateTime } from "../../_ui/date-format";
+import { CustomerList, customerContact } from "./customer-list";
 import { CustomerNoteForm } from "./note-form";
 
 export default async function CustomerPage({
@@ -22,16 +21,18 @@ export default async function CustomerPage({
     const result = await getCustomer(query.id);
     if (result.status !== "ok") {
       return (
-        <main className="p-6">
-          <h1 className="text-2xl font-semibold">
+        <main className="min-h-screen bg-canvas p-6">
+          <h1 className="text-title text-ink">
             {result.status === "UNAUTHORIZED" ? "Yetkisiz erişim" : "Müşteri bulunamadı"}
           </h1>
-          <Link href="/admin/customers" className="mt-4 inline-block text-sm underline">
+          <Link href="/admin/customers" className="focus-ring mt-4 inline-block text-subhead text-ink underline">
             Müşteri listesine dön
           </Link>
         </main>
       );
     }
+
+    const contact = [customerContact({ phone: result.customer.phone, email: null }), result.customer.email].filter(Boolean);
 
     return (
       <main className="min-h-screen bg-canvas">
@@ -40,49 +41,50 @@ export default async function CustomerPage({
           breadcrumb={[{ label: "Yönetim", href: "/admin", icon: House }, { label: "Müşteriler", href: "/admin/customers" }, { label: result.customer.displayName }]}
           widthClassName="max-w-4xl"
         />
-        <div className="mx-auto max-w-4xl p-4 sm:p-8">
-          <p className="text-subhead text-ink-muted">
-            {result.customer.email ?? "E-posta yok"} · {result.customer.phone ?? "Telefon yok"}
-          </p>
+        <div className="mx-auto max-w-4xl space-y-8 p-4 sm:p-8">
+          {contact.length > 0 ? (
+            <p className="px-4 text-subhead tabular-nums text-ink-muted [overflow-wrap:anywhere]">{contact.join(" · ")}</p>
+          ) : null}
 
-          <section className="mt-6 rounded-xl border bg-surface p-5">
-            <h2 className="font-semibold">Randevu geçmişi</h2>
+          <section aria-labelledby="history-title">
+            <h2 id="history-title" className="group-label">Randevu geçmişi</h2>
             {result.customer.appointments.length ? (
-              <div className="mt-4 space-y-2">
+              <ul className="inset-group">
                 {result.customer.appointments.map((appointment) => (
-                  <div key={appointment.id} className="rounded-lg border p-3 text-sm">
+                  <li key={appointment.id} className="inset-row px-4 py-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <span className="font-medium">{appointment.serviceName}</span>
+                      <span className="text-subhead font-semibold text-ink">{appointment.serviceName}</span>
                       <span className={`${badgeBase} ${appointmentStatusBadge[appointment.status] ?? "bg-surface-muted text-ink"}`}>
                         {appointmentStatusLabel[appointment.status] ?? appointment.status}
                       </span>
                     </div>
-                    <div className="mt-2 text-ink-muted">
+                    <p className="mt-1 text-footnote tabular-nums text-ink-muted">
                       <time dateTime={new Date(appointment.startAt).toISOString()}>{formatAppointmentDateTime(appointment.startAt)}</time>
-                    </div>
-                    <div className="mt-1 text-ink-muted">
-                      Personel: {appointment.staffDisplayName}
-                    </div>
-                  </div>
+                      {" · "}
+                      {appointment.staffDisplayName}
+                    </p>
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : (
-              <p className="mt-3 text-sm text-ink-muted">Henüz randevu geçmişi yok.</p>
+              <p className="inset-group p-5 text-subhead text-ink-muted">Henüz randevu geçmişi yok.</p>
             )}
           </section>
 
-          <section className="mt-6 rounded-xl border bg-surface p-5">
-            <h2 className="font-semibold">Notlar</h2>
-            {result.customer.notes.length ? (
-              <div className="mt-4 space-y-2">
-                {result.customer.notes.map((note) => (
-                  <p key={note.id} className="rounded-lg border p-3 text-sm">{note.body}</p>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-ink-muted">Henüz not yok.</p>
-            )}
-            <CustomerNoteForm customerId={result.customer.id} />
+          <section aria-labelledby="notes-title">
+            <h2 id="notes-title" className="group-label">Notlar</h2>
+            <div className="inset-group p-4">
+              {result.customer.notes.length ? (
+                <ul className="space-y-2">
+                  {result.customer.notes.map((note) => (
+                    <li key={note.id} className="rounded-control bg-surface-muted p-3 text-subhead text-ink [overflow-wrap:anywhere]">{note.body}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-subhead text-ink-muted">Henüz not yok.</p>
+              )}
+              <CustomerNoteForm customerId={result.customer.id} />
+            </div>
           </section>
         </div>
       </main>
@@ -91,60 +93,45 @@ export default async function CustomerPage({
 
   const result = await getCustomers(query.q ?? "");
   if (result.status !== "ok") {
-    return <main className="p-6"><h1 className="text-2xl font-semibold">Müşteriler yüklenemedi</h1></main>;
+    return (
+      <main className="min-h-screen bg-canvas p-6">
+        <h1 className="text-title text-ink">Müşteriler yüklenemedi</h1>
+      </main>
+    );
   }
+
+  const count = result.customers.length;
 
   return (
     <main className="min-h-screen bg-canvas">
+      {/* A main tab: no breadcrumb back to "Yönetim" (the tab bar is the way around). */}
       <PageHeader
         title="Müşteriler"
-        eyebrow="Müşteri kayıtları, geçmiş ve notlar"
-        breadcrumb={[{ label: "Yönetim", href: "/admin", icon: House }, { label: "Müşteriler" }]}
+        eyebrow={<span className="tabular-nums">{query.q ? `${count} sonuç` : `${count} kayıt`}</span>}
         widthClassName="max-w-5xl"
       />
-      <div className="mx-auto max-w-5xl p-4 sm:p-8">
+      <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-8">
         <form method="get" className="flex gap-2">
           <label className="sr-only" htmlFor="customer-search">Müşteri ara</label>
           <input
             id="customer-search"
             name="q"
+            type="search"
+            enterKeyHint="search"
             defaultValue={query.q ?? ""}
             placeholder="Ad, e-posta veya telefon ara"
             className={`${field} min-w-0 flex-1`}
           />
-          <Button type="submit" leadingIcon={Search}>Ara</Button>
+          <Button type="submit" leadingIcon={Search} iconOnly aria-label="Ara" />
         </form>
 
-        <section className="mt-6 overflow-hidden rounded-xl border bg-surface">
-          {result.customers.length ? (
-            <div className="divide-y">
-              {result.customers.map((customer) => (
-                <Link
-                  key={customer.id}
-                  href={`/admin/customers?id=${encodeURIComponent(customer.id)}`}
-                  className="block p-4 hover:bg-surface-muted"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="font-medium">{customer.displayName}</div>
-                      <div className="mt-1 text-sm text-ink-muted">
-                        {customer.email ?? "E-posta yok"} · {customer.phone ?? "Telefon yok"}
-                      </div>
-                    </div>
-                    <div className="text-right text-xs text-ink-muted">
-                      <div>{customer.appointmentCount} randevu</div>
-                      <div>{customer.lastAppointmentAt ? formatDateInZone(customer.lastAppointmentAt) : "Henüz randevu yok"}</div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="p-8 text-center text-sm text-ink-muted">
-              {query.q ? "Aramanızla eşleşen müşteri bulunamadı." : "Henüz müşteri kaydı bulunmuyor."}
-            </div>
-          )}
-        </section>
+        {count ? (
+          <CustomerList customers={result.customers} now={new Date()} />
+        ) : (
+          <p className="inset-group p-8 text-center text-body text-ink-muted">
+            {query.q ? "Aramanızla eşleşen müşteri bulunamadı." : "Henüz müşteri kaydı bulunmuyor."}
+          </p>
+        )}
       </div>
     </main>
   );

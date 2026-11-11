@@ -1,6 +1,6 @@
 "use client";
 
-import { field } from "../../_ui/styles";
+import { checkboxClassName, field } from "../../_ui/styles";
 import { createStaffAction, setStaffServicesAction, setStaffStatusAction, updateStaffProfileAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
@@ -183,7 +183,7 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                               name="serviceId"
                               value={service.id}
                               defaultChecked={(mapped[item.id] ?? []).length === 0 || (mapped[item.id] ?? []).includes(service.id)}
-                              className="focus-ring h-5 w-5 shrink-0 accent-action"
+                              className={checkboxClassName}
                             />
                             <span className="min-w-0 [overflow-wrap:anywhere]">{service.name}</span>
                           </label>

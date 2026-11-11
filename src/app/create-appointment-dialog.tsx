@@ -17,7 +17,7 @@ import type {
 } from "./appointment-create-contract";
 
 import { Button } from "@/components/ui/button";
-import { field } from "./_ui/styles";
+import { checkboxClassName, field } from "./_ui/styles";
 import { haptic } from "@/lib/haptics";
 
 type AdminVariant = Readonly<{
@@ -620,14 +620,14 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                 )}
 
                 <div>
-                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                  <label className="flex min-h-11 items-center gap-3 text-sm">
                     <input
                       type="checkbox"
                       checked={notify && hasPhone}
                       disabled={!hasPhone}
                       onChange={(e) => setNotify(e.target.checked)}
                       aria-describedby={`${fieldId}-notify-hint`}
-                      className="h-4 w-4"
+                      className={checkboxClassName}
                     />
                     Müşteriyi bilgilendir
                   </label>
@@ -639,14 +639,14 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                 </div>
 
                 <div>
-                  <label className="flex min-h-11 items-start gap-2 py-2 text-sm">
+                  <label className="flex min-h-11 items-start gap-3 py-2 text-sm">
                     <input
                       type="checkbox"
                       checked={verbalOptIn && hasPhone}
                       disabled={!hasPhone}
                       onChange={(e) => setVerbalOptIn(e.target.checked)}
                       aria-describedby={`${fieldId}-optin-hint`}
-                      className="mt-0.5 h-4 w-4 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+                      className={`${checkboxClassName} mt-0.5`}
                     />
                     <span className={hasPhone ? "" : "text-ink-muted"}>{options.verbalOptIn.label}</span>
                   </label>

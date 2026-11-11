@@ -12,6 +12,7 @@ import { readSupabaseServerClientConfig } from "../../infrastructure/auth/supaba
 import { PushPermission } from "../pwa/push-permission";
 import { formatGreetingDate } from "../_ui/greeting";
 import { readViewerGreeting } from "../_ui/viewer-greeting";
+import { greetingName } from "../_ui/display-name";
 
 /**
  * WP-09: opaque, non-authoritative device-binding key for the push opt-in UI
@@ -50,6 +51,7 @@ export default async function StaffPage({
     readPushBindingKey(),
     readViewerGreeting(),
   ]);
+  const firstName = greetingName(greeting.displayName);
   return (
     <StaffCalendar
       key={`${date}:${appointmentId ?? ""}`}
@@ -57,7 +59,7 @@ export default async function StaffPage({
       initialData={data}
       initialSelectedId={appointmentId}
       eyebrow={<>{greeting.tenantName ? `${greeting.tenantName} · ` : ""}<span className="tabular-nums">{formatGreetingDate(new Date())}</span></>}
-      title={greeting.displayName ? `Merhaba, ${greeting.displayName}` : "Merhaba"}
+      title={firstName ? `Merhaba, ${firstName}` : "Merhaba"}
       bell={<InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff" />}
       pushPrompt={pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" /> : undefined}
     />

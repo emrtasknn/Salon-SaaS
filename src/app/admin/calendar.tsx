@@ -30,7 +30,8 @@ import { MonthView } from "../_ui/month-view";
 import { dateInZone, TIMELINE_TIME_ZONE } from "../_ui/timeline-layout";
 import { formatDayLabel } from "../_ui/date-format";
 import { ConfirmButton } from "../_ui/confirm-button";
-import { appointmentStatusBadge, badgeBase, fieldInline, appointmentStatusLabel } from "../_ui/styles";
+import { appointmentStatusBadge, badgeBase, appointmentStatusLabel } from "../_ui/styles";
+import { DateField } from "../_ui/date-field";
 import { PageHeader } from "../_ui/page-header";
 import { AdminClosures } from "./closures";
 import type { ClosureListResult, LocalDateIso } from "../appointment-create-contract";
@@ -238,15 +239,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
           }}
         />
         <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
-          <input
-            aria-label="Tarih"
-            type="date"
-            value={date}
-            onChange={(event) => {
-              if (event.target.value) changeDate(event.target.value);
-            }}
-            className={`${fieldInline} tabular-nums`}
-          />
+          <DateField value={date} onChange={changeDate} disabled={busy} />
         </DateStepper>
       </PageHeader>
       <div className="mx-auto max-w-5xl p-4 sm:p-6">

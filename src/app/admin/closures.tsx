@@ -14,7 +14,7 @@ import type {
 import { formatLocalDate } from "../create-appointment-dialog";
 import { createClosure, deleteClosure, listClosures, previewClosureImpact } from "./closure-actions";
 import { Button } from "@/components/ui/button";
-import { field } from "../_ui/styles";
+import { checkboxClassName, field } from "../_ui/styles";
 import { haptic } from "@/lib/haptics";
 
 type Props = Readonly<{
@@ -239,12 +239,12 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
                   </li>
                 ))}
               </ul>
-              <label className="mt-2 flex min-h-11 items-start gap-2">
+              <label className="mt-2 flex min-h-11 items-start gap-3">
                 <input
                   type="checkbox"
                   checked={confirmed}
                   onChange={(e) => setConfirmed(e.target.checked)}
-                  className="mt-0.5 h-4 w-4"
+                  className={`${checkboxClassName} mt-0.5`}
                 />
                 <span>Bu randevuların iptal edilmeyeceğini anladım; günü yine de kapat.</span>
               </label>
