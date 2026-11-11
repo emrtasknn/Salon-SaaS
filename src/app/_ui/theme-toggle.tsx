@@ -13,6 +13,7 @@ import {
   type ThemePreference,
 } from "./theme";
 import { haptic } from "@/lib/haptics";
+import { runThemeReveal } from "./theme-reveal";
 
 const listeners = new Set<() => void>();
 
@@ -45,7 +46,8 @@ const meta: Record<ThemePreference, { label: string; icon: typeof Sun }> = {
 
 /**
  * Appearance button (Amicro btn-12 "Theme" morph): each tap cycles Sistem → Açık → Koyu.
- * Applies instantly and persists on this device only (localStorage). Presentation only.
+ * The new theme opens as a circle from the button where the browser supports view transitions,
+ * otherwise instantly. Persists on this device only (localStorage). Presentation only.
  */
 export function ThemeToggle({ className = "", showLabel = false }: { className?: string; showLabel?: boolean }) {
   const current = useSyncExternalStore(subscribe, () => readThemePreference(), () => "system" as const);
@@ -55,9 +57,16 @@ export function ThemeToggle({ className = "", showLabel = false }: { className?:
   return (
     <button
       type="button"
-      onClick={() => {
+      onClick={(event) => {
         haptic("selection");
-        setPreference(next);
+        const box = event.currentTarget.getBoundingClientRect();
+        runThemeReveal({
+          apply: () => setPreference(next),
+          origin: { x: box.left + box.width / 2, y: box.top + box.height / 2 },
+          viewport: { width: window.innerWidth, height: window.innerHeight },
+          doc: document,
+          reduceMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        });
       }}
       aria-label={`Görünüm: ${label}. Değiştirmek için dokunun (sonraki: ${meta[next].label}).`}
       title={`Görünüm: ${label}`}

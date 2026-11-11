@@ -134,6 +134,12 @@ describe("ViewSwitch", () => {
     expect(html).toMatch(/aria-pressed="false"[^>]*>Liste/);
   });
 
+  it("draws the sliding thumb only inside the selected view", () => {
+    const html = renderToStaticMarkup(<ViewSwitch view="week" onChange={noop} />);
+    expect(html.match(/data-view-thumb/g)).toHaveLength(1);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Hafta<span[^>]*data-view-thumb/);
+  });
+
   it("maps stored values, including the earlier timeline choice, to a view", () => {
     expect(parseStoredView("timeline")).toBe("day");
     expect(parseStoredView("list")).toBe("list");

@@ -36,6 +36,7 @@ import {
 } from "./timeline-layout";
 import { Button } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
+import { motion, useReducedMotion } from "motion/react";
 
 export const appointmentStatusLabels: Record<string, string> = {
   PENDING: "Bekliyor",
@@ -130,6 +131,7 @@ export function useCalendarView(): [CalendarView, (view: CalendarView) => void] 
 const viewLabels: Record<CalendarView, string> = { day: "Gün", week: "Hafta", month: "Ay", list: "Liste" };
 
 export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (view: CalendarView) => void }) {
+  const reduceMotion = useReducedMotion();
   return (
     <div role="group" aria-label="Görünüm" className="inline-flex rounded-control bg-separator/70 p-0.5">
       {VIEWS.map((value) => {
@@ -143,11 +145,21 @@ export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (
               haptic("selection");
               onChange(value);
             }}
-            className={`pressable focus-ring tap-target rounded-[10px] px-3.5 text-subhead font-semibold sm:px-4 ${
-              selected ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink"
+            className={`pressable focus-ring tap-target relative isolate rounded-[10px] px-3.5 text-subhead font-semibold sm:px-4 ${
+              selected ? "text-ink" : "text-ink-muted hover:text-ink"
             }`}
           >
             {viewLabels[value]}
+            {/* The thumb slides between views; it comes after the label so the label stays the button's first child. */}
+            {selected ? (
+              <motion.span
+                layoutId="calendar-view-thumb"
+                data-view-thumb=""
+                aria-hidden="true"
+                className="absolute inset-0 -z-10 rounded-[10px] bg-surface shadow-card"
+                transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 40, mass: 0.9 }}
+              />
+            ) : null}
           </button>
         );
       })}

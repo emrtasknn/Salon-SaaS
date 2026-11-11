@@ -60,6 +60,10 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 - [ ] Popovers/dropdowns ≤300ms, ease-out (never ease-in), `transform-origin` at the trigger. Modals open centered.
 - [ ] Tokens: `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`; durations `--duration-fast` 150ms, `--duration-base` 200ms, `--duration-slow` 300ms.
 - [ ] `prefers-reduced-motion: reduce` disables non-essential motion (the `pressable` scale is removed).
+- [ ] Selection indicators slide, they do not jump: the tab-bar pill (`app-nav.tsx`) and the calendar view thumb (`ViewSwitch`) are one shared `motion` element (`layoutId`) on a short spring. The tab pill moves on tap, before the new page arrives (`shownNavHref`).
+- [ ] Theme switch opens the new theme as a circle from the toggle (`theme-reveal.ts`, View Transitions API; instant where unsupported or with reduced motion). Do not start other view transitions without checking the global `::view-transition-*` rule in `globals.css`.
+- [ ] Confirmation moment: `<SuccessMark>` (accent disc, drawn tick, one ring). The only place the tick draw animates a stroke; use it once per confirmed outcome, next to the heading that states it.
+- [ ] Motion never carries information alone: every animated state is also complete at rest.
 
 ### Logo
 - [ ] Use `Wordmark` / `LogoMark` from `src/components/ui/logo.tsx` (generated outlines; no font needed). Never retype the name as styled text in place of the logo.

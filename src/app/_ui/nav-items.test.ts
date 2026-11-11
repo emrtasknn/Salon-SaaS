@@ -27,3 +27,26 @@ describe("activeNavHref", () => {
     expect(adminNavItems.some((item) => item.href.startsWith("/staff"))).toBe(false);
   });
 });
+
+describe("nav icons", () => {
+  it("gives every tab an icon key the tab bar knows", async () => {
+    const { adminServesAsStaffNavItem, backToAdminNavItem, NAV_ICONS } = await import("./nav-items");
+    const all = [...adminNavItems, ...staffNavItems, adminServesAsStaffNavItem, backToAdminNavItem];
+    for (const item of all) expect(NAV_ICONS, item.label).toContain(item.icon);
+  });
+});
+
+describe("shownNavHref", () => {
+  it("moves the indicator to the tapped tab before the new page has loaded", async () => {
+    const { shownNavHref } = await import("./nav-items");
+    const pending = { href: "/admin/customers", fromPath: "/admin" };
+    expect(shownNavHref(pending, "/admin", adminNavItems)).toBe("/admin/customers");
+  });
+
+  it("follows the real path once navigation has happened", async () => {
+    const { shownNavHref } = await import("./nav-items");
+    const pending = { href: "/admin/customers", fromPath: "/admin" };
+    expect(shownNavHref(pending, "/admin/calendar", adminNavItems)).toBe("/admin/calendar");
+    expect(shownNavHref(null, "/admin/calendar", adminNavItems)).toBe("/admin/calendar");
+  });
+});

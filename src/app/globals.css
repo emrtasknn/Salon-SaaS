@@ -404,6 +404,64 @@ body {
   }
 }
 
+/*
+ * Theme switch (src/app/_ui/theme-reveal.ts): the new theme opens as a circle from the toggle.
+ * The default cross-fade is switched off so only that clip animates. Nothing else in the app
+ * starts a view transition.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/*
+ * Confirmation mark (<SuccessMark>): complete at rest. With motion allowed the disc pops in, the
+ * tick draws and one ring spreads. Disc and ring use transform/opacity only.
+ */
+.success-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--color-accent);
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes success-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@keyframes success-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes success-ring {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .success-mark {
+    animation: success-pop var(--duration-slow) var(--ease-out);
+  }
+  .success-mark::after {
+    animation: success-ring 700ms var(--ease-out) 140ms;
+  }
+  .success-mark path {
+    stroke-dasharray: 1;
+    animation: success-draw 420ms var(--ease-out) 160ms backwards;
+  }
+}
+
 /* Inside the app shell (top nav + tab-bar spacer), a `min-h-screen` page would add the bars' height
    as blank scroll space at the bottom. Fill the remaining height instead. */
 [data-app-content] > main.min-h-screen {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { card } from "../../_ui/styles";
 import { Button } from "@/components/ui/button";
+import { SuccessMark } from "@/components/ui/success-mark";
 
 export type BookingSummary = Readonly<{
   serviceName: string;
@@ -36,6 +37,7 @@ export function BookingConfirmation({ summary, onNewBooking }: { summary: Bookin
   return (
     <section aria-labelledby="booking-done-title" className="space-y-5">
       <header>
+        <SuccessMark className="mb-4" />
         <h1 id="booking-done-title" ref={headingRef} tabIndex={-1} className="text-large-title outline-none">
           Randevu talebiniz alındı
         </h1>

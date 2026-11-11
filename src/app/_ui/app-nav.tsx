@@ -2,14 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { CalendarCheck, CalendarDays, LayoutGrid, Users } from "lucide-react";
 
-import { activeNavHref, type NavItem } from "./nav-items";
+import { haptic } from "@/lib/haptics";
+import { shownNavHref, type NavIcon, type NavItem, type PendingNav } from "./nav-items";
+
+const icons: Record<NavIcon, ComponentType<{ className?: string; "aria-hidden"?: boolean; strokeWidth?: number }>> = {
+  manage: LayoutGrid,
+  calendar: CalendarDays,
+  customers: Users,
+  appointments: CalendarCheck,
+};
 
 /**
  * Area navigation for standalone PWA mode (no browser back button).
- * Phones (<768px): fixed bottom tab bar on the glass material with safe-area padding.
- * ≥768px: the same links as a segmented row at the top of the page.
+ * Phones (<768px): fixed bottom tab bar on the glass material with safe-area padding; each tab is
+ * an icon over a label, and a lilac pill slides to the selected tab (it moves on tap, before the
+ * new page arrives). ≥768px: the same links as a segmented row at the top of the page.
  * Presentation only: links are navigation, never authorization.
  */
 export function AppNavShell({
@@ -21,7 +32,10 @@ export function AppNavShell({
   label: string;
   children: ReactNode;
 }) {
-  const active = activeNavHref(usePathname(), items);
+  const pathname = usePathname();
+  const [pending, setPending] = useState<PendingNav | null>(null);
+  const active = shownNavHref(pending, pathname, items);
+  const reduceMotion = useReducedMotion();
 
   return (
     <>
@@ -58,20 +72,35 @@ export function AppNavShell({
         data-app-tabbar=""
         className="glass fixed inset-x-0 bottom-0 z-30 border-t pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
       >
-        <ul className="mx-auto flex max-w-xl px-2">
+        <ul className="mx-auto flex max-w-xl gap-1 px-2">
           {items.map((item) => {
             const current = item.href === active;
+            const Icon = icons[item.icon];
             return (
-              <li key={item.href} className="flex-1">
+              <li key={item.href} className="min-w-0 flex-1">
                 <Link
                   href={item.href}
                   aria-current={current ? "page" : undefined}
-                  className={`focus-ring flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-control px-2 text-footnote font-semibold ${
-                    current ? "text-ink" : "text-ink-muted"
+                  onClick={() => {
+                    if (current) return;
+                    haptic("selection");
+                    setPending({ href: item.href, fromPath: pathname });
+                  }}
+                  className={`focus-ring relative isolate flex min-h-[52px] w-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-caption font-semibold transition-colors duration-150 ${
+                    current ? "text-on-tint" : "text-ink-muted"
                   }`}
                 >
-                  <span aria-hidden="true" className={`h-1 w-6 rounded-full ${current ? "bg-action" : "bg-transparent"}`} />
-                  {item.label}
+                  <Icon className="size-[22px] shrink-0" aria-hidden strokeWidth={current ? 2.25 : 2} />
+                  <span className="max-w-full truncate">{item.label}</span>
+                  {current ? (
+                    <motion.span
+                      layoutId="app-tab-pill"
+                      data-nav-pill=""
+                      aria-hidden="true"
+                      className="absolute inset-0 -z-10 rounded-[14px] bg-tint"
+                      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 40, mass: 0.9 }}
+                    />
+                  ) : null}
                 </Link>
               </li>
             );
