@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { switchClassName } from "../_ui/styles";
 import { Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MorphIcon } from "@/components/ui/motion-icons";
@@ -135,14 +136,22 @@ type Props = {
    * bell (on, or off after "Daha sonra") renders inline without them.
    */
   className?: string;
+  /**
+   * "inline" (default): banner, or the compact bell once on / postponed.
+   * "banner-only": home screen; the opt-in banner and hints still show, the compact bell does not
+   *   (the switch lives in Ayarlar). The subscription is still refreshed on every open.
+   * "row": settings row with a switch, shown in every state.
+   */
+  layout?: "inline" | "banner-only" | "row";
 };
 
 function BellIcon({ off = false }: { off?: boolean }) {
   return <MorphIcon icon={off ? BellOff : Bell} iconKey={off ? "off" : "on"} className="size-5" />;
 }
 
-export function PushPermission({ bindingKey, className = "" }: Props) {
+export function PushPermission({ bindingKey, className = "", layout = "inline" }: Props) {
   const [view, setView] = useState<View>({ kind: "hidden" });
+  const [settled, setSettled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const publicKeyRef = useRef<string | null>(null);
@@ -234,7 +243,9 @@ export function PushPermission({ bindingKey, className = "" }: Props) {
       } catch {
         if (!cancelled) setView({ kind: "off" });
       }
-    })();
+    })().finally(() => {
+      if (!cancelled) setSettled(true);
+    });
 
     return () => {
       cancelled = true;
@@ -318,10 +329,54 @@ export function PushPermission({ bindingKey, className = "" }: Props) {
     setDismissed(true);
   }
 
+  if (layout === "row") {
+    const on = view.kind === "on";
+    const usable = view.kind === "on" || view.kind === "off";
+    const hint =
+      (usable && view.message) ||
+      (!settled
+        ? null
+        : view.kind === "denied"
+          ? "Engellendi. Cihaz ayarlarından izin verebilirsiniz."
+          : view.kind === "install-hint"
+            ? "Önce uygulamayı ana ekrana ekleyin: Paylaş → Ana Ekrana Ekle."
+            : view.kind === "hidden"
+              ? "Bu cihazda kullanılamıyor."
+              : on
+                ? "Yeni randevu taleplerinde haber verilir."
+                : "Kapalı.");
+    return (
+      <label className="flex min-h-11 items-center gap-3 px-4 py-3 text-body text-ink">
+        <span className="min-w-0 flex-1">
+          Bildirimler
+          {hint ? (
+            <span role="status" className="block text-footnote text-ink-muted">
+              {hint}
+            </span>
+          ) : null}
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          aria-checked={on}
+          checked={on}
+          disabled={busy || !usable}
+          aria-busy={busy}
+          onChange={() => {
+            haptic("selection");
+            void (on ? disable() : enable());
+          }}
+          className={switchClassName}
+        />
+      </label>
+    );
+  }
+
   if (view.kind === "hidden") return null;
 
   // On, or off after "Daha sonra": a compact bell toggle instead of a persistent card.
   if (view.kind === "on" || (view.kind === "off" && dismissed)) {
+    if (layout === "banner-only") return null;
     const on = view.kind === "on";
     return (
       <div className="flex shrink-0 flex-col items-end gap-1">

@@ -6,7 +6,6 @@ import { listAdminAppointments, listAdminNotifications } from "./calendar-action
 import { loadTenantSettings } from "./settings-actions";
 import { AdminUnauthorized } from "./admin-management";
 import { InAppNotifications } from "../in-app-notifications";
-import { createHash } from "node:crypto";
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createSupabaseAuthAdapter } from "../../infrastructure/auth/supabase-auth-adapter";
 import { createNextSupabaseServerClient } from "../../infrastructure/auth/supabase-server-client";
@@ -15,7 +14,8 @@ import { PushPermission } from "../pwa/push-permission";
 import { redirect } from "next/navigation";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
 import { getPrisma } from "../../infrastructure/prisma-runtime";
-import { AccountLinks } from "../_ui/account-links";
+import { AccountRows } from "../_ui/account-links";
+import { readPushBindingKey } from "../_ui/push-binding-key";
 import { PageHeader } from "../_ui/page-header";
 import { formatGreetingDate, localDateIso } from "../_ui/greeting";
 import { readViewerGreeting } from "../_ui/viewer-greeting";
@@ -40,25 +40,6 @@ async function isStaffMember(): Promise<boolean> {
     return membership.status === "found" && membership.membership.role === "STAFF";
   } catch {
     return false;
-  }
-}
-
-/**
- * WP-09: opaque, non-authoritative device-binding key for the push opt-in UI
- * (hash of tenant + auth subject). Never used for authorization; the push
- * actions derive tenant/profile from the session themselves.
- */
-async function readPushBindingKey(): Promise<string | null> {
-  try {
-    const supabase = await createNextSupabaseServerClient(readSupabaseServerClientConfig());
-    const request = await readAuthenticatedTenantRequest(createSupabaseAuthAdapter({ client: supabase as never }));
-    if (request.state !== "authenticated") return null;
-    return createHash("sha256")
-      .update(`${request.tenantContext.tenantId}:${request.identity.subjectId}`)
-      .digest("hex")
-      .slice(0, 32);
-  } catch {
-    return null;
   }
 }
 
@@ -145,7 +126,8 @@ export default async function AdminPage() {
       />
 
       <div className="mx-auto w-full max-w-xl space-y-8 px-4 pb-10 pt-4 sm:px-6">
-        {pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" /> : null}
+        {/* Opt-in banner and hints only; the on/off switch is in Ayarlar. Still refreshes the subscription on open. */}
+        {pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" layout="banner-only" /> : null}
         {remaining > 0 && (
           <section aria-labelledby="setup-title">
             <h2 id="setup-title" className="group-label">Kurulum · {remaining} adım kaldı</h2>
@@ -219,9 +201,7 @@ export default async function AdminPage() {
 
         <section aria-labelledby="account-title">
           <h2 id="account-title" className="group-label">Hesap</h2>
-          <div className="inset-group p-4">
-            <AccountLinks />
-          </div>
+          <AccountRows settingsHref="/admin/settings" />
         </section>
       </div>
     </main>
