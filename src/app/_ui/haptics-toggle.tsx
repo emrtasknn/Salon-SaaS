@@ -19,11 +19,17 @@ function subscribe(listener: () => void) {
 }
 
 /** "Titreşim" switch (per device). On by default. Presentation only. */
-export function HapticsToggle() {
+export function HapticsToggle({ row = false }: { row?: boolean }) {
   const enabled = useSyncExternalStore(subscribe, () => hapticsEnabled(), () => true);
   return (
-    <label className="inline-flex min-h-11 items-center gap-2 rounded-full border border-separator bg-surface px-3.5 text-footnote font-semibold text-ink shadow-card">
-      Titreşim
+    <label
+      className={
+        row
+          ? "flex min-h-11 items-center gap-3 px-4 py-3 text-body text-ink"
+          : "inline-flex min-h-11 items-center gap-2 rounded-full border border-separator bg-surface px-3.5 text-footnote font-semibold text-ink shadow-card"
+      }
+    >
+      <span className={row ? "min-w-0 flex-1" : undefined}>Titreşim</span>
       <input
         type="checkbox"
         role="switch"
