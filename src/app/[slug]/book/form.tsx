@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { PublicLegalView } from "../../legal-consent-contract";
 import { getPublicAvailability } from "./actions";
 import { submitBooking } from "./submit";
-import { card, field, statusNote } from "../../_ui/styles";
+import { card, checkboxClassName, field, statusNote } from "../../_ui/styles";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SalonLocationLink, type SalonLocationView } from "../../_ui/salon-location-link";
 import { Button } from "@/components/ui/button";
@@ -654,7 +654,7 @@ export function PublicBookingForm({
                       disabled={!hasPhone}
                       onChange={(event) => setWhatsappOptIn(event.target.checked)}
                       aria-describedby={hasPhone ? "booking-whatsapp-help" : "booking-whatsapp-help booking-whatsapp-disabled"}
-                      className="focus-ring mt-0.5 h-6 w-6 shrink-0 accent-action disabled:cursor-not-allowed"
+                      className={`${checkboxClassName} mt-0.5`}
                     />
                     <label htmlFor="booking-whatsapp-optin" className={`text-subhead ${hasPhone ? "text-ink" : "text-ink-muted"}`}>
                       {legal.optInLabel}

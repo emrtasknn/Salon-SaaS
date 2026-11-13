@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DayTimeline, formatPeriod, parseStoredView, ViewSwitch } from "./day-timeline";
 import { agendaDays, WeekView } from "./week-view";
@@ -91,6 +91,16 @@ describe("agendaDays", () => {
 });
 
 describe("MonthView", () => {
+  // The month view marks the real "today"; pin the clock so the labels below do not gain
+  // ", bugün" on the one calendar day that matches a date used in this test.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-05T09:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("labels each day with its count, status breakdown and closure", () => {
     const html = renderToStaticMarkup(
       <MonthView
@@ -122,6 +132,12 @@ describe("ViewSwitch", () => {
     expect(html).toMatch(/aria-pressed="true"[^>]*>Hafta/);
     expect(html).toMatch(/aria-pressed="false"[^>]*>Ay/);
     expect(html).toMatch(/aria-pressed="false"[^>]*>Liste/);
+  });
+
+  it("draws the sliding thumb only inside the selected view", () => {
+    const html = renderToStaticMarkup(<ViewSwitch view="week" onChange={noop} />);
+    expect(html.match(/data-view-thumb/g)).toHaveLength(1);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Hafta<span[^>]*data-view-thumb/);
   });
 
   it("maps stored values, including the earlier timeline choice, to a view", () => {

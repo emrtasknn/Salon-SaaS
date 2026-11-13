@@ -38,7 +38,8 @@ export function PageHeader({
             {eyebrow ? (
               <p className="text-footnote font-semibold text-ink-muted [overflow-wrap:anywhere]">{eyebrow}</p>
             ) : null}
-            <Title className="truncate text-title text-ink sm:text-large-title">{title}</Title>
+            {/* Two lines at most; a long name wraps instead of being cut to a few letters. */}
+            <Title className="line-clamp-2 text-balance text-title text-ink [overflow-wrap:anywhere] sm:text-large-title">{title}</Title>
           </div>
           {accessory ? <div className="flex shrink-0 items-center gap-2">{accessory}</div> : null}
         </div>

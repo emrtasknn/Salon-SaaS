@@ -44,7 +44,7 @@ const styles = {
   },
   variant: {
     primary: "bg-action text-on-action shadow-card hover:bg-action-hover",
-    // Confirmation moment only (e.g. final booking submit); at most one per screen. Label is navy.
+    // Confirmation moment only (e.g. final booking submit); at most one per screen. Label is `on-accent` (dark).
     accent: "bg-accent text-on-accent shadow-card hover:bg-accent-hover",
     secondary: "border border-separator bg-surface text-ink shadow-card hover:bg-surface-muted",
     ghost: "text-ink hover:bg-surface-muted",

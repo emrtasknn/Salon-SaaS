@@ -6,16 +6,19 @@
  * Light + dark themes. Components use semantic tokens only; never `dark:` variants or raw palette
  * classes. Dark values live in the two `DARK TOKENS` blocks below (keep them identical; the
  * contrast test in src/app/_ui/theme-contrast.test.ts checks both themes and that the blocks match).
- * RandevuN palette (owner approval 2026-11-06): warm off-white canvas, navy ink/actions, emerald accent.
- * Light contrast (WCAG 2.x, computed): ink/surface 17.9:1, ink-muted/surface 7.6:1,
- * ink-muted/canvas 7.2:1, on-accent/accent 7.0:1, accent-ink/canvas 5.2:1,
- * field-border/surface-muted 4.3:1 (non-text 3:1), status badges >= 5.8:1.
+ * RandevuN palette "Çam & Lila" (owner approval 2026-11-11, replaces the 2026-11-06 navy set):
+ * mist canvas, pine ink/actions, lilac tint for soft highlights, emerald accent for confirmation.
+ * In the dark theme the primary action is lilac on night pine. `brand` (pine) and `on-brand` are
+ * the same in both themes: logo tile, "Bugün" card.
+ * Light contrast (WCAG 2.x, computed): ink/surface 16.6:1, ink-muted/surface 7.8:1,
+ * ink-muted/canvas 7.3:1, on-action/action 12.1:1, on-tint/tint 9.8:1, on-accent/accent 7.2:1,
+ * accent-ink/canvas 5.1:1, field-border/surface-muted 3.8:1 (non-text 3:1).
  */
 
 :root {
-  --background: #faf9f7;
-  --foreground: #0f172a;
-  --glass-bg: rgb(250 249 247 / 0.82);
+  --background: #f6f6fa;
+  --foreground: #13211f;
+  --glass-bg: rgb(246 246 250 / 0.82);
   color-scheme: light dark;
 
   /* Motion (emilkowalski/skills, MIT): animate transform/opacity only. */
@@ -32,36 +35,45 @@
 @theme {
   /* Inter (next/font, see layout.tsx); system stack as fallback while it loads. */
   --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+  /* Display face (Fraunces, next/font): page titles and large numerals only, never below 22px. */
+  --font-display: var(--font-fraunces), "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Surfaces & text */
-  --color-canvas: #faf9f7;
+  --color-canvas: #f6f6fa;
   --color-surface: #ffffff;
-  --color-surface-muted: #f4f3f0;
-  --color-ink: #0f172a;
-  --color-ink-muted: #475569;
-  --color-separator: #e7e5e0; /* decorative hairlines only; essential boundaries use field-border */
-  --color-field-border: #64748b;
+  --color-surface-muted: #ededf5;
+  --color-ink: #13211f;
+  --color-ink-muted: #465553;
+  --color-separator: #e2e2ec; /* decorative hairlines only; essential boundaries use field-border */
+  --color-field-border: #6b7b79;
 
-  /* Actions & focus. Navy = primary actions, headings, selected segments. */
-  --color-action: #0f172a;
-  --color-action-hover: #1e293b;
+  /* Actions & focus. Pine = primary actions and selected segments (lilac in the dark theme). */
+  --color-action: #1f3b38;
+  --color-action-hover: #2a4d49;
   --color-on-action: #ffffff;
+  /* Lilac tint: selected tab, row icon tiles, avatars, soft highlights. Text on it is `on-tint`. */
+  --color-tint: #e6e6fa;
+  --color-on-tint: #1f3b38;
+  /* Brand pine, identical in both themes: logo tile and the one brand-filled card per screen. */
+  --color-brand: #1f3b38;
+  --color-on-brand: #f6f6fa;
   /*
    * Brand accent (emerald) — ONLY for confirmation moments: the final booking CTA, the selected
-   * time slot, success feedback. At most one accent-filled button per screen. Text on an accent
-   * fill is always `on-accent` (navy); white on emerald is 2.5:1 and not allowed. Emerald text or
+   * time slot, success feedback, the logo dot. At most one accent-filled button per screen. Text on
+   * an accent fill is always `on-accent` (night pine); white on emerald is 2.5:1 and not allowed. Emerald text or
    * icons use `accent-ink`; selected rows use `accent-soft` with `on-accent-soft` text.
    */
   --color-accent: #10b981;
   --color-accent-hover: #059669;
-  --color-on-accent: #0f172a;
+  --color-on-accent: #0b1413;
   --color-accent-ink: #047857;
   --color-accent-soft: #ecfdf5;
   --color-on-accent-soft: #065f46;
   --color-destructive: #c41e1e;
   --color-destructive-hover: #a31919;
   --color-focus: #2563eb;
+  --color-switch-thumb: #ffffff; /* same in both themes: the thumb must stay light on the green track */
 
   /* Appointment status (text always paired with a label; never color-only) */
   --color-status-pending: #8a4b00;
@@ -90,11 +102,11 @@
   --text-title: 1.75rem;
   --text-title--line-height: 2.125rem;
   --text-title--letter-spacing: -0.02em;
-  --text-title--font-weight: 700;
+  --text-title--font-weight: 600;
   --text-large-title: 2.125rem;
   --text-large-title--line-height: 2.5rem;
   --text-large-title--letter-spacing: -0.02em;
-  --text-large-title--font-weight: 700;
+  --text-large-title--font-weight: 600;
 
   /* Continuous-feeling radii */
   --radius-control: 12px;
@@ -123,28 +135,33 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --background: #0b1120;
-    --foreground: #f8fafc;
-    --glass-bg: rgb(17 24 39 / 0.9);
-    --color-canvas: #0b1120;
-    --color-surface: #111827;
-    --color-surface-muted: #1e293b;
-    --color-ink: #f8fafc;
-    --color-ink-muted: #94a3b8;
-    --color-separator: #334155;
-    --color-field-border: #7c8ba1;
-    --color-action: #f8fafc;
-    --color-action-hover: #cbd5e1;
-    --color-on-action: #0f172a;
+    --background: #0b1413;
+    --foreground: #f3f5f7;
+    --glass-bg: rgb(18 30 29 / 0.9);
+    --color-canvas: #0b1413;
+    --color-surface: #121e1d;
+    --color-surface-muted: #1b2a29;
+    --color-ink: #f3f5f7;
+    --color-ink-muted: #9cafad;
+    --color-separator: #2a3a39;
+    --color-field-border: #7e918f;
+    --color-action: #dcdcf8;
+    --color-action-hover: #c6c6f0;
+    --color-on-action: #13211f;
+    --color-tint: #262645;
+    --color-on-tint: #dcdcf8;
+    --color-brand: #1f3b38;
+    --color-on-brand: #f6f6fa;
     --color-accent: #34d399;
     --color-accent-hover: #10b981;
-    --color-on-accent: #0b1120;
+    --color-on-accent: #0b1413;
     --color-accent-ink: #6ee7b7;
     --color-accent-soft: #064e3b;
     --color-on-accent-soft: #a7f3d0;
     --color-destructive: #ff6961;
     --color-destructive-hover: #ff8a84;
     --color-focus: #60a5fa;
+    --color-switch-thumb: #ffffff;
     --color-status-pending: #ffb340;
     --color-status-pending-bg: #3a2a10;
     --color-status-confirmed: #30d158;
@@ -152,7 +169,7 @@
     --color-status-rejected: #ff6961;
     --color-status-rejected-bg: #3b1a1a;
     --color-status-cancelled: #cbd5e1;
-    --color-status-cancelled-bg: #1e293b;
+    --color-status-cancelled-bg: #1b2a29;
     --color-status-completed: #64b5ff;
     --color-status-completed-bg: #0e2a40;
     --staff-1: #409cff;
@@ -174,28 +191,33 @@
 /* DARK TOKENS (explicit) — keep identical to the system block above. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #0b1120;
-  --foreground: #f8fafc;
-  --glass-bg: rgb(17 24 39 / 0.9);
-  --color-canvas: #0b1120;
-  --color-surface: #111827;
-  --color-surface-muted: #1e293b;
-  --color-ink: #f8fafc;
-  --color-ink-muted: #94a3b8;
-  --color-separator: #334155;
-  --color-field-border: #7c8ba1;
-  --color-action: #f8fafc;
-  --color-action-hover: #cbd5e1;
-  --color-on-action: #0f172a;
+  --background: #0b1413;
+  --foreground: #f3f5f7;
+  --glass-bg: rgb(18 30 29 / 0.9);
+  --color-canvas: #0b1413;
+  --color-surface: #121e1d;
+  --color-surface-muted: #1b2a29;
+  --color-ink: #f3f5f7;
+  --color-ink-muted: #9cafad;
+  --color-separator: #2a3a39;
+  --color-field-border: #7e918f;
+  --color-action: #dcdcf8;
+  --color-action-hover: #c6c6f0;
+  --color-on-action: #13211f;
+  --color-tint: #262645;
+  --color-on-tint: #dcdcf8;
+  --color-brand: #1f3b38;
+  --color-on-brand: #f6f6fa;
   --color-accent: #34d399;
   --color-accent-hover: #10b981;
-  --color-on-accent: #0b1120;
+  --color-on-accent: #0b1413;
   --color-accent-ink: #6ee7b7;
   --color-accent-soft: #064e3b;
   --color-on-accent-soft: #a7f3d0;
   --color-destructive: #ff6961;
   --color-destructive-hover: #ff8a84;
   --color-focus: #60a5fa;
+  --color-switch-thumb: #ffffff;
   --color-status-pending: #ffb340;
   --color-status-pending-bg: #3a2a10;
   --color-status-confirmed: #30d158;
@@ -203,7 +225,7 @@
   --color-status-rejected: #ff6961;
   --color-status-rejected-bg: #3b1a1a;
   --color-status-cancelled: #cbd5e1;
-  --color-status-cancelled-bg: #1e293b;
+  --color-status-cancelled-bg: #1b2a29;
   --color-status-completed: #64b5ff;
   --color-status-completed-bg: #0e2a40;
   --staff-1: #409cff;
@@ -320,6 +342,18 @@ body {
 }
 
 @layer components {
+  /*
+   * Display type: page titles and large numerals are set in Fraunces. Lining figures so a count
+   * such as "6 randevu" sits on the baseline; `tabular-nums` still composes on top.
+   */
+  .text-title,
+  .text-large-title {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-variant-numeric: lining-nums;
+    --tw-numeric-figure: lining-nums;
+  }
+
   /* iOS "inset grouped" list: white rounded group, hairline separators inset from the leading edge. */
   .inset-group {
     background-color: var(--color-surface);
@@ -367,6 +401,64 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   dialog.sheet-motion[open] {
     animation: sheet-in var(--duration-slow) var(--ease-out);
+  }
+}
+
+/*
+ * Theme switch (src/app/_ui/theme-reveal.ts): the new theme opens as a circle from the toggle.
+ * The default cross-fade is switched off so only that clip animates. Nothing else in the app
+ * starts a view transition.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/*
+ * Confirmation mark (<SuccessMark>): complete at rest. With motion allowed the disc pops in, the
+ * tick draws and one ring spreads. Disc and ring use transform/opacity only.
+ */
+.success-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--color-accent);
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes success-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@keyframes success-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes success-ring {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .success-mark {
+    animation: success-pop var(--duration-slow) var(--ease-out);
+  }
+  .success-mark::after {
+    animation: success-ring 700ms var(--ease-out) 140ms;
+  }
+  .success-mark path {
+    stroke-dasharray: 1;
+    animation: success-draw 420ms var(--ease-out) 160ms backwards;
   }
 }
 

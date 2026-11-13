@@ -18,10 +18,19 @@ export const card = "inset-group p-5";
 
 /**
  * iOS-style switch on a native checkbox (keep role="switch"). Track turns status-confirmed when on;
- * the thumb slides (no motion when reduced motion is requested).
+ * the thumb slides (no motion when reduced motion is requested). The thumb uses the fixed
+ * `switch-thumb` token: the theme `surface` is dark in the dark theme and made an "on" switch read as off.
  */
 export const switchClassName =
-  "focus-ring relative mt-0.5 h-[31px] w-[51px] shrink-0 cursor-pointer appearance-none rounded-full bg-separator transition-colors duration-200 checked:bg-status-confirmed disabled:cursor-not-allowed disabled:opacity-50 before:absolute before:left-[2px] before:top-[2px] before:size-[27px] before:rounded-full before:bg-surface before:shadow-raised before:ring-1 before:ring-separator before:transition-transform before:duration-200 before:content-[''] checked:before:translate-x-5 motion-reduce:before:transition-none";
+  "focus-ring relative mt-0.5 h-[31px] w-[51px] shrink-0 cursor-pointer appearance-none rounded-full bg-separator transition-colors duration-200 checked:bg-status-confirmed disabled:cursor-not-allowed disabled:opacity-50 before:absolute before:left-[2px] before:top-[2px] before:size-[27px] before:rounded-full before:bg-switch-thumb before:shadow-raised before:ring-1 before:ring-separator before:transition-transform before:duration-200 before:content-[''] checked:before:translate-x-5 motion-reduce:before:transition-none";
+
+/**
+ * Checkbox on a native input (form submission, `checked`/`defaultChecked` and keyboard stay native).
+ * The browser's own box is replaced because it renders filled-black in the dark theme on iOS;
+ * the tick is a rotated border on ::before, like the switch thumb above.
+ */
+export const checkboxClassName =
+  "focus-ring relative size-6 shrink-0 cursor-pointer appearance-none rounded-[7px] border-[1.5px] border-field-border bg-surface transition-colors duration-150 checked:border-action checked:bg-action disabled:cursor-not-allowed disabled:opacity-50 before:absolute before:left-[7px] before:top-[2.5px] before:h-[12px] before:w-[6.5px] before:rotate-45 before:border-b-[2.5px] before:border-r-[2.5px] before:border-on-action before:opacity-0 before:transition-opacity before:duration-150 before:content-[''] checked:before:opacity-100 motion-reduce:transition-none";
 
 /** Inline feedback card (BoardUI Notification look). For a toned card with an icon use <Notice>. */
 export const statusNote =

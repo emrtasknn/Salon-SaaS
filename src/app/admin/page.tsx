@@ -19,6 +19,7 @@ import { AccountLinks } from "../_ui/account-links";
 import { PageHeader } from "../_ui/page-header";
 import { formatGreetingDate, localDateIso } from "../_ui/greeting";
 import { readViewerGreeting } from "../_ui/viewer-greeting";
+import { greetingName } from "../_ui/display-name";
 import { pendingSummaryText } from "./dashboard-summary";
 import { setupSteps } from "./setup-steps";
 import { Check } from "lucide-react";
@@ -126,6 +127,7 @@ export default async function AdminPage() {
   const steps = setupSteps({ staffCount, serviceCount, openDays, legalMissing });
   const remaining = steps.filter((step) => !step.done).length;
   const anyPending = (allPending ?? 0) > 0 || (today?.pending ?? 0) > 0;
+  const firstName = greetingName(greeting.displayName);
 
   return (
     <main className="min-h-screen bg-canvas text-ink">
@@ -138,7 +140,7 @@ export default async function AdminPage() {
       )}
       <PageHeader
         eyebrow={<>{salonName ? `${salonName} · ` : ""}<span className="tabular-nums">{formatGreetingDate(now)}</span></>}
-        title={greeting.displayName ? `Merhaba, ${greeting.displayName}` : "Merhaba"}
+        title={firstName ? `Merhaba, ${firstName}` : "Merhaba"}
         accessory={<InAppNotifications initialData={notifications} reload={listAdminNotifications} href="/admin/calendar" />}
       />
 
@@ -185,7 +187,7 @@ export default async function AdminPage() {
               {today ? (
                 <>
                   <p className="text-title tabular-nums">
-                    {today.total} <span className="text-headline font-semibold">randevu</span>
+                    {today.total} <span className="font-sans text-headline font-semibold">randevu</span>
                   </p>
                   <p className={`mt-1 text-subhead tabular-nums ${anyPending ? "font-semibold text-status-pending" : "text-ink-muted"}`}>
                     {pendingSummaryText(today.pending, allPending)}
