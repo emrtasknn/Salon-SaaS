@@ -25,7 +25,7 @@ const errorText: Record<string, string> = {
   INVALID_STATUS: "Bu randevu artık taşınamaz.",
   FORBIDDEN: "Bu randevuyu taşıma yetkiniz yok.",
   NOT_FOUND: "Randevu bulunamadı. Takvim yenilendi.",
-  TENANT_INACTIVE: "Salon pasif durumda; randevu taşınamaz.",
+  TENANT_INACTIVE: "İşletme pasif durumda; randevu taşınamaz.",
 };
 
 export function useAppointmentMove({

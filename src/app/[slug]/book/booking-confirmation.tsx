@@ -42,7 +42,7 @@ export function BookingConfirmation({ summary, onNewBooking }: { summary: Bookin
           Randevu talebiniz alındı
         </h1>
         <p className="measure mt-2 text-body text-ink-muted">
-          Salon talebinizi onayladığında size haber verilecek.
+          İşletme talebinizi onayladığında size haber verilecek.
         </p>
       </header>
 

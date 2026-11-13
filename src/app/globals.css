@@ -296,6 +296,61 @@ body {
   }
 }
 
+/* Floating tab bar capsule (phones): lifted off the page edge with a soft shadow. */
+.tab-bar-float {
+  box-shadow:
+    0 10px 30px rgb(0 0 0 / 0.14),
+    0 1px 3px rgb(0 0 0 / 0.08);
+}
+
+/*
+ * Tab bar lens: the one sanctioned glass-on-glass element (owner request 2026-11-13). It is a clear,
+ * pressed-only layer above the tabs: no fill of its own, so label contrast is that of the bar.
+ * A bright rim, an inner highlight and a faint prismatic edge suggest a thick piece of glass.
+ * Only transform and opacity animate (set by app-nav.tsx).
+ */
+.tab-lens {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.04) 55%, rgb(255 255 255 / 0.14));
+  -webkit-backdrop-filter: saturate(170%) brightness(1.06);
+  backdrop-filter: saturate(170%) brightness(1.06);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.55),
+    inset 0 2px 5px rgb(255 255 255 / 0.5),
+    inset 0 -3px 6px rgb(0 0 0 / 0.08),
+    0 0 0 0.5px rgb(0 0 0 / 0.1),
+    0 6px 18px rgb(0 0 0 / 0.16);
+}
+.tab-lens::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from 210deg,
+    rgb(255 255 255 / 0),
+    rgb(120 200 255 / 0.75),
+    rgb(255 255 255 / 0) 20%,
+    rgb(255 255 255 / 0) 45%,
+    rgb(255 170 210 / 0.7),
+    rgb(255 225 140 / 0.6),
+    rgb(255 255 255 / 0) 70%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .tab-lens {
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: inset 0 0 0 2px var(--color-ink);
+  }
+  .tab-lens::after {
+    display: none;
+  }
+}
+
 /* Press feedback: scale on :active, exact properties only, no `transition: all`. */
 @utility pressable {
   transition-property: transform, background-color, border-color, color, opacity;
@@ -476,9 +531,9 @@ body:has([data-booking-bar]) [data-install-banner-spacer] {
 }
 
 /* On phones, when the app tab bar is present, lift the install banner above it
-   instead of covering it (tab bar height: 3.5rem + safe-area padding). */
+   instead of covering it (floating tab bar: 3.75rem + gap + safe-area offset). */
 @media (max-width: 767.98px) {
   body:has([data-app-tabbar]) [data-install-banner] {
-    bottom: calc(3.5rem + max(0.5rem, env(safe-area-inset-bottom)));
+    bottom: calc(4.5rem + max(0.5rem, env(safe-area-inset-bottom)));
   }
 }

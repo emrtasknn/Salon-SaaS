@@ -50,7 +50,7 @@ type SlotsState =
 
 const slotErrors: Record<string, string> = {
   CLOSED_DATE: "Bu tarih kapalı. Başka bir tarih seçin.",
-  TENANT_INACTIVE: "Salon pasif durumda; yeni randevu oluşturulamaz.",
+  TENANT_INACTIVE: "İşletme pasif durumda; yeni randevu oluşturulamaz.",
   INVALID_INPUT: "Seçimleri kontrol edin.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
 };
@@ -58,7 +58,7 @@ const slotErrors: Record<string, string> = {
 const createErrors: Record<string, string> = {
   SLOT_UNAVAILABLE: "Bu saat artık uygun değil. Başka bir saat seçin. Saatler yenilendi.",
   CLOSED_DATE: "Bu tarih kapalı. Başka bir tarih seçin.",
-  TENANT_INACTIVE: "Salon pasif durumda; yeni randevu oluşturulamaz.",
+  TENANT_INACTIVE: "İşletme pasif durumda; yeni randevu oluşturulamaz.",
   CUSTOMER_NOT_FOUND: "Seçilen müşteri bulunamadı. Müşteriyi yeniden arayın.",
   INVALID_INPUT: "Bilgileri kontrol edin. Telefonu ülke koduyla girin, örn. +905551234567.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",

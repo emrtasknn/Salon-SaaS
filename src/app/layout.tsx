@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   applicationName: "RandevuN",
   title: "RandevuN · Online randevu",
   description:
-    "Salon, barbershop ve güzellik merkezleri için online randevu yönetimi platformu.",
+    "Randevuyla çalışan tüm işletmeler için online randevu yönetimi platformu.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

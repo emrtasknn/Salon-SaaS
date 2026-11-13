@@ -10,12 +10,12 @@ export default async function AdminSalonPage() {
   const settings = await loadTenantSettings();
   if (!settings.ok && settings.code === "FORBIDDEN") return <AdminUnauthorized />;
   return (
-    <AdminSubpage title="Salon bilgileri">
+    <AdminSubpage title="İşletme bilgileri">
       {settings.ok ? (
         <TenantSettingsForm settings={settings.settings} canEdit={settings.canEdit === true} />
       ) : (
         <p role="alert" className="inset-group p-4 text-body text-ink">
-          Salon bilgileri yüklenemedi. Sayfayı yenileyip tekrar deneyin.
+          İşletme bilgileri yüklenemedi. Sayfayı yenileyip tekrar deneyin.
         </p>
       )}
     </AdminSubpage>

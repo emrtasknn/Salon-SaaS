@@ -170,7 +170,7 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
       </h2>
       <p className={`${embedded ? "" : "mt-1 "}max-w-2xl text-sm text-ink-muted`}>
         Kapalı günlerde online ve yeni randevu alınmaz. Mevcut randevular olduğu gibi kalır; bunları ayrıca sizin
-        yönetmeniz gerekir.{timezone ? ` Tarihler salon saat dilimine göredir (${timezone}).` : ""}
+        yönetmeniz gerekir.{timezone ? ` Tarihler işletmenin saat dilimine göredir (${timezone}).` : ""}
       </p>
 
       <p role="status" aria-live="polite" className={status ? "mt-3 rounded-lg border border-separator bg-surface-muted p-3 text-sm" : "sr-only"}>

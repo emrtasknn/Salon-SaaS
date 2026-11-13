@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 const resultMessages: Record<CustomerCancelResult["status"], string> = {
   CANCELLED: "Randevunuz iptal edildi.",
   ALREADY_CANCELLED: "Bu randevu zaten iptal edilmiş.",
-  CUTOFF_PASSED: "Online iptal süresi doldu. Randevudan 2 saat önce iptal kapanır; lütfen salonla iletişime geçin.",
+  CUTOFF_PASSED: "Online iptal süresi doldu. Randevudan 2 saat önce iptal kapanır; lütfen işletmeyle iletişime geçin.",
   NOT_CANCELLABLE: "Bu randevu artık iptal edilemez.",
   NOT_FOUND: "Bu bağlantı geçersiz veya süresi dolmuş.",
   RATE_LIMITED: "Çok fazla deneme, lütfen biraz sonra tekrar deneyin.",

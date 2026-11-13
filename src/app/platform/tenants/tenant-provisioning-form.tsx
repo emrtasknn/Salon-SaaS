@@ -38,7 +38,7 @@ export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: 
         if (onCreated) {
           onCreated(String(form.get("name") ?? "").trim());
         } else {
-          setMessage("Salon ve ilk tenant admin hesabı oluşturuldu.");
+          setMessage("İşletme ve ilk tenant admin hesabı oluşturuldu.");
         }
         return;
       }
@@ -46,12 +46,12 @@ export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: 
       const messages: Record<string, string> = {
         UNAUTHORIZED: "Bu işlem için yetkiniz yok.",
         INVALID_INPUT: "Girilen bilgiler geçersiz.",
-        DUPLICATE_SLUG: "Bu salon adresi zaten kullanılıyor.",
+        DUPLICATE_SLUG: "Bu işletme adresi zaten kullanılıyor.",
         AUTH_PROVISIONING_FAILED: "Tenant admin hesabı oluşturulamadı.",
         AUTH_BINDING_FAILED: "Tenant admin tenant'a bağlanamadı.",
         AUTH_BINDING_ROLLBACK_FAILED: "Güvenli geri alma başarısız oldu.",
         AUTH_COMPENSATION_FAILED: "Güvenli geri alma başarısız oldu.",
-        PERSISTENCE_FAILURE: "Salon kaydedilemedi.",
+        PERSISTENCE_FAILURE: "İşletme kaydedilemedi.",
         CONFIGURATION_ERROR: "Sunucu yapılandırması eksik.",
       };
 
@@ -66,10 +66,10 @@ export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <fieldset disabled={isSubmitting} className="min-w-0">
-        <legend className="group-label">Salon bilgileri</legend>
+        <legend className="group-label">İşletme bilgileri</legend>
         <div className={`${card} space-y-4`}>
           <div className="space-y-1.5">
-            <label htmlFor="name" className={labelClass}>Salon adı</label>
+            <label htmlFor="name" className={labelClass}>İşletme adı</label>
             <input id="name" name="name" required className={field} />
           </div>
           <div className="space-y-1.5">
@@ -77,7 +77,7 @@ export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: 
             <input
               id="slug"
               name="slug"
-              placeholder="salon-adi"
+              placeholder="isletme-adi"
               autoCapitalize="none"
               spellCheck={false}
               required
@@ -85,7 +85,7 @@ export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: 
               className={field}
             />
             <p id="slug-hint" className="text-footnote text-ink-muted">
-              Salonun web adresinde görünür: …/salon-adi. Küçük harf, rakam ve tire kullanın. Fiziksel adres, salon ayarlarındaki “Konum” bölümünden girilir.
+              İşletmenin web adresinde görünür: …/isletme-adi. Küçük harf, rakam ve tire kullanın. Fiziksel adres, işletme ayarlarındaki “Konum” bölümünden girilir.
             </p>
           </div>
           <div className="space-y-1.5">
@@ -143,7 +143,7 @@ export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: 
       </fieldset>
 
       <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} variant="primary" className="w-full">
-        {isSubmitting ? "Oluşturuluyor..." : "Salon oluştur"}
+        {isSubmitting ? "Oluşturuluyor..." : "İşletme oluştur"}
       </Button>
 
       {message !== "" ? <p role="status" className={statusNote}>{message}</p> : null}

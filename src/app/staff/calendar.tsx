@@ -202,8 +202,8 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
           <ConfirmButton label="Reddet" question="Talep reddedilsin mi?" detail="Bu işlem geri alınamaz. Müşteri bildirim izni verdiyse bilgilendirilir." confirmLabel="Evet, reddet" disabled={busy} onConfirm={() => decide(selected.id, "REJECTED")} className="sm:flex-1" />
         </div> : selected.status === "CONFIRMED" && nowMs !== null && new Date(selected.startAt).getTime() <= nowMs ? <div className="flex flex-col gap-2">
           <Button type="button" disabled={busy} onClick={() => complete(selected.id)} variant="primary">Tamamlandı</Button>
-          <p className="text-footnote text-ink-muted">İptal işlemini salon yöneticisi yapar.</p>
-        </div> : <p className="text-subhead text-ink-muted">{selected.status === "CONFIRMED" ? "Randevu başlayınca tamamlandı olarak işaretleyebilirsiniz. İptal işlemini salon yöneticisi yapar." : "Bu randevu için başka işlem yok."}</p>}
+          <p className="text-footnote text-ink-muted">İptal işlemini işletme yöneticisi yapar.</p>
+        </div> : <p className="text-subhead text-ink-muted">{selected.status === "CONFIRMED" ? "Randevu başlayınca tamamlandı olarak işaretleyebilirsiniz. İptal işlemini işletme yöneticisi yapar." : "Bu randevu için başka işlem yok."}</p>}
       </div>}
     </AppointmentSheet>
     {move.sheet}
