@@ -21,7 +21,7 @@ export default async function FullNoticePage({ params }: { params: Promise<{ slu
   return (
     <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-2xl p-4 sm:p-8">
-        <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu", href: `/${encodeURIComponent(slug)}/book` }, { label: "Aydınlatma metni" }]} />
+        <Breadcrumb className="mb-3" items={[{ label: "İşletme sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu", href: `/${encodeURIComponent(slug)}/book` }, { label: "Aydınlatma metni" }]} />
         <article aria-labelledby="notice-title" className="space-y-5 rounded-2xl border bg-surface p-5 shadow-sm sm:p-6">
           <header className="space-y-2">
             <p className="text-sm text-ink-muted">{notice.salonName}</p>

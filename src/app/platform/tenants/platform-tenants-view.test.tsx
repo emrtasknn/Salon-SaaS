@@ -35,9 +35,9 @@ describe("filterTenants", () => {
 });
 
 describe("PlatformTenantsView", () => {
-  it("puts the header and 'Yeni salon' before the list and keeps the form in a modal dialog", () => {
+  it("puts the header and 'Yeni işletme' before the list and keeps the form in a modal dialog", () => {
     const html = renderToStaticMarkup(<PlatformTenantsView tenants={tenants} />);
-    const header = html.indexOf("Yeni salon");
+    const header = html.indexOf("Yeni işletme");
     const list = html.indexOf("Kuaför Ayşe");
     const dialog = html.indexOf("<dialog");
     expect(header).toBeGreaterThan(-1);
@@ -54,7 +54,7 @@ describe("PlatformTenantsView", () => {
   it("shows search, count and an Aktif/Pasif switch per salon", () => {
     const html = renderToStaticMarkup(<PlatformTenantsView tenants={tenants} />);
     expect(html).toContain('type="search"');
-    expect(html).toContain("3 salon");
+    expect(html).toContain("3 işletme");
     expect(html).toContain("Aktif");
     expect(html).toContain("Pasif");
     expect(html.match(/role="switch"/g)?.length).toBe(3);
@@ -64,15 +64,15 @@ describe("PlatformTenantsView", () => {
     expect(html).toMatch(/<button type="submit" role="switch"/);
   });
 
-  it("explains an empty list and points to 'Yeni salon'", () => {
+  it("explains an empty list and points to 'Yeni işletme'", () => {
     const html = renderToStaticMarkup(<PlatformTenantsView tenants={[]} />);
-    expect(html).toContain("Henüz salon yok");
+    expect(html).toContain("Henüz işletme yok");
     expect(html).not.toContain('type="search"');
   });
 
-  it("shows a load error but still offers 'Yeni salon'", () => {
+  it("shows a load error but still offers 'Yeni işletme'", () => {
     const html = renderToStaticMarkup(<PlatformTenantsView tenants={null} />);
-    expect(html).toContain("Salon listesi yüklenemedi.");
-    expect(html).toContain("Yeni salon");
+    expect(html).toContain("İşletme listesi yüklenemedi.");
+    expect(html).toContain("Yeni işletme");
   });
 });

@@ -51,7 +51,8 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 
 ### Glass material
 - [ ] CSS only: `backdrop-filter` + `-webkit-backdrop-filter` (`glass` utility).
-- [ ] Only on the floating functional layer: sticky top bar (`AppBar`), bottom bar/install banner, sheet/dialog backdrops. **Never** on content cards. **Never** glass on glass.
+- [ ] Only on the floating functional layer: sticky top bar (`AppBar`), bottom bar/install banner, sheet/dialog backdrops. **Never** on content cards. **Never** glass on glass, with one exception: the tab-bar lens below.
+- [ ] Phone tab bar (owner 2026-11-13): a floating glass capsule (`tab-bar-float`) above the safe area. Pressing it lifts a clear glass lens (`tab-lens`) that follows the finger and selects the tab it is released on; at rest only the lilac pill shows. The lens has no fill of its own, is `aria-hidden` and pointer-transparent, and tabs stay plain links for taps and the keyboard. CSS only (no WebGL/SVG displacement: Safari does not support it in `backdrop-filter`).
 - [ ] Solid fallbacks: `@supports not (backdrop-filter…)`, `prefers-reduced-transparency: reduce`, `prefers-contrast: more`.
 - [ ] Text on glass ≥4.5:1 against the worst-case background (black content scrolled beneath). Light: 82% canvas (#F6F6FA) glass gives `ink` ≈10.2:1 and `ink-muted` ≈4.8:1 over black content. Dark: 90% surface (#121E1D) glass gives `ink` 11.7:1 and `ink-muted` 5.6:1 over white content. Do not lower either opacity without re-running `src/app/_ui/theme-contrast.test.ts`.
 
@@ -60,7 +61,7 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 - [ ] Popovers/dropdowns ≤300ms, ease-out (never ease-in), `transform-origin` at the trigger. Modals open centered.
 - [ ] Tokens: `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`; durations `--duration-fast` 150ms, `--duration-base` 200ms, `--duration-slow` 300ms.
 - [ ] `prefers-reduced-motion: reduce` disables non-essential motion (the `pressable` scale is removed).
-- [ ] Selection indicators slide, they do not jump: the tab-bar pill (`app-nav.tsx`) and the calendar view thumb (`ViewSwitch`) are one shared `motion` element (`layoutId`) on a short spring. The tab pill moves on tap, before the new page arrives (`shownNavHref`).
+- [ ] Selection indicators slide, they do not jump: the tab-bar pill (`app-nav.tsx`, one element translated on a short spring) and the calendar view thumb (`ViewSwitch`, shared `layoutId`). The tab pill moves on tap, before the new page arrives (`shownNavHref`).
 - [ ] Theme switch opens the new theme as a circle from the toggle (`theme-reveal.ts`, View Transitions API; instant where unsupported or with reduced motion). Do not start other view transitions without checking the global `::view-transition-*` rule in `globals.css`.
 - [ ] Confirmation moment: `<SuccessMark>` (accent disc, drawn tick, one ring). The only place the tick draw animates a stroke; use it once per confirmed outcome, next to the heading that states it.
 - [ ] Motion never carries information alone: every animated state is also complete at rest.
@@ -75,3 +76,6 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 - [ ] Do not change server actions, data loaders, auth, tenant resolution, RLS or booking semantics for visual reasons.
 - [ ] Do not change legal notice text or make the WhatsApp opt-in pre-checked/required.
 - [ ] Dark mode comes only from the token overrides in `globals.css` (system default + `data-theme` toggle). Never use `dark:` variants or raw palette classes (`zinc-*`, `bg-white`, `text-black`) in components; `theme-contrast.test.ts` must stay green.
+
+### Wording
+- [ ] RandevuN is multi-sector (owner 2026-11-13): UI copy says "işletme", never "salon", "berber" or "güzellik merkezi"; examples and placeholders stay sector-neutral. `src/domain/legal-notice.ts` still defines the party as "Salon" and changes only with legal review.

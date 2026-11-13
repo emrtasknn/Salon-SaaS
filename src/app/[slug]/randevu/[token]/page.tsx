@@ -29,9 +29,9 @@ const statusLabels: Record<AppointmentStatus, string> = {
 };
 
 const statusHints: Record<AppointmentStatus, string> = {
-  PENDING: "Talebiniz salon tarafından henüz onaylanmadı.",
+  PENDING: "Talebiniz işletme tarafından henüz onaylanmadı.",
   CONFIRMED: "Randevunuz onaylandı.",
-  REJECTED: "Salon bu randevu talebini kabul etmedi.",
+  REJECTED: "İşletme bu randevu talebini kabul etmedi.",
   CANCELLED: "Bu randevu iptal edildi.",
   COMPLETED: "Bu randevu tamamlandı.",
 };
@@ -58,7 +58,7 @@ function Shell({ slug, children }: { slug: string; children: ReactNode }) {
   return (
     <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
-        <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevum" }]} />
+        <Breadcrumb className="mb-3" items={[{ label: "İşletme sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevum" }]} />
         {children}
       </div>
     </main>
@@ -200,7 +200,7 @@ function AppointmentDetails({
 
         {isOpen && !appointment.canCancel && (
           <p className="px-4 text-subhead text-ink-muted">
-            Online iptal, randevudan 2 saat önce kapanır. Değişiklik için lütfen salonla iletişime geçin.
+            Online iptal, randevudan 2 saat önce kapanır. Değişiklik için lütfen işletmeyle iletişime geçin.
           </p>
         )}
 

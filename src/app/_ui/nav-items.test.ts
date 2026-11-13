@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { activeNavHref, adminNavItems, staffNavItems } from "./nav-items";
+import { activeNavHref, lensIndex, lensOffset, adminNavItems, staffNavItems } from "./nav-items";
 
 describe("activeNavHref", () => {
   it("matches the admin root exactly without stealing sub-areas", () => {
@@ -48,5 +48,23 @@ describe("shownNavHref", () => {
     const pending = { href: "/admin/customers", fromPath: "/admin" };
     expect(shownNavHref(pending, "/admin/calendar", adminNavItems)).toBe("/admin/calendar");
     expect(shownNavHref(null, "/admin/calendar", adminNavItems)).toBe("/admin/calendar");
+  });
+});
+
+describe("tab bar lens geometry", () => {
+  it("maps a finger position to the tab under it and clamps outside the bar", () => {
+    expect(lensIndex(0.2, 3)).toBe(0);
+    expect(lensIndex(1.0, 3)).toBe(1);
+    expect(lensIndex(2.99, 3)).toBe(2);
+    expect(lensIndex(-4, 3)).toBe(0);
+    expect(lensIndex(9, 3)).toBe(2);
+    expect(lensIndex(1, 0)).toBe(-1);
+  });
+
+  it("centres the lens on the finger without leaving the bar", () => {
+    expect(lensOffset(1.5, 3)).toBe(1);
+    expect(lensOffset(0.1, 3)).toBe(0);
+    expect(lensOffset(2.9, 3)).toBe(2);
+    expect(lensOffset(Number.NaN, 3)).toBe(0);
   });
 });

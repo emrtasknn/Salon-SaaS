@@ -52,3 +52,18 @@ export function shownNavHref(pending: PendingNav | null, pathname: string | null
   if (pending && pending.fromPath === pathname) return pending.href;
   return activeNavHref(pathname, items);
 }
+
+/**
+ * Tab under a finger at `position` (in tab units: 0 = left edge of the first tab, `count` = right
+ * edge of the last), clamped so a finger outside the bar still maps to the nearest tab.
+ */
+export function lensIndex(position: number, count: number): number {
+  if (count <= 0 || Number.isNaN(position)) return -1;
+  return Math.min(count - 1, Math.max(0, Math.floor(position)));
+}
+
+/** Left edge of a one-tab-wide lens centred on `position`, kept inside the bar (0 … count - 1). */
+export function lensOffset(position: number, count: number): number {
+  if (count <= 0 || Number.isNaN(position)) return 0;
+  return Math.min(count - 1, Math.max(0, position - 0.5));
+}

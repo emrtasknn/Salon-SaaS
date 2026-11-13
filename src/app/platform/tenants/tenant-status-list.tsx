@@ -15,7 +15,7 @@ type TenantRow = Readonly<{
 
 const errorMessages: Record<string, string> = {
   INVALID_INPUT: "Geçersiz istek.",
-  NOT_FOUND: "Salon bulunamadı. Liste yenilendi.",
+  NOT_FOUND: "İşletme bulunamadı. Liste yenilendi.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
   PERSISTENCE_FAILURE: "Durum kaydedilemedi. Lütfen tekrar deneyin.",
 };
@@ -41,7 +41,7 @@ export function TenantStatusList({ tenants }: { tenants: ReadonlyArray<TenantRow
   const [query, setQuery] = useState("");
 
   if (tenants.length === 0) {
-    return <p className={statusNote}>Henüz salon yok. “Yeni salon” ile ilk salonu oluşturun.</p>;
+    return <p className={statusNote}>Henüz işletme yok. “Yeni işletme” ile ilk işletmeyi oluşturun.</p>;
   }
 
   const visible = filterTenants(tenants, query);
@@ -50,7 +50,7 @@ export function TenantStatusList({ tenants }: { tenants: ReadonlyArray<TenantRow
   return (
     <>
       <div className="space-y-2">
-        <label htmlFor="tenant-search" className="sr-only">Salon ara</label>
+        <label htmlFor="tenant-search" className="sr-only">İşletme ara</label>
         <input
           id="tenant-search"
           type="search"
@@ -64,12 +64,12 @@ export function TenantStatusList({ tenants }: { tenants: ReadonlyArray<TenantRow
           className={field}
         />
         <p id="tenant-count" aria-live="polite" className="px-4 text-footnote text-ink-muted tabular-nums">
-          {filtering ? `${visible.length} / ${tenants.length} salon` : `${tenants.length} salon`}
+          {filtering ? `${visible.length} / ${tenants.length} işletme` : `${tenants.length} işletme`}
         </p>
       </div>
       <p role="status" aria-live="polite" className={message !== "" ? statusNote : "sr-only"}>{message}</p>
       {visible.length === 0 ? (
-        <p className={statusNote}>“{query.trim()}” ile eşleşen salon yok.</p>
+        <p className={statusNote}>“{query.trim()}” ile eşleşen işletme yok.</p>
       ) : null}
       <ul className={visible.length === 0 ? "hidden" : "inset-group"}>
         {visible.map((tenant) => {

@@ -40,7 +40,7 @@ export default async function BookingPage({
     return (
       <main className="min-h-screen bg-canvas">
         <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
-          <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
+          <Breadcrumb className="mb-3" items={[{ label: "İşletme sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
           <section className="inset-group space-y-4 p-6">
             <h1 className="text-title">{vitrin.name}</h1>
             <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
@@ -69,12 +69,12 @@ export default async function BookingPage({
     return (
       <main className="min-h-screen bg-canvas">
         <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
-          <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
+          <Breadcrumb className="mb-3" items={[{ label: "İşletme sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
           <section className="inset-group space-y-4 p-6">
             <h1 className="text-title">{vitrin.name}</h1>
             {vitrin.location && <SalonLocationLink location={vitrin.location} />}
             <p role="status" className="rounded-card bg-status-pending-bg p-4 text-subhead text-status-pending">
-              Bu salon online randevu için henüz hazır değil. Randevu için lütfen salonla doğrudan iletişime geçin.
+              Bu işletme online randevu için henüz hazır değil. Randevu için lütfen işletmeyle doğrudan iletişime geçin.
             </p>
             {vitrin.whatsAppUrl && (
               <ButtonAnchor

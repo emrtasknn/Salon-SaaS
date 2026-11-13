@@ -1,44 +1,44 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-11 (cloud) — brand design language, visible mobile defects, first motion pass.
+2026-11-13 — iOS 26-style glass tab bar for the PWA; sector-neutral ("işletme") UI wording.
 
 ## State
-- Branch `claude/sleepy-albattani-qijptb`, 5 commits on top of main @ a18a48d (#198). No PR opened (owner has not asked).
-- Working tree: clean.
-- Environment touched: none (no DB, no migration, no deploy). Vercel was read only.
+- Branch / commit: `claude/funny-edison-9bnnpe`, on top of `d6609f3`
+- Working tree: uncommitted (paths in Changes below, plus this file)
+- Environment touched: none (no database, no deploy; `DATABASE_URL` unset)
 
 ## Done
-- Brand board with logo, palette, type, screen drawings, motion/haptic rules and a phased plan (private artifact, link in the chat). Owner approved on 2026-11-11: "İmza" logo with the dot, "Çam & Lila" palette, Fraunces titles.
-- Package A, visible defects: switch thumb, shared checkbox recipe (6 inputs), calendar date field overlap, title wrapping + first-name greeting, customers list/detail on tokens with formatted phone, services copy.
-- Package B, brand foundation: tokens in `globals.css` (light + both dark blocks), Fraunces via `next/font`, `Wordmark`/`LogoMark`, regenerated icon set + favicon, manifest and theme-color.
-- Package C, motion: icon tab bar with a sliding pill (moves on tap), sliding calendar view thumb, circular theme reveal, `SuccessMark` on the booking confirmation.
-- Test fix: month-view label test pinned to a fixed clock (it failed on 2026-11-11 only, on main too).
+- Phone tab bar is a floating glass capsule; pressing it lifts a glass lens that follows the finger and selects the tab it is released on (`src/app/_ui/app-nav.tsx`, `.tab-bar-float` / `.tab-lens` in `globals.css`). Taps and keyboard still use plain links.
+- UI copy says "işletme" instead of "salon" on admin, staff, public booking and platform screens; app description in `layout.tsx` / `manifest.json` is sector-neutral.
+
+## Changes
+| File | Change | Reason |
+|---|---|---|
+| `src/app/_ui/app-nav.tsx`, `nav-items.ts` (+tests) | Floating bar, draggable lens, `lensIndex` / `lensOffset` | Owner request |
+| `src/app/globals.css` | `.tab-bar-float`, `.tab-lens`, install-banner offset | Same |
+| `src/app/**` copy (19 files), `public/manifest.json` | "Salon" → "İşletme", neutral examples | Multi-sector wording |
+| `.claude/skills/salon-saas-uiux/references/apple-design-rules.md` | Lens exception, wording rule | Canonical rules |
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| Lint | `npm run lint` | PASS (0 errors, 3 older warnings in untouched files) |
+| Lint | `npm run lint` | PASS (3 existing warnings) |
 | Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run src/app src/lib src/components` (no DB) | PASS, 83 files / 928 tests |
-| Build | `npm run build` | PASS |
-| Integration | CI | not run yet (runs when a PR is opened) |
-| Browser | Chromium 390px + 320px, light and dark, temporary preview page (removed) | PASS for the changed components and `/login` |
+| Unit tests | `npx vitest run --exclude "**/*.integration.test.ts"` | PASS (1646) |
+| Integration | CI | not run |
+| Build | `npm run build` | not run |
+| Visual | Chromium 390px, light + dark, press/drag/release | checked; not tested on a real iPhone |
 
 ## Decisions
-- Palette "Çam & Lila" replaces the 2026-11-06 navy palette; Fraunces is the display face; logo rules — all in `.claude/skills/salon-saas-uiux/references/apple-design-rules.md` (updated).
-- Shared references reviewed: Hallmark (audit use only), Astryx (not installed), Glisse (optional tab-bar trial later), Stageshow (marketing visuals later). No new dependency.
-- Commits carry `Co-Authored-By: Claude` without a model name.
+- Lens is CSS only (rim, highlight, prismatic edge, magnified tab); true refraction needs SVG displacement in `backdrop-filter`, which Safari lacks — recorded in apple-design-rules.md.
+- Route `/admin/salon`, code identifiers, storage keys and DB names keep "salon" (not user-visible).
 
 ## Open risks
-- Not checked on a real iPhone: the date-field overlap fix (the cause, iOS's intrinsic date-input width, is likely but unconfirmed), the checkbox look, the theme reveal in Safari.
-- Signed-in screens (admin, staff) were not opened with real data; only the shared components were rendered.
-- An installed home-screen app keeps the old icon until it is added again.
-- `*.vercel.app` did not open on the owner's Wi-Fi (opened on mobile data): a custom domain is still advised.
-- `next dev` appends a block to `AGENTS.md` and edits `next-env.d.ts`; both were restored, do not commit them.
-- Carried over: make `migration-gate` a required check; staging test rows `staging-check-map` and tenant `uiux-test-salon`.
+- `src/domain/legal-notice.ts` still names the party "Salon" and says the system is not designed for health data — needs legal review before onboarding clinics.
+- WhatsApp template bodies approved at Meta were not reviewed for sector wording.
+- Lens feel (spring, haptics, touch) needs a check on a real iPhone PWA.
 
 ## Next task
-- Screen structure (plan step 3): Yönetim (Bugün card on `brand`, Hesap as rows, one bell), Hizmetler and Personel list-first with add/edit in a sheet, Takvim day strip and always-on timeline, customers live search, booking page day strip (presentation only).
-- Then the rest of motion and haptics (step 4): shared sheet with button-to-panel and push-back, fold-down rows, kebab menu, haptics from shared components.
-- Files to open first: `src/app/admin/page.tsx`, `src/app/_ui/account-links.tsx`, `src/app/admin/services/service-management.tsx`, `src/app/_ui/day-timeline.tsx`.
+- Commit and push after owner approval.
+- Legal review of the KVKK notice for multi-sector use; decide on health-data sectors (clinics).

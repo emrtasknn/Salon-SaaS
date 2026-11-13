@@ -51,7 +51,7 @@ export function CustomerNoteForm({ customerId }: { customerId: string }) {
           id="customer-note"
           value={body}
           onChange={(event) => setBody(event.target.value)}
-          placeholder="Not ekleyin (ör. kısa saç sever)"
+          placeholder="Not ekleyin (ör. sabah saatlerini tercih ediyor)"
           maxLength={500}
           className={`${field} min-w-0 flex-1`}
         />

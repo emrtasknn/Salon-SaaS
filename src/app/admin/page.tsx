@@ -115,7 +115,7 @@ export default async function AdminPage() {
       {settings.ok && settings.settings.status === "INACTIVE" && (
         <div className="px-4 pt-4 sm:px-6">
           <p role="status" className="mx-auto max-w-xl rounded-control bg-status-pending-bg p-3.5 text-subhead font-medium text-status-pending">
-            Salonunuz şu anda pasif — online ve yeni randevu alınmıyor.
+            İşletmeniz şu anda pasif — online ve yeni randevu alınmıyor.
           </p>
         </div>
       )}
@@ -185,14 +185,14 @@ export default async function AdminPage() {
         </section>
 
         <section aria-labelledby="salon-settings-title">
-          <h2 id="salon-settings-title" className="group-label">Salon</h2>
+          <h2 id="salon-settings-title" className="group-label">İşletme</h2>
           <ul className="inset-group">
             <SettingsRow href="/admin/staff" label="Personel" detail={staffCount === null ? undefined : `${staffCount} aktif`} />
             <SettingsRow href="/admin/services" label="Hizmetler" detail={serviceCount === null ? undefined : `${serviceCount} aktif`} />
             <SettingsRow href="/admin/hours" label="Çalışma saatleri" detail={openDays === null ? undefined : `${openDays} gün açık`} />
             <SettingsRow
               href="/admin/salon"
-              label="Salon bilgileri"
+              label="İşletme bilgileri"
               detail={legalMissing ? "Yasal bilgi eksik" : "Konum, KVKK"}
               warn={legalMissing}
             />

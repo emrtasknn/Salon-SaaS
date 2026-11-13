@@ -1,6 +1,6 @@
 "use client";
 
-// Layout for /platform/tenants: list first, "Yeni salon" opens the existing
+// Layout for /platform/tenants: list first, "Yeni işletme" opens the existing
 // provisioning form in a sheet. Presentation only — the page has already checked
 // platform access, and every server action re-checks it.
 
@@ -39,12 +39,12 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
   return (
     <main className="min-h-screen bg-canvas">
       <PageHeader
-        title="Salonlar"
+        title="İşletmeler"
         eyebrow="Platform yönetimi"
         widthClassName="max-w-3xl"
         accessory={
           <Button ref={triggerRef} type="button" onClick={openSheet} aria-haspopup="dialog" variant="primary">
-            Yeni salon
+            Yeni işletme
           </Button>
         }
       />
@@ -54,11 +54,11 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
         <p role="status" aria-live="polite" className={notice !== "" ? statusNote : "sr-only"}>{notice}</p>
 
         <section aria-labelledby="tenant-list-title" className="space-y-2">
-          <h2 id="tenant-list-title" className="sr-only">Salon listesi</h2>
+          <h2 id="tenant-list-title" className="sr-only">İşletme listesi</h2>
           {tenants !== null ? (
             <TenantStatusList tenants={tenants} />
           ) : (
-            <p role="status" className={statusNote}>Salon listesi yüklenemedi.</p>
+            <p role="status" className={statusNote}>İşletme listesi yüklenemedi.</p>
           )}
         </section>
       </div>
@@ -74,21 +74,21 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
       >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-separator bg-surface px-4 py-3">
           <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-headline text-ink focus:outline-none">
-            Yeni salon
+            Yeni işletme
           </h2>
           <Button type="button" onClick={closeSheet} variant="secondary">
             Kapat
           </Button>
         </div>
         <div className="space-y-4 bg-canvas px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <p className="text-subhead text-ink-muted">Salonu ve ilk tenant admin hesabını oluşturun.</p>
+          <p className="text-subhead text-ink-muted">İşletmeyi ve ilk tenant admin hesabını oluşturun.</p>
           <TenantProvisioningForm
             onCreated={(salonName) => {
               closeSheet();
               setNotice(
                 salonName !== ""
                   ? `${salonName} oluşturuldu. İlk tenant admin hesabı hazır.`
-                  : "Salon ve ilk tenant admin hesabı oluşturuldu.",
+                  : "İşletme ve ilk tenant admin hesabı oluşturuldu.",
               );
             }}
           />

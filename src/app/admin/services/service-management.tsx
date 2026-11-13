@@ -105,7 +105,7 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
       <section aria-labelledby="category-title">
         <h2 id="category-title" className="group-label">Kategoriler</h2>
         <p className="px-4 pb-2 text-subhead text-ink-muted">
-          Müşteri sayfasında hizmetler bu başlıklar altında, bu sırayla görünür. İsteğe bağlıdır. Örneğin: Saç, Cilt bakımı.
+          Müşteri sayfasında hizmetler bu başlıklar altında, bu sırayla görünür. İsteğe bağlıdır. Örneğin: Bakım, Muayene, Özel ders.
         </p>
         <div className="inset-group">
           {categories.length > 0 && (

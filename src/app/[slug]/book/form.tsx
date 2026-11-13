@@ -55,7 +55,7 @@ export function staffForService(staff: ReadonlyArray<StaffOption>, serviceIds: s
 export function noStaffMessage(chosenCount: number): string {
   return chosenCount > 1
     ? "Seçtiğiniz hizmetlerin hepsini yapan bir uzman yok. Hizmetleri ayrı randevularla alabilirsiniz."
-    : "Bu hizmet için şu anda online randevu alan bir uzman yok. Lütfen başka bir hizmet seçin veya salonla iletişime geçin.";
+    : "Bu hizmet için şu anda online randevu alan bir uzman yok. Lütfen başka bir hizmet seçin veya işletmeyle iletişime geçin.";
 }
 
 /**
@@ -86,7 +86,7 @@ type AvailabilityStatus = "idle" | "loading" | "ready" | "empty" | "error" | "li
 
 // WP-10 failure codes. The server is authoritative; these are display strings only.
 const legalErrors: Record<string, string> = {
-  TENANT_LEGAL_INCOMPLETE: "Bu salon online randevu için henüz hazır değil. Lütfen salonla doğrudan iletişime geçin.",
+  TENANT_LEGAL_INCOMPLETE: "Bu işletme online randevu için henüz hazır değil. Lütfen işletmeyle doğrudan iletişime geçin.",
   NOTICE_STALE: "Bilgilendirme metni güncellendi, lütfen sayfayı yenileyin.",
   OPT_IN_REQUIRES_PHONE: "WhatsApp bilgilendirmesi için telefon numaranızı girin veya kutunun işaretini kaldırın.",
   INVALID_PHONE: "Telefon numarası geçersiz. Ülke koduyla girin, örn. +905551234567.",
@@ -365,7 +365,7 @@ export function PublicBookingForm({
     return (
       <main className="min-h-screen bg-canvas">
         <div className="mx-auto max-w-xl px-4 pb-10 pt-4 sm:px-6">
-          <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
+          <Breadcrumb className="mb-3" items={[{ label: "İşletme sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
           <BookingConfirmation
             summary={booked}
             onNewBooking={() => {
@@ -381,7 +381,7 @@ export function PublicBookingForm({
   return (
     <main className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-xl px-4 pt-4 sm:px-6">
-        <Breadcrumb className="mb-3" items={[{ label: "Salon sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
+        <Breadcrumb className="mb-3" items={[{ label: "İşletme sayfası", href: `/${encodeURIComponent(slug)}` }, { label: "Randevu al" }]} />
         <form
           id="booking-form"
           className="space-y-6"
@@ -424,7 +424,7 @@ export function PublicBookingForm({
           {step === 1 && (
             services.length === 0 ? (
               <p className={`${card} text-subhead text-ink-muted`}>
-                Bu salon henüz online randevuya açık bir hizmet eklemedi. Lütfen salonla doğrudan iletişime geçin.
+                Bu işletme henüz online randevuya açık bir hizmet eklemedi. Lütfen işletmeyle doğrudan iletişime geçin.
               </p>
             ) : (
               <div className="space-y-5">

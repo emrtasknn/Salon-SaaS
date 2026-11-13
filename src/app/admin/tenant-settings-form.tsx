@@ -23,16 +23,16 @@ type TenantSettingsView = Readonly<{
 const legalErrorMessages: Record<TenantLegalErrorCode, string> = {
   INVALID_LEGAL_NAME: "Ticari unvanı kontrol edin.",
   INVALID_LEGAL_ADDRESS: "Adresi kontrol edin.",
-  INVALID_KVKK_EMAIL: "KVKK başvuru e-postası geçersiz. Örn. kvkk@salonunuz.com",
+  INVALID_KVKK_EMAIL: "KVKK başvuru e-postası geçersiz. Örn. kvkk@isletmeniz.com",
 };
 
 const errorMessages: Record<string, string> = {
-  INVALID_TENANT_NAME: "Salon adını kontrol edin.",
+  INVALID_TENANT_NAME: "İşletme adını kontrol edin.",
   INVALID_CONTACT_PHONE:
     "Telefon numarası geçersiz. Ülke koduyla girin, örn. +905551234567.",
   FORBIDDEN: "Bu işlem için yetkiniz yok.",
   PERSISTENCE_FAILURE: "Ayarlar kaydedilemedi. Lütfen tekrar deneyin.",
-  INVALID_PUBLIC_ADDRESS: "Salon adresini kontrol edin (en fazla 300 karakter).",
+  INVALID_PUBLIC_ADDRESS: "İşletme adresini kontrol edin (en fazla 300 karakter).",
   INVALID_MAPS_URL:
     "Harita bağlantısı geçersiz. Google Haritalar veya Apple Haritalar'daki Paylaş bağlantısını yapıştırın.",
   ...legalErrorMessages,
@@ -61,7 +61,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="tenant-settings-title" className="text-lg font-semibold">
-          Salon ayarları
+          İşletme ayarları
         </h2>
         <span
           className={`rounded-full border px-2 py-1 text-xs font-medium ${
@@ -83,7 +83,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               const result = await updateTenantSettingsAction(formData);
               if (result.ok) {
                 haptic("success");
-                setFeedback({ kind: "success", text: "Salon ayarları kaydedildi." });
+                setFeedback({ kind: "success", text: "İşletme ayarları kaydedildi." });
                 router.refresh();
               } else {
                 setFeedback({
@@ -100,7 +100,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
       >
         <div className="space-y-1">
           <label htmlFor="tenant-name" className="text-sm font-medium">
-            Salon adı
+            İşletme adı
           </label>
           <input
             id="tenant-name"
@@ -135,20 +135,20 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
             className={field}
           />
           <p id="tenant-contact-phone-help" className="text-xs text-ink-muted">
-            Örn. +905551234567. Müşteriler salon sayfasında bu numaraya WhatsApp&apos;tan yazabilir. Boş bırakırsanız WhatsApp bağlantısı gösterilmez.
+            Örn. +905551234567. Müşteriler işletme sayfasında bu numaraya WhatsApp&apos;tan yazabilir. Boş bırakırsanız WhatsApp bağlantısı gösterilmez.
           </p>
         </div>
 
         <fieldset className="grid gap-4 border-t border-separator pt-4 sm:col-span-2 sm:grid-cols-2" aria-describedby="tenant-location-help">
           <legend className="text-base font-semibold">Konum</legend>
           <p id="tenant-location-help" className="text-xs text-ink-muted sm:col-span-2">
-            Müşteriler salon ve randevu sayfasında &quot;Yol tarifi al&quot; bağlantısıyla salonunuza kolayca ulaşır.
+            Müşteriler işletme ve randevu sayfasında &quot;Yol tarifi al&quot; bağlantısıyla işletmenize kolayca ulaşır.
             Harita bağlantısı boşsa adres Google Haritalar&apos;da aranır.
           </p>
 
           <div className="space-y-1 sm:col-span-2">
             <label htmlFor="tenant-public-address" className="text-sm font-medium">
-              Salon adresi
+              İşletme adresi
             </label>
             <textarea
               id="tenant-public-address"
@@ -187,7 +187,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
               className={field}
             />
             <p id="tenant-maps-url-help" className="text-xs text-ink-muted">
-              Google Haritalar&apos;da salonunuzu açın → Paylaş → Bağlantıyı kopyala. Apple Haritalar bağlantısı da olur.
+              Google Haritalar&apos;da işletmenizi açın → Paylaş → Bağlantıyı kopyala. Apple Haritalar bağlantısı da olur.
             </p>
           </div>
         </fieldset>
@@ -296,7 +296,7 @@ export function TenantSettingsForm({ settings, canEdit = false }: { settings: Te
           </Button>
         </div>
         ) : (
-          <p className="text-xs text-ink-muted sm:col-span-2">Salon ayarlarını yalnızca salon yöneticisi değiştirebilir.</p>
+          <p className="text-xs text-ink-muted sm:col-span-2">İşletme ayarlarını yalnızca işletme yöneticisi değiştirebilir.</p>
         )}
 
         {/* Live region stays mounted; the card inside animates in. */}
