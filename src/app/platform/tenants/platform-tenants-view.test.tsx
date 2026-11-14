@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
 vi.mock("./actions", () => ({ createTenantAction: vi.fn(), setTenantStatusAction: vi.fn() }));
-vi.mock("../../_ui/account-links", () => ({ AccountLinks: () => null }));
+vi.mock("../../_ui/account-links", () => ({ AccountRows: () => null }));
 
 import { PlatformTenantsView } from "./platform-tenants-view";
 import { filterTenants } from "./tenant-status-list";

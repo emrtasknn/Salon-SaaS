@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { HapticsToggle } from "../../_ui/haptics-toggle";
-import { ThemeToggle } from "../../_ui/theme-toggle";
-import { PushPermission } from "../../pwa/push-permission";
+import { HapticsToggle } from "./haptics-toggle";
+import { ThemeToggle } from "./theme-toggle";
+import { PushPermission } from "../pwa/push-permission";
 
 /**
  * Device settings as one inset group: appearance, vibration, notifications, password.
- * Appearance and vibration are stored on this device only. Presentation only: the push
- * actions and the password page authorize themselves.
+ * The notifications row appears only with a push binding key (tenant users; the platform area
+ * has no push). Appearance and vibration are stored on this device only. Presentation only:
+ * the push actions and the password page authorize themselves.
  */
-export function SettingsList({ pushBindingKey }: { pushBindingKey: string }) {
+export function SettingsList({ pushBindingKey }: { pushBindingKey?: string | null }) {
   return (
     <ul className="inset-group">
       <li className="inset-row flex min-h-11 items-center gap-3 px-4 py-2 text-body text-ink">
@@ -21,9 +22,11 @@ export function SettingsList({ pushBindingKey }: { pushBindingKey: string }) {
       <li className="inset-row">
         <HapticsToggle row />
       </li>
-      <li className="inset-row">
-        <PushPermission bindingKey={pushBindingKey} layout="row" />
-      </li>
+      {pushBindingKey ? (
+        <li className="inset-row">
+          <PushPermission bindingKey={pushBindingKey} layout="row" />
+        </li>
+      ) : null}
       <li className="inset-row">
         <Link
           href="/reset-password"

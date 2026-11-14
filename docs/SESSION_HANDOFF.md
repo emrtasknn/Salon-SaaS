@@ -1,44 +1,30 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-13 — iOS 26-style glass tab bar for the PWA; sector-neutral ("işletme") UI wording.
+2026-11-14 — Bring the admin panel's account/settings design to the staff and platform (SUPER_ADMIN) areas.
 
 ## State
-- Branch / commit: `claude/funny-edison-9bnnpe`, on top of `d6609f3`
-- Working tree: uncommitted (paths in Changes below, plus this file)
+- Branch: `claude/funny-edison-9bnnpe`, restarted from `main` after #202 merged
 - Environment touched: none (no database, no deploy; `DATABASE_URL` unset)
 
 ## Done
-- Phone tab bar is a floating glass capsule; pressing it lifts a glass lens that follows the finger and selects the tab it is released on (`src/app/_ui/app-nav.tsx`, `.tab-bar-float` / `.tab-lens` in `globals.css`). Taps and keyboard still use plain links.
-- UI copy says "işletme" instead of "salon" on admin, staff, public booking and platform screens; app description in `layout.tsx` / `manifest.json` is sector-neutral.
-
-## Changes
-| File | Change | Reason |
-|---|---|---|
-| `src/app/_ui/app-nav.tsx`, `nav-items.ts` (+tests) | Floating bar, draggable lens, `lensIndex` / `lensOffset` | Owner request |
-| `src/app/globals.css` | `.tab-bar-float`, `.tab-lens`, install-banner offset | Same |
-| `src/app/**` copy (19 files), `public/manifest.json` | "Salon" → "İşletme", neutral examples | Multi-sector wording |
-| `.claude/skills/salon-saas-uiux/references/apple-design-rules.md` | Lens exception, wording rule | Canonical rules |
+- One shared "Ayarlar" screen (`src/app/_ui/settings-screen.tsx`, `settings-list.tsx`) for `/admin/settings`, new `/staff/settings` and new `/platform/settings`. The platform version has no notifications row (no tenant, no push).
+- Staff calendar and platform list end with the same "Hesap" rows as the admin home (Ayarlar ›, Çıkış yap). The old button row (`AccountLinks`) is removed.
+- Staff home shows the push opt-in as a banner only, like the admin home; the switch is in Ayarlar.
+- Staff "Randevularım" refresh button matches the calendars (icon button).
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
 | Lint | `npm run lint` | PASS (3 existing warnings) |
 | Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run --exclude "**/*.integration.test.ts"` | PASS (1646) |
-| Integration | CI | not run |
-| Build | `npm run build` | not run |
-| Visual | Chromium 390px, light + dark, press/drag/release | checked; not tested on a real iPhone |
-
-## Decisions
-- Lens is CSS only (rim, highlight, prismatic edge, magnified tab); true refraction needs SVG displacement in `backdrop-filter`, which Safari lacks — recorded in apple-design-rules.md.
-- Route `/admin/salon`, code identifiers, storage keys and DB names keep "salon" (not user-visible).
+| Unit tests | `npx vitest run --exclude "**/*.integration.test.ts"` | PASS |
+| Integration | CI | see PR |
+| Visual | Chromium 390px dark: platform list, settings screen | checked; staff screens need a signed-in session, not shot |
 
 ## Open risks
-- `src/domain/legal-notice.ts` still names the party "Salon" and says the system is not designed for health data — needs legal review before onboarding clinics.
-- WhatsApp template bodies approved at Meta were not reviewed for sector wording.
-- Lens feel (spring, haptics, touch) needs a check on a real iPhone PWA.
+- KVKK notice still names the party "Salon"; needs legal review before onboarding clinics.
+- Lens/tab bar feel still unverified on a real iPhone.
 
 ## Next task
-- Commit and push after owner approval.
-- Legal review of the KVKK notice for multi-sector use; decide on health-data sectors (clinics).
+- Owner check on a phone: staff and platform "Hesap" → Ayarlar flow.

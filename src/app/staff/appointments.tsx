@@ -1,5 +1,6 @@
 "use client";
 
+import { RotateCw } from "lucide-react";
 import { useState, useTransition, type ReactNode } from "react";
 import { completeStaffAppointment, listStaffAppointments } from "./actions";
 import { decideAndNotify } from "./decide";
@@ -34,7 +35,7 @@ export function StaffAppointments({ initialDate, initialData, bell }: Props) {
     <PageHeader eyebrow={formatListDay(date)} title="Randevularım" accessory={bell} widthClassName="max-w-4xl">
       <div className="flex flex-wrap items-center gap-2">
         <input type="date" aria-label="Tarih" value={date} onChange={(e) => { setDate(e.target.value); refresh(e.target.value); }} className={`${fieldInline} tabular-nums`} />
-        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary">{busy ? "Yükleniyor…" : "Yenile"}</Button>
+        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary" leadingIcon={RotateCw} aria-label={busy ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{busy ? "Yükleniyor…" : "Yenile"}</span></Button>
       </div>
     </PageHeader>
     <div className="mx-auto max-w-4xl px-4 pb-10 pt-4 sm:px-6">
