@@ -5,7 +5,7 @@ import { completeStaffAppointment, createStaffAppointment, getStaffCreateOptions
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { PageHeader } from "../_ui/page-header";
-import { AccountLinks } from "../_ui/account-links";
+import { AccountRows } from "../_ui/account-links";
 import { appointmentStatusBadge, badgeBase, statusNote, appointmentStatusLabel } from "../_ui/styles";
 import { DateField } from "../_ui/date-field";
 import { useMinuteClock, AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
@@ -176,7 +176,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
       </div>
       <section aria-labelledby="staff-account-title" className="mt-10">
         <h2 id="staff-account-title" className="group-label">Hesap</h2>
-        <AccountLinks />
+        <AccountRows settingsHref="/staff/settings" />
       </section>
     </div>
 

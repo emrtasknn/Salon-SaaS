@@ -4,7 +4,7 @@
 // provisioning form in a sheet. Presentation only — the page has already checked
 // platform access, and every server action re-checks it.
 
-import { AccountLinks } from "../../_ui/account-links";
+import { AccountRows } from "../../_ui/account-links";
 import { PageHeader } from "../../_ui/page-header";
 import { useId, useRef, useState } from "react";
 import { statusNote } from "../../_ui/styles";
@@ -48,9 +48,7 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
           </Button>
         }
       />
-      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
-        <AccountLinks />
-
+      <div className="mx-auto w-full max-w-3xl space-y-8 px-4 pb-10 pt-6 sm:px-6">
         <p role="status" aria-live="polite" className={notice !== "" ? statusNote : "sr-only"}>{notice}</p>
 
         <section aria-labelledby="tenant-list-title" className="space-y-2">
@@ -60,6 +58,11 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
           ) : (
             <p role="status" className={statusNote}>İşletme listesi yüklenemedi.</p>
           )}
+        </section>
+
+        <section aria-labelledby="platform-account-title">
+          <h2 id="platform-account-title" className="group-label">Hesap</h2>
+          <AccountRows settingsHref="/platform/settings" settingsDetail="Görünüm, şifre" />
         </section>
       </div>
 

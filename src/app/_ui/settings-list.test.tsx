@@ -2,15 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {} }) }));
-vi.mock("../../push-actions", () => ({
+vi.mock("../push-actions", () => ({
   getWebPushConfigAction: async () => ({ enabled: false }),
   subscribeWebPushAction: async () => ({ status: "UNAUTHORIZED" }),
   unsubscribeWebPushAction: async () => ({ status: "UNAUTHORIZED" }),
 }));
 
 import { SettingsList } from "./settings-list";
-import { PushPermission } from "../../pwa/push-permission";
-import { AccountRows } from "../../_ui/account-links";
+import { PushPermission } from "../pwa/push-permission";
+import { AccountRows } from "./account-links";
 
 describe("SettingsList", () => {
   const html = renderToStaticMarkup(<SettingsList pushBindingKey="k" />);
@@ -27,6 +27,16 @@ describe("SettingsList", () => {
 
   it("links the password row to the reset page", () => {
     expect(html).toContain('href="/reset-password"');
+  });
+});
+
+describe("SettingsList without a push binding (platform area)", () => {
+  const html = renderToStaticMarkup(<SettingsList />);
+
+  it("drops only the notifications row", () => {
+    expect(html.match(/inset-row/g)).toHaveLength(3);
+    expect(html).not.toContain("Bildirimler");
+    for (const label of ["Görünüm", "Titreşim", "Şifremi değiştir"]) expect(html).toContain(label);
   });
 });
 
