@@ -20,7 +20,7 @@ type Tx = PrismaTenantTransactionClient & {
   pushSubscription: {
     updateMany(args: { where: { tenantId: string; profileId: string; revokedAt: null }; data: { revokedAt: Date } }): Promise<unknown>;
   };
-  profile: { update(args: { where: { id: string }; data: { email: null } }): Promise<unknown> };
+  profile: { update(args: { where: { tenantId_id: { tenantId: string; id: string } }; data: { email: null } }): Promise<unknown> };
 };
 
 // Archive (soft delete): staff row stays for appointment history; access and contact data are removed.
@@ -49,7 +49,7 @@ export function createPrismaStaffDeletionRepository(prisma: PrismaTenantClient):
         await tx.staffService.deleteMany({ where: { tenantId, staffId } });
         await tx.tenantMembership.deleteMany({ where: { tenantId, profileId: staff.profileId } });
         await tx.pushSubscription.updateMany({ where: { tenantId, profileId: staff.profileId, revokedAt: null }, data: { revokedAt: now } });
-        await tx.profile.update({ where: { id: staff.profileId }, data: { email: null } });
+        await tx.profile.update({ where: { tenantId_id: { tenantId, id: staff.profileId } }, data: { email: null } });
         return "archived" as const;
       });
     },

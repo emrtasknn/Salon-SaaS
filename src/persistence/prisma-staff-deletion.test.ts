@@ -61,7 +61,14 @@ describe("prisma staff deletion", () => {
     expect(tx.pushSubscription.updateMany).toHaveBeenCalledWith({
       where: { tenantId: "t", profileId: "p1", revokedAt: null }, data: { revokedAt: now },
     });
-    expect(tx.profile.update).toHaveBeenCalledWith({ where: { id: "p1" }, data: { email: null } });
+    expect(tx.profile.update).toHaveBeenCalledWith({ where: { tenantId_id: { tenantId: "t", id: "p1" } }, data: { email: null } });
+  });
+
+  it("still archives when the profile has no membership rows", async () => {
+    const tx = makeTx({ memberships: [] });
+    await expect(repoFor(tx).archive(tenant, input)).resolves.toBe("archived");
+    expect(tx.calls).toEqual(["lock", "staff.find", "membership.find", "appointment.count", ...WRITES]);
+    expect(tx.tenantMembership.deleteMany).toHaveBeenCalledWith({ where: { tenantId: "t", profileId: "p1" } });
   });
 
   it.each([
