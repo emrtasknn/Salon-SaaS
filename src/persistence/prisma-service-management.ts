@@ -40,14 +40,14 @@ export type PrismaServiceTransaction = PrismaTenantTransactionClient & {
       } & CatalogData;
     }): Promise<ServiceRow>;
     updateMany(args: {
-      where: { tenantId: string; id: string };
+      where: { tenantId: string; id: string; deletedAt: null };
       data: { active: boolean };
     }): Promise<{ count: number }>;
     findUnique(args: {
-      where: { tenantId_id: { tenantId: string; id: string } };
+      where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null };
     }): Promise<ServiceRow | null>;
     findMany(args: {
-      where: { tenantId: string };
+      where: { tenantId: string; deletedAt: null };
       orderBy: { name: "asc" };
     }): Promise<ServiceRow[]>;
   };
@@ -127,6 +127,7 @@ export function createPrismaServiceRepository(
                   tenantId: tenantContext.tenantId,
                   id: serviceId,
                 },
+                deletedAt: null,
               },
             });
             if (!existing) return "not_found" as const;
@@ -159,6 +160,7 @@ export function createPrismaServiceRepository(
             where: {
               tenantId: tenantContext.tenantId,
               id: serviceId,
+              deletedAt: null,
             },
             data: { active },
           }),
@@ -172,7 +174,7 @@ export function createPrismaServiceRepository(
         tenantContext,
         async (tx: PrismaServiceTransaction) =>
           tx.service.findMany({
-            where: { tenantId: tenantContext.tenantId },
+            where: { tenantId: tenantContext.tenantId, deletedAt: null },
             orderBy: { name: "asc" },
           }),
       );

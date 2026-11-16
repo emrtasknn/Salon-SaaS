@@ -73,7 +73,7 @@ describe("prisma service repository", () => {
     });
 
     expect(tx.service.findUnique).toHaveBeenCalledWith({
-      where: { tenantId_id: { tenantId: "tenant-1", id: "service-1" } },
+      where: { tenantId_id: { tenantId: "tenant-1", id: "service-1" }, deletedAt: null },
     });
     expect(tx.service.update).toHaveBeenCalledWith({
       where: { tenantId_id: { tenantId: "tenant-1", id: "service-1" } },
@@ -87,11 +87,11 @@ describe("prisma service repository", () => {
     await createPrismaServiceRepository(prisma).list(tenantContext);
 
     expect(tx.service.updateMany).toHaveBeenCalledWith({
-      where: { tenantId: "tenant-1", id: "service-1" },
+      where: { tenantId: "tenant-1", id: "service-1", deletedAt: null },
       data: { active: false },
     });
     expect(tx.service.findMany).toHaveBeenCalledWith({
-      where: { tenantId: "tenant-1" },
+      where: { tenantId: "tenant-1", deletedAt: null },
       orderBy: { name: "asc" },
     });
   });
@@ -120,7 +120,7 @@ describe("prisma service repository", () => {
     ).resolves.toBe("not_found");
 
     expect(tx.service.findUnique).toHaveBeenCalledWith({
-      where: { tenantId_id: { tenantId: "tenant-1", id: "service-other" } },
+      where: { tenantId_id: { tenantId: "tenant-1", id: "service-other" }, deletedAt: null },
     });
     expect(tx.service.update).not.toHaveBeenCalled();
   });

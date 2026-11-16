@@ -11,7 +11,7 @@ type Tx = PrismaTenantTransactionClient & StaffServiceReadTransaction & {
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
     publicAddress: string | null; mapsUrl: string | null;
   } | null> };
-  service: { findMany(args: { where: { tenantId: string; active: boolean }; orderBy: { name: "asc" } }): Promise<ServiceRecord[]> };
+  service: { findMany(args: { where: { tenantId: string; active: boolean; deletedAt: null }; orderBy: { name: "asc" } }): Promise<ServiceRecord[]> };
   serviceCategory: { findMany(args: { where: { tenantId: string }; orderBy: Array<{ sortOrder: "asc" } | { name: "asc" }>; select: { id: true; name: true; sortOrder: true } }): Promise<Array<{ id: string; name: string; sortOrder: number }>> };
   staff: { findMany(args: { where: { tenantId: string; status: "ACTIVE"; deletedAt: null }; orderBy: { id: "asc" } }): Promise<Array<{ id: string; profileId: string; status: "ACTIVE" }>> };
   profile: { findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; displayName: string }>> };
@@ -33,7 +33,7 @@ export function createPrismaPublicSalonRepository(prisma: PrismaTenantClient): P
     async catalog(tenantContext: TenantContext) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         const [services, staff, workingHours] = await Promise.all([
-          tx.service.findMany({ where: { tenantId: tenantContext.tenantId, active: true }, orderBy: { name: "asc" } }),
+          tx.service.findMany({ where: { tenantId: tenantContext.tenantId, active: true, deletedAt: null }, orderBy: { name: "asc" } }),
           tx.staff.findMany({ where: { tenantId: tenantContext.tenantId, status: "ACTIVE", deletedAt: null }, orderBy: { id: "asc" } }),
           tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
         ]);

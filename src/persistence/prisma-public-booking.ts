@@ -17,8 +17,8 @@ type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & Closure
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
   } | null> };
   service: {
-    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
-    findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
+    findMany(args: { where: { tenantId: string; id: { in: string[] }; deletedAt: null } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
   };
   appointmentService: {
     createMany(args: { data: Array<{ tenantId: string; appointmentId: string; serviceId: string; position: number }> }): Promise<{ count: number }>;
@@ -59,7 +59,7 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
           if (tenantStatus !== "ACTIVE") return "tenant_inactive";
           const [tenant, service, staff, workingHours] = await Promise.all([
             tx.tenant.findUnique({ where: { id: tenantContext.tenantId } }),
-            tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId } } }),
+            tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId }, deletedAt: null } }),
             tx.staff.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.staffId } } }),
             tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
           ]);
@@ -70,7 +70,7 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
             if (!(await staffServesService(tx, tenantContext.tenantId, input.staffId, serviceId))) return "invalid_resource";
           }
           // Multi-service: extras must exist in this tenant and be active; time = sum of (duration + buffer).
-          const extras = extraIds.length ? await tx.service.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: extraIds } } }) : [];
+          const extras = extraIds.length ? await tx.service.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: extraIds }, deletedAt: null } }) : [];
           if (extras.length !== extraIds.length || extras.some((extra) => !extra.active)) return "invalid_resource";
           const timing = combineServiceTimings([service, ...extraIds.map((id) => extras.find((extra) => extra.id === id)!)]);
           // WP-10: legal fields re-checked on the row locked FOR SHARE above (a concurrent settings

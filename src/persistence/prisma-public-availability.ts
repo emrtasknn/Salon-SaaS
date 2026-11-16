@@ -11,8 +11,8 @@ import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTran
 type Tx = PrismaTenantTransactionClient & ClosureDateReadTransaction & StaffServiceReadTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string; status: "ACTIVE" | "INACTIVE" } | null> };
   service: {
-    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
-    findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
+    findMany(args: { where: { tenantId: string; id: { in: string[] }; deletedAt: null } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
   };
   staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
   workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
@@ -32,7 +32,7 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
         return await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
           const [tenant, service, staff, workingHours] = await Promise.all([
             tx.tenant.findUnique({ where: { id: tenantContext.tenantId } }),
-            tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId } } }),
+            tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId }, deletedAt: null } }),
             tx.staff.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.staffId }, deletedAt: null } }),
             tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
           ]);
@@ -43,7 +43,7 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
             if (!(await staffServesService(tx, tenantContext.tenantId, input.staffId, serviceId))) return { status: "invalid_resource" as const };
           }
           // Multi-service (owner decision 2026-11-06): every extra service must exist in this tenant and be active.
-          const extras = extraIds.length ? await tx.service.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: extraIds } } }) : [];
+          const extras = extraIds.length ? await tx.service.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: extraIds }, deletedAt: null } }) : [];
           if (extras.length !== extraIds.length || extras.some((extra) => !extra.active)) return { status: "invalid_resource" as const };
           const ordered = [service, ...extraIds.map((id) => extras.find((extra) => extra.id === id)!)];
           const timing = combineServiceTimings(ordered);
