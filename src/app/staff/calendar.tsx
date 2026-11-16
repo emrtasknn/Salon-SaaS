@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
-import { completeStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
+import { AppointmentDeleteButton } from "../_ui/appointment-delete-button";
+import { completeStaffAppointment, deleteStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { PageHeader } from "../_ui/page-header";
@@ -90,6 +91,12 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
     });
   }
 
+  function afterDelete() {
+    setSelectedId(null);
+    setFeedback("Randevu silindi.");
+    refresh();
+  }
+
   function decide(appointmentId: string, to: "CONFIRMED" | "REJECTED") {
     haptic(to === "REJECTED" ? "warning" : "selection");
     startTransition(async () => {
@@ -172,6 +179,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
             <Button type="submit" disabled={busy} onClick={() => decide(a.id, "CONFIRMED")} variant="primary" className="flex-1 sm:flex-none">Onayla</Button>
             <Button type="submit" disabled={busy} onClick={() => decide(a.id, "REJECTED")} variant="danger-outline" className="flex-1 sm:flex-none">Reddet</Button>
           </div>}
+          <AppointmentDeleteButton actor="ASSIGNED_STAFF" status={a.status} appointmentId={a.id} summary={`${customerOf(a)} · ${a.serviceName}`} run={deleteStaffAppointment} onDeleted={afterDelete} size="small" disabled={busy} className="mt-3" />
         </article></li>)}</ul>}
       </div>
       <section aria-labelledby="staff-account-title" className="mt-10">
@@ -204,6 +212,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
           <Button type="button" disabled={busy} onClick={() => complete(selected.id)} variant="primary">Tamamlandı</Button>
           <p className="text-footnote text-ink-muted">İptal işlemini işletme yöneticisi yapar.</p>
         </div> : <p className="text-subhead text-ink-muted">{selected.status === "CONFIRMED" ? "Randevu başlayınca tamamlandı olarak işaretleyebilirsiniz. İptal işlemini işletme yöneticisi yapar." : "Bu randevu için başka işlem yok."}</p>}
+        <AppointmentDeleteButton actor="ASSIGNED_STAFF" status={selected.status} appointmentId={selected.id} summary={`${customerOf(selected)} · ${selected.serviceName}`} run={deleteStaffAppointment} onDeleted={afterDelete} disabled={busy} className="w-full sm:w-auto" />
       </div>}
     </AppointmentSheet>
     {move.sheet}

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import {
   createAdminAppointment,
+  deleteAdminAppointment,
   getAdminCreateOptions,
   listAdminAppointments,
   listAdminSlots,
@@ -30,6 +31,7 @@ import { MonthView } from "../_ui/month-view";
 import { dateInZone, TIMELINE_TIME_ZONE } from "../_ui/timeline-layout";
 import { formatDayLabel } from "../_ui/date-format";
 import { ConfirmButton } from "../_ui/confirm-button";
+import { AppointmentDeleteButton } from "../_ui/appointment-delete-button";
 import { appointmentStatusBadge, badgeBase, appointmentStatusLabel } from "../_ui/styles";
 import { DateField } from "../_ui/date-field";
 import { PageHeader } from "../_ui/page-header";
@@ -192,6 +194,12 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
         setFeedback("İşlem gerçekleştirilemedi.");
       }
     });
+  }
+
+  function afterDelete() {
+    setSelectedId(null);
+    setFeedback("Randevu silindi.");
+    refresh();
   }
 
   if (data.status === "UNAUTHORIZED") {
@@ -391,6 +399,16 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
                       </Button>
                     );
                   })}
+                  <AppointmentDeleteButton
+                    actor="TENANT_ADMIN"
+                    status={appointment.status}
+                    appointmentId={appointment.id}
+                    summary={`${appointment.customerDisplayName} · ${appointment.serviceName}`}
+                    run={deleteAdminAppointment}
+                    onDeleted={() => afterDelete()}
+                    size="small"
+                    disabled={busy}
+                  />
                 </div>
               </article>
             ))}
@@ -471,6 +489,16 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
             ) : (
               <p className="text-subhead text-ink-muted">Bu randevu için başka işlem yok.</p>
             )}
+            <AppointmentDeleteButton
+              actor="TENANT_ADMIN"
+              status={selected.status}
+              appointmentId={selected.id}
+              summary={`${selected.customerDisplayName} · ${selected.serviceName}`}
+              run={deleteAdminAppointment}
+              onDeleted={() => afterDelete()}
+              disabled={busy}
+              className="w-full sm:w-auto"
+            />
           </div>
         )}
       </AppointmentSheet>

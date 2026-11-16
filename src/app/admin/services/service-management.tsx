@@ -5,6 +5,7 @@ import { checkboxClassName, field } from "../../_ui/styles";
 import {
   createServiceAction,
   createServiceCategoryAction,
+  deleteServiceAction,
   deleteServiceCategoryAction,
   moveServiceCategoryAction,
   renameServiceCategoryAction,
@@ -14,12 +15,22 @@ import {
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
 import { StatusToggle } from "../../_ui/status-toggle";
+import { DeleteButton } from "../../_ui/delete-button";
+import type { DeleteResult } from "@/domain/deletion";
 import { formatServicePrice, parseTryAmount } from "../../../domain/service-price";
 import { groupServicesByCategory } from "../../../domain/service-category";
 
 const label = "mb-1.5 block text-subhead font-medium text-ink";
 const PRICE_HINT = "Örn. 450 veya 450,50. Boş bırakırsanız fiyat gösterilmez.";
 const PRICE_INVALID = "Fiyatı 450 ya da 1.250,50 gibi yazın (en fazla 100.000 ₺).";
+
+/** The category action predates DeleteResult; map its statuses so the shared dialog can show the reason. */
+function categoryDeleteResult(result: { status: string }): DeleteResult {
+  if (result.status === "deleted") return { status: "DELETED" };
+  if (result.status === "NOT_FOUND") return { status: "NOT_FOUND" };
+  if (result.status === "UNAUTHORIZED") return { status: "FORBIDDEN" };
+  return { status: "PERSISTENCE_FAILURE" };
+}
 
 type Category = Readonly<{ id: string; name: string; sortOrder: number }>;
 
@@ -163,25 +174,19 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                         })
                       }
                     />
-                    <Button
-                      type="button"
-                      variant="danger-outline"
+                    <DeleteButton
+                      ariaLabel={`${category.name} kategorisini sil`}
+                      title={`${category.name} kategorisi silinsin mi?`}
+                      description="İçindeki hizmetler kategorisiz kalır."
+                      confirmLabel="Kategoriyi sil"
                       className="ml-auto"
                       disabled={busy}
-                      onClick={() =>
-                        startTransition(async () => {
-                          const result = await deleteServiceCategoryAction(category.id);
-                          setFeedback(
-                            result.status === "deleted"
-                              ? `"${category.name}" silindi. İçindeki hizmetler kategorisiz kaldı.`
-                              : message(result.status),
-                          );
-                          if (result.status === "deleted") refresh();
-                        })
-                      }
-                    >
-                      Sil
-                    </Button>
+                      run={async () => categoryDeleteResult(await deleteServiceCategoryAction(category.id))}
+                      onDeleted={() => {
+                        setFeedback(`"${category.name}" silindi. İçindeki hizmetler kategorisiz kaldı.`);
+                        refresh();
+                      }}
+                    />
                   </div>
                 </li>
               ))}
@@ -350,6 +355,22 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                             Bilgileri kaydet
                           </Button>
                         </form>
+                        <div className="mt-3 flex justify-end border-t border-separator pt-3">
+                          <DeleteButton
+                            ariaLabel={`${item.name} hizmetini sil`}
+                            title={`${item.name} silinsin mi?`}
+                            description="Hizmet listeden kaldırılır, geçmiş randevular korunur."
+                            confirmLabel="Hizmeti sil"
+                            variant="ghost"
+                            className="text-destructive"
+                            disabled={busy}
+                            run={() => deleteServiceAction(item.id)}
+                            onDeleted={() => {
+                              setFeedback(`${item.name} silindi.`);
+                              refresh();
+                            }}
+                          />
+                        </div>
                       </li>
                     );
                   })}
