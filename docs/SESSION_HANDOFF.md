@@ -31,21 +31,22 @@
 | Typecheck | `npm run typecheck` | PASS |
 | Unit tests | `npx vitest run --exclude '**/*.integration.test.ts'` (DATABASE_URL unset) | PASS (164 files, 1807 tests) |
 | Integration | CI | not run |
-| Build | `npm run build` | PASS (before the fix wave) |
+| Build | `npm run build` | PASS |
 | Browser | — | not run (needs DB/auth; verify on staging) |
 
 ## Decisions
 - Archive instead of hard delete; no restore UI; admin accounts not deletable; staff access revoked by deleting the membership.
 - Working-hours screen has no confirm dialog (no delete trigger there; closing a day is a reversible edit).
+- Owner 2026-11-16: customer erasure also clears WhatsApp opt-in and its evidence (KVKK notice evidence kept); any PENDING/CONFIRMED appointment blocks staff/service/customer delete (spec amended).
 
 ## Open risks (owner decisions)
-- BLOCKER: customer erase fails when a booking contact has WhatsApp opt-in (CHECK `AppointmentContact_optin_requires_record_check`); the matching integration case will fail in CI. Options A/B/C in the final review.
+- Integration suite has never run; CI must prove it (cross-tenant, concurrency, erase with opt-in).
 - Archived service name cannot be reused (`Service @@unique([tenantId, name])`); needs a partial unique index or acceptance.
-- `prisma-booking-engine.ts:200` accepts a stale erased-customer id; one-line filter in a protected file.
-- A past-start PENDING/CONFIRMED appointment can be rescheduled onto an archived service or erased customer; option: block archive on any PENDING/CONFIRMED.
+- `prisma-booking-engine.ts:200` accepts a stale erased-customer id; one-line filter in a protected file (not approved yet).
 - Deleted staff member's Supabase auth user remains (no access; email reuse may fail).
 - Staff delete button is shown on the admin's own row (server refuses).
+- Screens not browser-verified; check dialog focus/Escape/slug gate on staging.
 - `npm ci` fails with npm 10 against the lockfile in the cloud sandbox; npm 11 (CI's Node 24) was used without the lockfile.
 
 ## Next task
-- Get the owner's choice on the erase/opt-in blocker, apply it, then open a PR and let CI run the integration suite. Files first: `src/persistence/prisma-customer-deletion.ts`, the KVKK migration CHECK section, `src/persistence/prisma-soft-delete.integration.test.ts`.
+- Open a PR (owner request needed) and let CI run the integration suite; fix what it finds. Then owner decisions on service-name reuse and the booking-engine filter. Files first: `src/persistence/prisma-soft-delete.integration.test.ts`, `prisma/schema.prisma` (Service unique).
