@@ -117,7 +117,7 @@ describe("prisma staff repository", () => {
 
     expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
     expect(tx.staff.findUnique).toHaveBeenCalledWith({
-      where: { tenantId_id: { tenantId: "tenant-1", id: "staff-1" } },
+      where: { tenantId_id: { tenantId: "tenant-1", id: "staff-1" }, deletedAt: null },
     });
     expect(tx.profile.update).toHaveBeenCalledWith({
       where: { tenantId_id: { tenantId: "tenant-1", id: "profile-1" } },
@@ -147,6 +147,7 @@ describe("prisma staff repository", () => {
           tenantId: "tenant-1",
           id: "staff-other-tenant",
         },
+        deletedAt: null,
       },
     });
   });
@@ -165,11 +166,11 @@ describe("prisma staff repository", () => {
     const records = await createPrismaStaffRepository(prisma).list(tenantContext);
 
     expect(tx.staff.updateMany).toHaveBeenCalledWith({
-      where: { tenantId: "tenant-1", id: "staff-1" },
+      where: { tenantId: "tenant-1", id: "staff-1", deletedAt: null },
       data: { status: "INACTIVE" },
     });
     expect(tx.staff.findMany).toHaveBeenCalledWith({
-      where: { tenantId: "tenant-1" },
+      where: { tenantId: "tenant-1", deletedAt: null },
       select: {
         id: true,
         tenantId: true,

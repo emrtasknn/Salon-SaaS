@@ -14,7 +14,7 @@ type Tx = PrismaTenantTransactionClient & ClosureDateReadTransaction & StaffServ
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
     findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
   };
-  staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
+  staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
   workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
   appointment: { findMany(args: { where: { tenantId: string; staffId: string; startAt: { lt: Date }; endAt: { gt: Date } } }): Promise<AppointmentRecord[]> };
 };
@@ -33,7 +33,7 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
           const [tenant, service, staff, workingHours] = await Promise.all([
             tx.tenant.findUnique({ where: { id: tenantContext.tenantId } }),
             tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId } } }),
-            tx.staff.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.staffId } } }),
+            tx.staff.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.staffId }, deletedAt: null } }),
             tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
           ]);
           if (!tenant || !service || !staff) return { status: "invalid_resource" as const };
