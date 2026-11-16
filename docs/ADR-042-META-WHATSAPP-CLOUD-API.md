@@ -138,3 +138,16 @@ All recipients are resolved server-side from the appointment's trusted tenant co
 4. New or salon-specific templates are out of MVP scope.
 
 Only SUPER_ADMIN controls sender policy. TENANT_ADMIN cannot select or change the sender.
+
+## Addendum — 2026-11-16: Pilot uses the pilot business's own sender (owner decision, WP-15)
+
+**Decision.**
+- Randevu'N cannot currently pass Meta business verification (no tax certificate), so it has no platform-managed sender and cannot offer Embedded Signup yet.
+- The pilot runs with **one real pilot business and that business's own WhatsApp Business account**. Its credentials live in the server-side `WHATSAPP_*` secrets.
+- The configured sender is used **only** for the tenant that has an `ACTIVE` `WhatsAppIntegration` row for that phone-number id. Every other tenant gets no WhatsApp channel (fail closed, no fallback). In-app and Web Push are unaffected.
+- This supersedes the 2026-11-04 "one shared sender for all tenants" addendum for the pilot phase. Recipient groups, idempotency and webhook routing from that addendum are unchanged.
+- No in-app messaging.
+
+**Deferred (not approved).** Self-service tenant connection (Embedded Signup), encrypted per-tenant tokens, a platform fallback sender and SUPER_ADMIN sender policy. They need Randevu'N's own Meta verification and a separate C3 review.
+
+Details: `docs/tasks/WP-15.md`.

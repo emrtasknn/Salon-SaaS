@@ -1,30 +1,29 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-14 — Bring the admin panel's account/settings design to the staff and platform (SUPER_ADMIN) areas.
+2026-11-16 — Plan tenant-owned WhatsApp Business connection; implement the pilot step (WP-15).
 
 ## State
-- Branch: `claude/funny-edison-9bnnpe`, restarted from `main` after #202 merged
-- Environment touched: none (no database, no deploy; `DATABASE_URL` unset)
+- Branch: `claude/amazing-ramanujan-rljbe8`
+- Environment touched: none (no database, no deploy, no Meta call; `DATABASE_URL` unset)
 
 ## Done
-- One shared "Ayarlar" screen (`src/app/_ui/settings-screen.tsx`, `settings-list.tsx`) for `/admin/settings`, new `/staff/settings` and new `/platform/settings`. The platform version has no notifications row (no tenant, no push).
-- Staff calendar and platform list end with the same "Hesap" rows as the admin home (Ayarlar ›, Çıkış yap). The old button row (`AccountLinks`) is removed.
-- Staff home shows the push opt-in as a banner only, like the admin home; the switch is in Ayarlar.
-- Staff "Randevularım" refresh button matches the calendars (icon button).
+- Plan report for the owner (outside the repo): Embedded Signup self-service is Faz 1, blocked until Randevu'N can pass Meta business verification.
+- Owner decisions: no in-app messaging; continue with one real pilot business and its own WhatsApp Business account (Faz 0).
+- WP-15 (owner-approved C3): the configured WhatsApp sender is used only for the tenant with a matching `ACTIVE` `WhatsAppIntegration` row; other tenants get no WhatsApp. See `docs/tasks/WP-15.md`, ADR-042 addendum 2026-11-16.
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
 | Lint | `npm run lint` | PASS (3 existing warnings) |
 | Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run --exclude "**/*.integration.test.ts"` | PASS |
-| Integration | CI | see PR |
-| Visual | Chromium 390px dark: platform list, settings screen | checked; staff screens need a signed-in session, not shot |
+| Unit tests | `npx vitest run --exclude "**/*.integration.test.ts"` | PASS (146 files, 1658 tests) |
+| Integration | CI | new case (9) in `prisma-whatsapp-webhook.integration.test.ts`, not run locally |
 
 ## Open risks
-- KVKK notice still names the party "Salon"; needs legal review before onboarding clinics.
-- Lens/tab bar feel still unverified on a real iPhone.
+- After deploy, a tenant without a matching integration row gets no WhatsApp. Verify the pilot tenant's live row before deploying.
+- Meta details (coexistence without a partner, unverified-business limits, token lifetime) are unverified.
+- `npm ci` fails on Node 22 / npm in the cloud container (lockfile reported out of sync for `@emnapi/*`); CI uses Node 24.11.1.
 
 ## Next task
-- Owner check on a phone: staff and platform "Hesap" → Ayarlar flow.
+- Owner: set up the pilot business's Meta assets and decide which number to use (WP-15 operational steps).

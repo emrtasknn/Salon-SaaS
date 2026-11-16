@@ -4,6 +4,7 @@ import { createMetaWhatsAppProvider } from "../infrastructure/notifications";
 import { createWebPushProvider } from "../infrastructure/web-push-provider";
 import { createPrismaNotificationRepository } from "../persistence/prisma-notification";
 import { createPrismaPushNotificationRepository } from "../persistence/prisma-push-subscription";
+import { isWhatsAppSenderBoundToTenant } from "../persistence/prisma-whatsapp-integration";
 import type { TenantContext } from "../domain/tenant-context";
 import type { NotificationEventType } from "../domain/notification";
 import { readVapidConfig } from "../domain/web-push";
@@ -12,7 +13,7 @@ import { logError } from "../infrastructure/log-redaction";
 
 // Node runtime only: web-push needs node:https / node:crypto (never import from Edge code).
 
-function provider() {
+function whatsAppConfig() {
   const accessToken=process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId=process.env.WHATSAPP_PHONE_NUMBER_ID;
   const apiVersion=process.env.WHATSAPP_API_VERSION;
@@ -20,7 +21,24 @@ function provider() {
   if(!accessToken||!phoneNumberId||!apiVersion||!templatesJson) return null;
   let templates: Record<string,{name:string;languageCode:string}>;
   try { templates=JSON.parse(templatesJson) as Record<string,{name:string;languageCode:string}>; } catch { return null; }
-  return createMetaWhatsAppProvider({accessToken,phoneNumberId,apiVersion,templates});
+  return {accessToken,phoneNumberId,apiVersion,templates};
+}
+
+/**
+ * WP-15: the configured sender belongs to one business. It is used only for the
+ * tenant that has an ACTIVE WhatsAppIntegration for that phone-number id; every
+ * other tenant gets no WhatsApp channel. Fails closed if the check errors.
+ */
+async function whatsAppProviderFor(tenantContext:TenantContext) {
+  const config=whatsAppConfig();
+  if(!config) return null;
+  try {
+    if(!await isWhatsAppSenderBoundToTenant(getPrisma(),tenantContext,config.phoneNumberId)) return null;
+  } catch {
+    logError("whatsapp_sender_binding_check_failed",{tenantId:tenantContext.tenantId,errorCode:"WHATSAPP_SENDER_BINDING_CHECK_FAILED"});
+    return null;
+  }
+  return createMetaWhatsAppProvider(config);
 }
 
 function webPushProvider() {
@@ -34,7 +52,7 @@ function webPushProvider() {
 /** `eventKey`: one key per occurrence for repeatable events (APPOINTMENT_RESCHEDULED); omit otherwise. */
 export async function publishAppointmentNotification(tenantContext:TenantContext,appointmentId:string,eventType:NotificationEventType,eventKey?:string) {
   // Channels are configured independently; NOT_CONFIGURED only when neither is available.
-  const p=provider();
+  const p=await whatsAppProviderFor(tenantContext);
   const push=webPushProvider();
   if(!p&&!push) return {status:"NOT_CONFIGURED" as const};
   try {

@@ -9,6 +9,7 @@ import {
   resolveWhatsAppDeliveryTenantId,
   resolveWhatsAppTenantId,
 } from "./prisma-whatsapp-webhook";
+import { isWhatsAppSenderBoundToTenant } from "./prisma-whatsapp-integration";
 
 const databaseUrl = process.env.DATABASE_URL;
 const describeDatabase = databaseUrl ? describe : describe.skip;
@@ -795,5 +796,27 @@ describeDatabase("WhatsApp shared-sender delivery routing (WP-02c) PostgreSQL in
     await expect(resolveWhatsAppDeliveryTenantId(superuserPrisma as never, "")).resolves.toBeNull();
     await expect(resolveWhatsAppDeliveryTenantId(superuserPrisma as never, wamid.oversized)).resolves.toBeNull();
     await expect(resolveWhatsAppDeliveryTenantId(superuserPrisma as never, wamid.maxLength)).resolves.toBe(tenantB);
+  });
+
+  it("(9) WP-15: a sender is bound only to the tenant that owns its ACTIVE integration", async () => {
+    await expectRlsBoundSession();
+    const { pool: superuserPool, rlsPrisma: tenantPrisma } = requireClients();
+    const bound = (tenantId: string, phoneNumberId: string) =>
+      isWhatsAppSenderBoundToTenant(tenantPrisma as never, tenantContext(tenantId), phoneNumberId);
+
+    await expect(bound(tenantA, integrationPhoneA)).resolves.toBe(true);
+    await expect(bound(tenantB, integrationPhoneB)).resolves.toBe(true);
+    // Another tenant's sender never matches, in either direction.
+    await expect(bound(tenantB, integrationPhoneA)).resolves.toBe(false);
+    await expect(bound(tenantA, integrationPhoneB)).resolves.toBe(false);
+    await expect(bound(tenantA, `unknown-${suffix}`)).resolves.toBe(false);
+
+    await superuserPool.query(`UPDATE "WhatsAppIntegration" SET "status" = 'INACTIVE' WHERE "id" = $1`, [fixtureA.integrationId]);
+    try {
+      await expect(bound(tenantA, integrationPhoneA)).resolves.toBe(false);
+    } finally {
+      await superuserPool.query(`UPDATE "WhatsAppIntegration" SET "status" = 'ACTIVE' WHERE "id" = $1`, [fixtureA.integrationId]);
+    }
+    await expect(bound(tenantA, integrationPhoneA)).resolves.toBe(true);
   });
 });
