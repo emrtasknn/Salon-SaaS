@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // WP-09 QA: channels are configured independently; NOT_CONFIGURED only when both
 // WhatsApp and Web Push are unconfigured. Fake test-only values; no real secrets.
-const { createNotificationService, publish, whatsAppProvider, pushProvider, createWebPushProvider } = vi.hoisted(() => {
+const { createNotificationService, publish, whatsAppProvider, pushProvider, createWebPushProvider, isWhatsAppSenderBoundToTenant } = vi.hoisted(() => {
   const publish = vi.fn();
   return {
     publish,
@@ -10,6 +10,7 @@ const { createNotificationService, publish, whatsAppProvider, pushProvider, crea
     whatsAppProvider: { channel: "WHATSAPP", send: vi.fn() },
     pushProvider: { send: vi.fn() },
     createWebPushProvider: vi.fn(),
+    isWhatsAppSenderBoundToTenant: vi.fn(),
   };
 });
 
@@ -18,6 +19,7 @@ vi.mock("../infrastructure/notifications", () => ({ createMetaWhatsAppProvider: 
 vi.mock("../infrastructure/web-push-provider", () => ({ createWebPushProvider }));
 vi.mock("../infrastructure/prisma-runtime", () => ({ getPrisma: vi.fn(() => ({ marker: "prisma" })) }));
 vi.mock("../persistence/prisma-notification", () => ({ createPrismaNotificationRepository: vi.fn(() => ({ marker: "delivery-repo" })) }));
+vi.mock("../persistence/prisma-whatsapp-integration", () => ({ isWhatsAppSenderBoundToTenant }));
 vi.mock("../persistence/prisma-push-subscription", () => ({ createPrismaPushNotificationRepository: vi.fn(() => ({ marker: "push-repo" })) }));
 
 import { publishAppointmentNotification } from "./notification-runtime";
@@ -50,6 +52,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   for (const key of KEYS) saved[key] = process.env[key];
   createWebPushProvider.mockReturnValue(pushProvider);
+  isWhatsAppSenderBoundToTenant.mockResolvedValue(true);
   publish.mockResolvedValue({ status: "processed", results: [] });
 });
 
@@ -96,5 +99,47 @@ describe("publishAppointmentNotification channel wiring (WP-09)", () => {
     configure(true, true);
     publish.mockRejectedValue(new Error("db down"));
     await expect(publishAppointmentNotification(tenant, "appt-1", "APPOINTMENT_CREATED")).resolves.toEqual({ status: "FAILED" });
+  });
+});
+
+describe("publishAppointmentNotification WhatsApp sender binding (WP-15)", () => {
+  it("checks the configured sender against the server-side tenant context", async () => {
+    configure(true, false);
+    await publishAppointmentNotification(tenant, "appt-1", "APPOINTMENT_CREATED");
+    expect(isWhatsAppSenderBoundToTenant).toHaveBeenCalledWith({ marker: "prisma" }, tenant, "123");
+    expect(createNotificationService).toHaveBeenCalledWith(expect.objectContaining({ provider: whatsAppProvider }));
+  });
+
+  it("does not look up a binding when WhatsApp env is missing", async () => {
+    configure(false, true);
+    await publishAppointmentNotification(tenant, "appt-1", "APPOINTMENT_CREATED");
+    expect(isWhatsAppSenderBoundToTenant).not.toHaveBeenCalled();
+  });
+
+  it("drops the WhatsApp channel for a tenant the sender is not bound to; push still publishes", async () => {
+    configure(true, true);
+    isWhatsAppSenderBoundToTenant.mockResolvedValue(false);
+    await expect(publishAppointmentNotification(tenant, "appt-1", "APPOINTMENT_CREATED")).resolves.toEqual({ status: "processed", results: [] });
+    expect(createNotificationService).toHaveBeenCalledWith(expect.objectContaining({
+      provider: null,
+      webPush: { repository: { marker: "push-repo" }, provider: pushProvider },
+    }));
+  });
+
+  it("returns NOT_CONFIGURED for an unbound tenant when push is also unavailable", async () => {
+    configure(true, false);
+    isWhatsAppSenderBoundToTenant.mockResolvedValue(false);
+    await expect(publishAppointmentNotification(tenant, "appt-1", "APPOINTMENT_CREATED")).resolves.toEqual({ status: "NOT_CONFIGURED" });
+    expect(createNotificationService).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the binding check throws: no WhatsApp, logged without secrets, push still publishes", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    configure(true, true);
+    isWhatsAppSenderBoundToTenant.mockRejectedValue(new Error("db down"));
+    await expect(publishAppointmentNotification(tenant, "appt-1", "APPOINTMENT_CREATED")).resolves.toEqual({ status: "processed", results: [] });
+    expect(createNotificationService).toHaveBeenCalledWith(expect.objectContaining({ provider: null }));
+    expect(log).toHaveBeenCalledWith("whatsapp_sender_binding_check_failed", expect.anything());
+    expect(JSON.stringify(log.mock.calls)).not.toContain("test-access-token");
   });
 });
