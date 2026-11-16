@@ -37,18 +37,18 @@ describe("prisma service deletion", () => {
     expect(tx.calls).toEqual(["lock", "service.find", "appointment.count", ...WRITES]);
   });
 
-  it("counts future active appointments by serviceId or AppointmentService link, once each", async () => {
+  it("counts any active appointments by serviceId or AppointmentService link, once each", async () => {
     const tx = makeTx();
     await repoFor(tx).archive(tenant, input);
     expect(tx.appointment.count).toHaveBeenCalledWith({
       where: {
         tenantId: "t",
         status: { in: ["PENDING", "CONFIRMED"] },
-        startAt: { gt: now },
         deletedAt: null,
         OR: [{ serviceId: "sv1" }, { services: { some: { tenantId: "t", serviceId: "sv1" } } }],
       },
     });
+    expect(tx.appointment.count.mock.calls[0][0].where).not.toHaveProperty("startAt");
     expect(tx.service.findFirst.mock.calls[0][0].where).toEqual({ tenantId: "t", id: "sv1", deletedAt: null });
   });
 

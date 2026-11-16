@@ -4,7 +4,7 @@ import type { DeleteResult } from "@/domain/deletion";
 export function deleteErrorMessage(result: Exclude<DeleteResult, { status: "DELETED" }>): string {
   switch (result.status) {
     case "HAS_ACTIVE_APPOINTMENTS":
-      return `${result.count} ileri tarihli aktif randevu var. Önce iptal edin veya taşıyın.`;
+      return `${result.count} aktif randevu var. Önce tamamlayın, iptal edin veya taşıyın.`;
     case "MUST_CANCEL_FIRST":
       return "Aktif randevu silinemez. Önce iptal edin.";
     case "TENANT_ACTIVE":

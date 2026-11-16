@@ -13,7 +13,7 @@ type Tx = PrismaTenantTransactionClient & {
   };
   appointment: {
     count(args: {
-      where: { tenantId: string; staffId: string; status: { in: Array<"PENDING" | "CONFIRMED"> }; startAt: { gt: Date }; deletedAt: null };
+      where: { tenantId: string; staffId: string; status: { in: Array<"PENDING" | "CONFIRMED"> }; deletedAt: null };
     }): Promise<number>;
   };
   staffService: { deleteMany(args: { where: { tenantId: string; staffId: string } }): Promise<unknown> };
@@ -30,7 +30,7 @@ export function createPrismaStaffDeletionRepository(prisma: PrismaTenantClient):
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         const tenantId = tenantContext.tenantId;
         // FOR NO KEY UPDATE conflicts with bookings' Tenant FOR SHARE: in-flight bookings finish first,
-        // so the active-appointment count below cannot miss a concurrent booking.
+        // so the active-appointment count below (any start time) cannot miss a concurrent booking.
         await tx.$queryRaw`SELECT "id" FROM "Tenant" WHERE "id" = ${tenantId} FOR NO KEY UPDATE`;
 
         const staff = await tx.staff.findFirst({ where: { tenantId, id: staffId, deletedAt: null } });
@@ -41,7 +41,7 @@ export function createPrismaStaffDeletionRepository(prisma: PrismaTenantClient):
         if (memberships.some((m) => m.role !== "STAFF")) return "not_staff_role" as const;
 
         const count = await tx.appointment.count({
-          where: { tenantId, staffId, status: { in: ["PENDING", "CONFIRMED"] }, startAt: { gt: now }, deletedAt: null },
+          where: { tenantId, staffId, status: { in: ["PENDING", "CONFIRMED"] }, deletedAt: null },
         });
         if (count > 0) return { status: "has_active_appointments" as const, count };
 

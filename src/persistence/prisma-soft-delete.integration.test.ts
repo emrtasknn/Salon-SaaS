@@ -294,7 +294,7 @@ describeDatabase("soft delete integration (archive / erase)", () => {
     expect(await count("Appointment", t.tenantId, '"deletedAt" IS NULL')).toBe(2);
   });
 
-  it("customer erase clears profile and contact PII, deletes notes and keeps consent fields", async () => {
+  it("customer erase clears profile and contact PII, deletes notes, clears WhatsApp opt-in and keeps notice evidence", async () => {
     const t = await seedTenant("erase");
     const staff = await seedStaff(t.tenantId, "host");
     const service = await seedService(t.tenantId, "erase");
@@ -319,8 +319,14 @@ describeDatabase("soft delete integration (archive / erase)", () => {
     expect(await count("CustomerNote", t.tenantId, '"customerProfileId" = $2', [customer])).toBe(0);
     expect(await one('SELECT "displayName", "email", "phone" FROM "AppointmentContact" WHERE "tenantId" = $1 AND "appointmentId" = $2', [t.tenantId, past]))
       .toEqual({ displayName: DELETED_CUSTOMER_NAME, email: null, phone: null });
-    // Consent evidence is untouched.
-    expect(await one(consentSql, [t.tenantId, past])).toEqual(consentBefore);
+    // Erasure wins over opt-in evidence: opt-in fields cleared; KVKK notice evidence kept.
+    const consentAfter = await one(consentSql, [t.tenantId, past]);
+    expect(consentAfter).toEqual({
+      ...consentBefore, whatsappOptIn: false, optInVersion: null, optInHash: null, hasOptInAt: false,
+    });
+    expect(consentAfter?.noticeVersion).toBe(consentBefore?.noticeVersion);
+    expect(consentAfter?.noticeHash).toBe(consentBefore?.noticeHash);
+    expect(consentAfter?.hasNoticeAt).toBe(true);
     // The appointment row itself survives for history.
     expect(await count("Appointment", t.tenantId, '"id" = $2', [past])).toBe(1);
   });
@@ -338,7 +344,7 @@ describeDatabase("soft delete integration (archive / erase)", () => {
       .toEqual({ displayName: DELETED_CUSTOMER_NAME, phone: null, whatsappOptIn: false });
   });
 
-  it("customer erase is refused for a future active appointment and for team members, writing nothing", async () => {
+  it("customer erase is refused for an active appointment and for team members, writing nothing", async () => {
     const t = await seedTenant("erase-blocked");
     const staff = await seedStaff(t.tenantId, "host");
     const service = await seedService(t.tenantId, "erase");
@@ -352,6 +358,23 @@ describeDatabase("soft delete integration (archive / erase)", () => {
     expect(await one('SELECT "displayName", "email", "deletedAt" FROM "Profile" WHERE "tenantId" = $1 AND "id" = $2', [t.tenantId, customer]))
       .toEqual({ displayName: "Person busy", email: "busy@example.test", deletedAt: null });
     expect(await count("Profile", t.tenantId, '"id" = $2 AND "deletedAt" IS NULL', [staff.profileId])).toBe(1);
+  });
+
+  it("a past-start CONFIRMED appointment still blocks staff archive, service archive and customer erase", async () => {
+    const t = await seedTenant("blocked-past");
+    const admin = await seedProfile(t.tenantId, "admin");
+    const customer = await seedProfile(t.tenantId, "customer", { email: "past@example.test", phone: "+905550000006" });
+    const staff = await seedStaff(t.tenantId, "past");
+    const service = await seedService(t.tenantId, "past");
+    await seedAppointment(t.tenantId, { staffId: staff.id, serviceId: service, customerProfileId: customer, status: "CONFIRMED", when: "past" });
+    const now = new Date();
+
+    await expect(createPrismaStaffDeletionRepository(client()).archive(ctx(t.tenantId), { staffId: staff.id, actorProfileId: admin, now }))
+      .resolves.toEqual({ status: "has_active_appointments", count: 1 });
+    await expect(createPrismaServiceDeletionRepository(client()).archive(ctx(t.tenantId), { serviceId: service, now }))
+      .resolves.toEqual({ status: "has_active_appointments", count: 1 });
+    await expect(createPrismaCustomerDeletionRepository(client()).erase(ctx(t.tenantId), { profileId: customer, now }))
+      .resolves.toEqual({ status: "has_active_appointments", count: 1 });
   });
 
   it("appointment archive only accepts terminal statuses and a note delete only removes its own note", async () => {

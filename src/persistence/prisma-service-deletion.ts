@@ -12,7 +12,6 @@ type Tx = PrismaTenantTransactionClient & {
       where: {
         tenantId: string;
         status: { in: Array<"PENDING" | "CONFIRMED"> };
-        startAt: { gt: Date };
         deletedAt: null;
         OR: Array<{ serviceId: string } | { services: { some: { tenantId: string; serviceId: string } } }>;
       };
@@ -28,7 +27,7 @@ export function createPrismaServiceDeletionRepository(prisma: PrismaTenantClient
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         const tenantId = tenantContext.tenantId;
         // FOR NO KEY UPDATE conflicts with bookings' Tenant FOR SHARE: in-flight bookings finish first,
-        // so the active-appointment count below cannot miss a concurrent booking.
+        // so the active-appointment count below (any start time) cannot miss a concurrent booking.
         await tx.$queryRaw`SELECT "id" FROM "Tenant" WHERE "id" = ${tenantId} FOR NO KEY UPDATE`;
 
         const service = await tx.service.findFirst({ where: { tenantId, id: serviceId, deletedAt: null } });
@@ -39,7 +38,6 @@ export function createPrismaServiceDeletionRepository(prisma: PrismaTenantClient
           where: {
             tenantId,
             status: { in: ["PENDING", "CONFIRMED"] },
-            startAt: { gt: now },
             deletedAt: null,
             OR: [{ serviceId }, { services: { some: { tenantId, serviceId } } }],
           },

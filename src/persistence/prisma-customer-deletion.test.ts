@@ -41,16 +41,17 @@ describe("prisma customer erasure", () => {
     expect(tx.calls).toEqual(["lock", "profile.find", "staff.find", "membership.count", "appointment.count", ...WRITES]);
   });
 
-  it("loads only non-erased profiles and counts only future active, non-archived appointments", async () => {
+  it("loads only non-erased profiles and counts any active (regardless of startAt), non-archived appointments", async () => {
     const tx = makeTx();
     await repoFor(tx).erase(tenant, input);
     expect(tx.profile.findFirst.mock.calls[0][0].where).toEqual({ tenantId: "t", id: "c1", deletedAt: null });
     expect(tx.appointment.count).toHaveBeenCalledWith({
-      where: { tenantId: "t", customerProfileId: "c1", status: { in: ["PENDING", "CONFIRMED"] }, startAt: { gt: now }, deletedAt: null },
+      where: { tenantId: "t", customerProfileId: "c1", status: { in: ["PENDING", "CONFIRMED"] }, deletedAt: null },
     });
+    expect(tx.appointment.count.mock.calls[0][0].where).not.toHaveProperty("startAt");
   });
 
-  it("anonymizes the profile, deletes notes and clears contact PII on all of the customer's appointments", async () => {
+  it("anonymizes the profile, deletes notes and clears contact PII and WhatsApp opt-in on all of the customer's appointments", async () => {
     const tx = makeTx();
     await repoFor(tx).erase(tenant, input);
     expect(tx.profile.update).toHaveBeenCalledWith({
@@ -61,8 +62,14 @@ describe("prisma customer erasure", () => {
     expect(tx.appointmentContact.updateMany).toHaveBeenCalledTimes(1);
     const args = tx.appointmentContact.updateMany.mock.calls[0][0];
     expect(args.where).toEqual({ tenantId: "t", appointment: { tenantId: "t", customerProfileId: "c1" } });
-    expect(args.data).toEqual({ displayName: DELETED_CUSTOMER_NAME, email: null, phone: null });
-    expect(Object.keys(args.data).sort()).toEqual(["displayName", "email", "phone"]);
+    expect(args.data).toEqual({
+      displayName: DELETED_CUSTOMER_NAME, email: null, phone: null,
+      whatsappOptIn: false, optInVersion: null, optInHash: null, optInAt: null, optInRecordedByProfileId: null, optOutAt: null,
+    });
+    expect(Object.keys(args.data).sort()).toEqual([
+      "displayName", "email", "optInAt", "optInHash", "optInRecordedByProfileId", "optInVersion", "optOutAt", "phone", "whatsappOptIn",
+    ]);
+    expect(Object.keys(args.data).filter((k) => k.startsWith("notice"))).toEqual([]);
     expect(args.where.appointment).not.toHaveProperty("deletedAt");
   });
 

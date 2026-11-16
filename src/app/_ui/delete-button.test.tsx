@@ -14,7 +14,7 @@ describe("runDelete", () => {
     const run = async () => ({ status: "HAS_ACTIVE_APPOINTMENTS" as const, count: 2 });
     await expect(runDelete(run)).resolves.toEqual({
       ok: false,
-      error: "2 ileri tarihli aktif randevu var. Önce iptal edin veya taşıyın.",
+      error: "2 aktif randevu var. Önce tamamlayın, iptal edin veya taşıyın.",
       result: { status: "HAS_ACTIVE_APPOINTMENTS", count: 2 },
     });
   });

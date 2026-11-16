@@ -58,17 +58,17 @@ Each rule is enforced in the application layer and re-checked inside the same tr
 
 **Staff** (TENANT_ADMIN)
 - Target must be a STAFF-role member. An admin cannot delete themself, and admin accounts are not deletable here (`NOT_DELETABLE`).
-- Blocked while the staff member has a PENDING or CONFIRMED appointment with `startAt` in the future: `HAS_ACTIVE_APPOINTMENTS` (response includes the count).
+- Blocked while the staff member has any PENDING or CONFIRMED appointment (regardless of `startAt`): `HAS_ACTIVE_APPOINTMENTS` (response includes the count).
 - Effect: `Staff.deletedAt` set and `status = INACTIVE`; the member's `TenantMembership` row deleted (this is what revokes access); their push subscriptions revoked; `StaffService` rows deleted; `Profile.email` cleared so the address can be reused. `Profile.displayName` is kept so past appointments still show who served.
 
 **Service** (TENANT_ADMIN)
-- Blocked while it has a future PENDING/CONFIRMED appointment, as primary service or through `AppointmentService`: `HAS_ACTIVE_APPOINTMENTS`.
+- Blocked while it has any PENDING or CONFIRMED appointment (regardless of `startAt`), as primary service or through `AppointmentService`: `HAS_ACTIVE_APPOINTMENTS`.
 - Effect: `Service.deletedAt` set and the service deactivated; `StaffService` rows deleted.
 
 **Customer** (TENANT_ADMIN)
 - Target profile must be a customer (no `Staff` row, no membership); otherwise `NOT_DELETABLE`.
-- Blocked while the customer has a future PENDING/CONFIRMED appointment: `HAS_ACTIVE_APPOINTMENTS`.
-- Effect (KVKK erasure): `Profile.deletedAt` set, `displayName` replaced with a fixed placeholder, `email` and `phone` cleared; all `CustomerNote` rows hard-deleted; on the customer's `AppointmentContact` rows `displayName` replaced and `email`/`phone` cleared. Consent evidence fields (notice/opt-in version, hash, timestamps) are kept.
+- Blocked while the customer has any PENDING or CONFIRMED appointment (regardless of `startAt`): `HAS_ACTIVE_APPOINTMENTS`.
+- Effect (KVKK erasure): `Profile.deletedAt` set, `displayName` replaced with a fixed placeholder, `email` and `phone` cleared; all `CustomerNote` rows hard-deleted; on the customer's `AppointmentContact` rows `displayName` replaced and `email`/`phone` cleared, and WhatsApp opt-in status and opt-in evidence (`whatsappOptIn`, opt-in version/hash/time/recorder, opt-out time) are cleared. KVKK notice evidence (notice version, hash, shown-at) is kept.
 
 **Customer note** (TENANT_ADMIN)
 - Hard delete of one note. A DELETE policy already exists.
@@ -101,7 +101,7 @@ Customer search and customer list exclude archived profiles. A past appointment 
 
 - One shared confirm dialog component (`role="alertdialog"`, focus trapped, Escape and the secondary button cancel, destructive primary button, pending state, error line). Follows `.claude/skills/salon-saas-uiux/SKILL.md`.
 - The dialog names the record and states the consequence in Turkish. For a tenant it also requires typing the slug before the button enables.
-- A blocked delete shows the reason and what to do next (for example "3 ileri tarihli randevu var; önce iptal edin veya başka personele taşıyın").
+- A blocked delete shows the reason and what to do next (for example "3 aktif randevu var; önce tamamlayın, iptal edin veya taşıyın").
 - Delete buttons: platform tenant list (inactive tenants only), admin staff list, admin services, customer detail (customer and each note), admin and staff appointment detail (terminal statuses only).
 - Existing category, closure and working-hours deletes are routed through the same dialog.
 
@@ -124,8 +124,12 @@ The button's visibility is convenience only; the server decides.
 3. Admin accounts are not deletable in this work.
 4. Staff access is revoked by deleting the membership row. Removing the Supabase auth user is done only if the existing provisioning port already supports it; otherwise it is listed as a follow-up.
 5. A deleted appointment's customer status link shows not-found.
-6. Consent evidence on `AppointmentContact` is kept after customer erasure.
+6. On customer erasure, WhatsApp opt-in status and opt-in evidence on `AppointmentContact` are cleared (erasure wins; the CHECK constraints forbid opt-in without a phone); KVKK notice evidence is kept.
 
 ## Left to the builder
 
 File layout of new application services and repositories (follow the existing `*-management` pattern), dialog styling, exact Turkish copy, index choice for `deletedAt`.
+
+## Amendments (2026-11-16, owner approved)
+
+- (1) Customer erasure clears WhatsApp opt-in status and evidence while keeping KVKK notice evidence; (2) any PENDING or CONFIRMED appointment, not only future ones, blocks staff, service and customer deletes.

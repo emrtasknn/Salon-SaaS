@@ -41,12 +41,13 @@ describe("prisma staff deletion", () => {
     expect(tx.calls).toEqual(["lock", "staff.find", "membership.find", "appointment.count", ...WRITES]);
   });
 
-  it("counts only future PENDING/CONFIRMED non-archived appointments", async () => {
+  it("counts any PENDING/CONFIRMED non-archived appointments", async () => {
     const tx = makeTx();
     await repoFor(tx).archive(tenant, input);
     expect(tx.appointment.count).toHaveBeenCalledWith({
-      where: { tenantId: "t", staffId: "s1", status: { in: ["PENDING", "CONFIRMED"] }, startAt: { gt: now }, deletedAt: null },
+      where: { tenantId: "t", staffId: "s1", status: { in: ["PENDING", "CONFIRMED"] }, deletedAt: null },
     });
+    expect(tx.appointment.count.mock.calls[0][0].where).not.toHaveProperty("startAt");
     expect(tx.staff.findFirst.mock.calls[0][0].where).toEqual({ tenantId: "t", id: "s1", deletedAt: null });
   });
 

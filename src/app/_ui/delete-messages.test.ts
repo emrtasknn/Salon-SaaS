@@ -4,7 +4,7 @@ import { deleteErrorMessage } from "./delete-messages";
 describe("deleteErrorMessage", () => {
   it("maps every failure code to Turkish copy", () => {
     expect(deleteErrorMessage({ status: "HAS_ACTIVE_APPOINTMENTS", count: 3 })).toBe(
-      "3 ileri tarihli aktif randevu var. Önce iptal edin veya taşıyın.",
+      "3 aktif randevu var. Önce tamamlayın, iptal edin veya taşıyın.",
     );
     expect(deleteErrorMessage({ status: "MUST_CANCEL_FIRST" })).toBe("Aktif randevu silinemez. Önce iptal edin.");
     expect(deleteErrorMessage({ status: "TENANT_ACTIVE" })).toBe("Önce salonu pasif duruma alın.");
