@@ -7,12 +7,13 @@ function makeClient(tenants: Array<{ id: string; slug: string; status: string; d
   const findFirst = vi.fn(async (args: { where: { id: string; deletedAt: null } }) =>
     tenants.find((t) => t.id === args.where.id && t.deletedAt === null) ?? null,
   );
-  const updateMany = vi.fn(async (args: { where: { id: string; deletedAt?: null; status?: string }; data: { status?: string; deletedAt?: Date } }) => {
+  const updateMany = vi.fn(async (args: { where: { id: string; deletedAt?: null; status?: string; slug?: string }; data: { status?: string; deletedAt?: Date } }) => {
     const row = tenants.find(
       (t) =>
         t.id === args.where.id &&
         (args.where.deletedAt === undefined || t.deletedAt === null) &&
-        (args.where.status === undefined || t.status === args.where.status),
+        (args.where.status === undefined || t.status === args.where.status) &&
+        (args.where.slug === undefined || t.slug === args.where.slug),
     );
     if (!row) return { count: 0 };
     if (args.data.deletedAt) row.deletedAt = args.data.deletedAt;
@@ -60,7 +61,7 @@ describe("prisma platform tenant repository", () => {
     const { client, updateMany } = makeClient([{ id: "t1", slug: "salon-a", status: "INACTIVE", deletedAt: null }]);
     const repo = createPrismaPlatformTenantRepository(client);
     await expect(repo.archive("t1", "salon-a", AT)).resolves.toBe("archived");
-    expect(updateMany).toHaveBeenCalledWith({ where: { id: "t1", deletedAt: null, status: "INACTIVE" }, data: { deletedAt: AT } });
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: "t1", deletedAt: null, status: "INACTIVE", slug: "salon-a" }, data: { deletedAt: AT } });
     await expect(repo.archive("t1", "salon-a", AT)).resolves.toBe("not_found");
   });
 
@@ -73,6 +74,16 @@ describe("prisma platform tenant repository", () => {
     });
     await expect(createPrismaPlatformTenantRepository(client).archive("t1", "salon-a", AT)).resolves.toBe("active");
     expect(findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it("archive: slug changed concurrently (0 count, re-read differs) is slug_mismatch", async () => {
+    const rows = [{ id: "t1", slug: "salon-a", status: "INACTIVE", deletedAt: null as Date | null }];
+    const { client, updateMany } = makeClient(rows);
+    updateMany.mockImplementationOnce(async () => {
+      rows[0]!.slug = "salon-b";
+      return { count: 0 };
+    });
+    await expect(createPrismaPlatformTenantRepository(client).archive("t1", "salon-a", AT)).resolves.toBe("slug_mismatch");
   });
 
   it("archive: concurrent archive (0 count, row gone) is not_found", async () => {

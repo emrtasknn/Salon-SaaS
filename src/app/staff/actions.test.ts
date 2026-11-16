@@ -152,6 +152,13 @@ describe("deleteStaffAppointment", () => {
     expect(deletionRepository.find).not.toHaveBeenCalled();
   });
 
+  it("refuses a SUPER_ADMIN membership and writes nothing", async () => {
+    authenticatedAs("SUPER_ADMIN");
+    deletionRepository.find.mockResolvedValue(own);
+    await expect(deleteStaffAppointment("a1")).resolves.toEqual({ status: "FORBIDDEN" });
+    expect(deletionRepository.archive).not.toHaveBeenCalled();
+  });
+
   it("lets the assigned staff archive their own appointment with the session tenant", async () => {
     authenticatedAs("STAFF");
     deletionRepository.find.mockResolvedValue(own);

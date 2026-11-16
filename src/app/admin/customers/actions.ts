@@ -110,7 +110,8 @@ function customerDeletion(context: AdminContext) {
           { identity, tenantContext, requiredRole: "TENANT_ADMIN" },
           context.reader,
         );
-        return result.authorization.status === "allowed";
+        // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+        return result.authorization.status === "allowed" && result.authorization.role === "TENANT_ADMIN";
       },
     },
   });

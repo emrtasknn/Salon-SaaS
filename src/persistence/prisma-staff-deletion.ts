@@ -29,9 +29,9 @@ export function createPrismaStaffDeletionRepository(prisma: PrismaTenantClient):
     async archive(tenantContext, { staffId, actorProfileId, now }) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         const tenantId = tenantContext.tenantId;
-        // FOR UPDATE conflicts with bookings' Tenant FOR SHARE: in-flight bookings finish first,
+        // FOR NO KEY UPDATE conflicts with bookings' Tenant FOR SHARE: in-flight bookings finish first,
         // so the active-appointment count below cannot miss a concurrent booking.
-        await tx.$queryRaw`SELECT "id" FROM "Tenant" WHERE "id" = ${tenantId} FOR UPDATE`;
+        await tx.$queryRaw`SELECT "id" FROM "Tenant" WHERE "id" = ${tenantId} FOR NO KEY UPDATE`;
 
         const staff = await tx.staff.findFirst({ where: { tenantId, id: staffId, deletedAt: null } });
         if (!staff) return "not_found" as const;

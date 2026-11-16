@@ -54,6 +54,13 @@ describe("appointment deletion", () => {
     expect(t.archive).not.toHaveBeenCalled();
   });
 
+  it("hides existence from non-admins: a missing id is FORBIDDEN, not NOT_FOUND", async () => {
+    const t = setup({ status: null, admin: false, assigned: true });
+    await expect(t.service.delete(identity, tenantContext, "appt-1")).resolves.toEqual({ status: "FORBIDDEN" });
+    expect(t.authorizeAssignedStaff).not.toHaveBeenCalled();
+    expect(t.archive).not.toHaveBeenCalled();
+  });
+
   it("lets an admin delete CANCELLED and COMPLETED appointments", async () => {
     for (const status of ["CANCELLED", "COMPLETED"] as const) {
       const t = setup({ status, admin: true });

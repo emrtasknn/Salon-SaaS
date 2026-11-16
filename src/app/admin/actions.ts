@@ -349,7 +349,8 @@ function adminAuthorizer(prisma: ReturnType<typeof getPrisma>) {
     ) {
       const reader = createPrismaMembershipReader({ prisma });
       const decision = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
-      return decision.authorization.status === "allowed";
+      // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+      return decision.authorization.status === "allowed" && decision.authorization.role === "TENANT_ADMIN";
     },
   };
 }

@@ -17,7 +17,7 @@ export interface PrismaPlatformTenantClient {
       select: { slug: true; status: true };
     }): Promise<{ slug: string; status: string } | null>;
     updateMany(args: {
-      where: { id: string; deletedAt: null; status?: "INACTIVE" };
+      where: { id: string; deletedAt: null; status?: "INACTIVE"; slug?: string };
       data: { status: TenantStatus } | { deletedAt: Date };
     }): Promise<{ count: number }>;
   };
@@ -57,15 +57,17 @@ export function createPrismaPlatformTenantRepository(prisma: PrismaPlatformTenan
       if (tenant === null) return "not_found";
       if (tenant.status === "ACTIVE") return "active";
       if (tenant.slug !== confirmSlug) return "slug_mismatch";
-      // Conditional write: a concurrent reactivation or archive makes this match 0 rows.
+      // Conditional write: a concurrent reactivation, archive or slug change makes this match 0 rows;
+      // the slug is verified in the write itself.
       const result = await prisma.tenant.updateMany({
-        where: { id: tenantId, deletedAt: null, status: "INACTIVE" },
+        where: { id: tenantId, deletedAt: null, status: "INACTIVE", slug: confirmSlug },
         data: { deletedAt: at },
       });
       if (result.count === 1) return "archived";
       const after = await read();
       if (after === null) return "not_found";
       if (after.status === "ACTIVE") return "active";
+      if (after.slug !== confirmSlug) return "slug_mismatch";
       return "not_found";
     },
   };

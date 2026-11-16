@@ -482,7 +482,7 @@ describeDatabase("soft delete integration (archive / erase)", () => {
     expect(await count("TenantMembership", t.tenantId)).toBe(1);
   });
 
-  // Booking takes Tenant FOR SHARE, archive takes Tenant FOR UPDATE: whichever commits first, an
+  // Booking takes Tenant FOR SHARE, archive takes Tenant FOR NO KEY UPDATE: whichever commits first, an
   // archived staff member must never be left with a future PENDING/CONFIRMED appointment.
   it("parallel public booking and staff archive never leave an active appointment on an archived staff member", async () => {
     const t = await seedTenant("race");

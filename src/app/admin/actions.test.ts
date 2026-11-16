@@ -83,7 +83,7 @@ describe("listAdminData adminServesAsStaff", () => {
 });
 
 describe("deleteStaffAction / deleteServiceAction", () => {
-  it.each(["STAFF", "CUSTOMER"])("return FORBIDDEN for a %s membership and write nothing", async (role) => {
+  it.each(["STAFF", "CUSTOMER", "SUPER_ADMIN"])("return FORBIDDEN for a %s membership and write nothing", async (role) => {
     authenticatedAs(role);
     await expect(deleteStaffAction("st1")).resolves.toEqual({ status: "FORBIDDEN" });
     await expect(deleteServiceAction("sv1")).resolves.toEqual({ status: "FORBIDDEN" });

@@ -256,7 +256,8 @@ export async function deleteStaffAppointment(appointmentId: string): Promise<Del
       authorizer: {
         async authorizeAdmin(identity, tenantContext) {
           const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
-          return result.authorization.status === "allowed";
+          // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+          return result.authorization.status === "allowed" && result.authorization.role === "TENANT_ADMIN";
         },
         async authorizeAssignedStaff(identity, tenantContext, appointment) {
           return authorizeStaffAppointmentDelete(staffDecisionAuthorization(prisma, reader), identity, tenantContext, appointment);

@@ -22,13 +22,18 @@ export function createAppointmentDeletion(deps: Readonly<{
       if (identity.state !== "authenticated") return { status: "FORBIDDEN" };
       if (!isRecordId(appointmentId)) return { status: "INVALID_INPUT" };
       try {
+        // Authorize before loading: a non-admin must not learn whether an id exists.
+        const isAdmin = await deps.authorizer.authorizeAdmin(identity, tenantContext);
         const appointment = await deps.repository.find(tenantContext, appointmentId);
-        if (!appointment) return { status: "NOT_FOUND" };
-
         let actor: AppointmentDeleteActor;
-        if (await deps.authorizer.authorizeAdmin(identity, tenantContext)) actor = "TENANT_ADMIN";
-        else if (await deps.authorizer.authorizeAssignedStaff(identity, tenantContext, appointment)) actor = "ASSIGNED_STAFF";
-        else return { status: "FORBIDDEN" };
+        if (isAdmin) {
+          if (!appointment) return { status: "NOT_FOUND" };
+          actor = "TENANT_ADMIN";
+        } else {
+          if (!appointment) return { status: "FORBIDDEN" };
+          if (!(await deps.authorizer.authorizeAssignedStaff(identity, tenantContext, appointment))) return { status: "FORBIDDEN" };
+          actor = "ASSIGNED_STAFF";
+        }
 
         const rule = appointmentDeleteRule(actor, appointment.status);
         if (rule === "MUST_CANCEL_FIRST") return { status: "MUST_CANCEL_FIRST" };
