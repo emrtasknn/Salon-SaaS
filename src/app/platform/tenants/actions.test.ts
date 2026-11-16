@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // WP-07 owner decision (a): the tenant status toggle is a platform (SUPER_ADMIN) action only.
 // A TENANT_ADMIN session has no platformRole, so readAuthenticatedPlatformRequest is unauthenticated.
-const { readAuthenticatedPlatformRequest, repositoryList, repositorySetStatus, prisma } = vi.hoisted(() => ({
+const { readAuthenticatedPlatformRequest, repositoryList, repositorySetStatus, repositoryArchive, prisma } = vi.hoisted(() => ({
+  repositoryArchive: vi.fn(),
   readAuthenticatedPlatformRequest: vi.fn(),
   repositoryList: vi.fn(),
   repositorySetStatus: vi.fn(),
@@ -21,10 +22,10 @@ vi.mock("@/infrastructure/prisma-runtime", () => ({ getPrisma: vi.fn(() => prism
 // vitest has no "@/" alias: route the real application service through its relative path (not a stub).
 vi.mock("@/application/platform-tenant-status", () => import("../../../application/platform-tenant-status"));
 vi.mock("@/persistence/prisma-platform-tenants", () => ({
-  createPrismaPlatformTenantRepository: vi.fn(() => ({ list: repositoryList, setStatus: repositorySetStatus })),
+  createPrismaPlatformTenantRepository: vi.fn(() => ({ list: repositoryList, setStatus: repositorySetStatus, archive: repositoryArchive })),
 }));
 
-import { listPlatformTenants, setTenantStatusAction } from "./actions";
+import { deleteTenantAction, listPlatformTenants, setTenantStatusAction } from "./actions";
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -86,5 +87,36 @@ describe("listPlatformTenants (WP-07)", () => {
 
     await expect(listPlatformTenants()).resolves.toEqual({ ok: false, code: "FORBIDDEN" });
     expect(repositoryList).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteTenantAction", () => {
+  const superAdmin = { state: "authenticated", identity: { state: "authenticated", subjectId: "platform-user" }, platformRole: "SUPER_ADMIN" };
+
+  beforeEach(() => { repositoryArchive.mockReset(); });
+
+  it("returns FORBIDDEN for a non-platform session and writes nothing", async () => {
+    readAuthenticatedPlatformRequest.mockResolvedValue({ state: "unauthenticated" });
+    await expect(deleteTenantAction(form({ tenantId: "tenant-a", confirmSlug: "salon-a" }))).resolves.toEqual({ status: "FORBIDDEN" });
+    expect(repositoryArchive).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-FormData argument with INVALID_INPUT", async () => {
+    readAuthenticatedPlatformRequest.mockResolvedValue(superAdmin);
+    await expect(deleteTenantAction({} as never)).resolves.toEqual({ status: "INVALID_INPUT" });
+    expect(repositoryArchive).not.toHaveBeenCalled();
+  });
+
+  it("passes tenantId and confirmSlug through unmodified", async () => {
+    readAuthenticatedPlatformRequest.mockResolvedValue(superAdmin);
+    repositoryArchive.mockResolvedValue("archived");
+    await expect(deleteTenantAction(form({ tenantId: "tenant-a", confirmSlug: "Salon-A " }))).resolves.toEqual({ status: "DELETED" });
+    expect(repositoryArchive).toHaveBeenCalledWith("tenant-a", "Salon-A ", expect.any(Date));
+  });
+
+  it("maps a thrown error to PERSISTENCE_FAILURE", async () => {
+    readAuthenticatedPlatformRequest.mockResolvedValue(superAdmin);
+    repositoryArchive.mockRejectedValue(new Error("db"));
+    await expect(deleteTenantAction(form({ tenantId: "tenant-a", confirmSlug: "salon-a" }))).resolves.toEqual({ status: "PERSISTENCE_FAILURE" });
   });
 });

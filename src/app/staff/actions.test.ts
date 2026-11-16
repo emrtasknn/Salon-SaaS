@@ -32,8 +32,10 @@ vi.mock("../../infrastructure/prisma-runtime", () => ({ getPrisma: vi.fn(() => p
 vi.mock("../../persistence/prisma-membership-reader", () => ({ createPrismaMembershipReader: vi.fn(() => ({ readMembership })) }));
 vi.mock("../notification-runtime", () => ({ publishAppointmentNotification: vi.fn() }));
 vi.mock("../appointment-create-runtime", () => runtime);
+const { deletionRepository } = vi.hoisted(() => ({ deletionRepository: { find: vi.fn(), archive: vi.fn() } }));
+vi.mock("../../persistence/prisma-appointment-deletion", () => ({ createPrismaAppointmentDeletionRepository: vi.fn(() => deletionRepository) }));
 
-import { createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffNotifications, listStaffSlots } from "./actions";
+import { createStaffAppointment, deleteStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffNotifications, listStaffSlots } from "./actions";
 
 const sessionTenant = { tenantId: "tenant-from-session" };
 const input = {
@@ -47,7 +49,7 @@ const ownStaff = { id: "own-staff", tenantId: sessionTenant.tenantId, profileId:
 
 function authenticatedAs(role: string, staff: unknown = ownStaff) {
   readAuthenticatedTenantRequest.mockResolvedValue({ state: "authenticated", identity: { state: "authenticated", subjectId: "user-1" }, tenantContext: sessionTenant });
-  readMembership.mockResolvedValue({ status: "found", membership: { profileId: "profile-1", role, tenantId: sessionTenant.tenantId } });
+  readMembership.mockResolvedValue({ status: "found", membership: { profileId: "profile-1", subjectId: "user-1", role, tenantId: sessionTenant.tenantId } });
   staffFindUnique.mockResolvedValue(staff);
 }
 
@@ -63,7 +65,7 @@ describe("createStaffAppointment (WP-08)", () => {
     authenticatedAs("STAFF");
     const result = await createStaffAppointment({ ...input, staffId: "other-staff", tenantId: "tenant-from-client" } as never);
     expect(result).toEqual({ status: "CREATED", appointmentId: "a1", notified: true });
-    expect(staffFindUnique).toHaveBeenCalledWith({ where: { tenantId_profileId: { tenantId: "tenant-from-session", profileId: "profile-1" } } });
+    expect(staffFindUnique).toHaveBeenCalledWith({ where: { tenantId_profileId: { tenantId: "tenant-from-session", profileId: "profile-1" }, deletedAt: null } });
     expect(setTenantConfig).toHaveBeenCalledWith(expect.anything(), "tenant-from-session");
     expect(runtime.createOnBehalf).toHaveBeenCalledOnce();
     const [, identity, tenantContext, passed] = runtime.createOnBehalf.mock.calls[0] as unknown as [unknown, unknown, unknown, unknown];
@@ -82,7 +84,7 @@ describe("createStaffAppointment (WP-08)", () => {
   it("lets a TENANT_ADMIN with an own ACTIVE staff row use the staff flow for their own staffId (owner decision 2026-11-05)", async () => {
     authenticatedAs("TENANT_ADMIN");
     await expect(createStaffAppointment({ ...input, staffId: "other-staff" } as never)).resolves.toEqual({ status: "CREATED", appointmentId: "a1", notified: true });
-    expect(staffFindUnique).toHaveBeenCalledWith({ where: { tenantId_profileId: { tenantId: "tenant-from-session", profileId: "profile-1" } } });
+    expect(staffFindUnique).toHaveBeenCalledWith({ where: { tenantId_profileId: { tenantId: "tenant-from-session", profileId: "profile-1" }, deletedAt: null } });
     const [, , , passed] = runtime.createOnBehalf.mock.calls[0] as unknown as [unknown, unknown, unknown, { staffId: string }];
     expect(passed.staffId).toBe("own-staff");
   });
@@ -136,5 +138,33 @@ describe("listStaffSlots / getStaffCreateOptions (WP-08)", () => {
     await expect(listStaffSlots({ serviceId: "svc", date: "2026-11-09" })).resolves.toEqual({ status: "FORBIDDEN" });
     await expect(getStaffCreateOptions()).resolves.toBeNull();
     expect(runtime.readCreateOptions).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteStaffAppointment", () => {
+  const own = { id: "a1", tenantId: sessionTenant.tenantId, staffId: "own-staff", status: "CANCELLED" };
+
+  it("returns FORBIDDEN without a session or staff context, touching nothing", async () => {
+    readAuthenticatedTenantRequest.mockResolvedValue({ state: "unauthenticated" });
+    await expect(deleteStaffAppointment("a1")).resolves.toEqual({ status: "FORBIDDEN" });
+    authenticatedAs("CUSTOMER");
+    await expect(deleteStaffAppointment("a1")).resolves.toEqual({ status: "FORBIDDEN" });
+    expect(deletionRepository.find).not.toHaveBeenCalled();
+  });
+
+  it("lets the assigned staff archive their own appointment with the session tenant", async () => {
+    authenticatedAs("STAFF");
+    deletionRepository.find.mockResolvedValue(own);
+    deletionRepository.archive.mockResolvedValue("archived");
+    await expect(deleteStaffAppointment("a1")).resolves.toEqual({ status: "DELETED" });
+    expect(deletionRepository.find).toHaveBeenCalledWith(sessionTenant, "a1");
+    expect(deletionRepository.archive).toHaveBeenCalledWith(sessionTenant, "a1", expect.any(Date));
+  });
+
+  it("refuses another staff member's appointment", async () => {
+    authenticatedAs("STAFF");
+    deletionRepository.find.mockResolvedValue({ ...own, staffId: "someone-else" });
+    await expect(deleteStaffAppointment("a1")).resolves.toEqual({ status: "FORBIDDEN" });
+    expect(deletionRepository.archive).not.toHaveBeenCalled();
   });
 });
