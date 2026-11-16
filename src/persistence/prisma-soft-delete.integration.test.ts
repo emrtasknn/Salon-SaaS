@@ -404,6 +404,21 @@ describeDatabase("soft delete integration (archive / erase)", () => {
     await expect(createPrismaCustomerDeletionRepository(client()).deleteNote(ctx(t.tenantId), noteId)).resolves.toBe("not_found");
   });
 
+  it("creating a service with an archived service's name renames the archived row out of the way", async () => {
+    const t = await seedTenant("service-name-reuse");
+    const service = await seedService(t.tenantId, "X");
+    const name = "Service X";
+    await expect(createPrismaServiceDeletionRepository(client()).archive(ctx(t.tenantId), { serviceId: service, now: new Date() }))
+      .resolves.toBe("archived");
+
+    await expect(
+      createPrismaServiceRepository(client()).create(ctx(t.tenantId), { name, durationMinutes: 30, bufferMinutes: 0 }),
+    ).resolves.toBe("created");
+
+    expect((await one('SELECT "name" FROM "Service" WHERE "id" = $1', [service]))?.name).toBe(`${name} (silindi)`);
+    expect(await count("Service", t.tenantId, '"name" = $2 AND "deletedAt" IS NULL', [name])).toBe(1);
+  });
+
   it("archived appointment, staff, service and customer are absent from each list repository", async () => {
     const t = await seedTenant("lists");
     const admin = await seedProfile(t.tenantId, "admin");

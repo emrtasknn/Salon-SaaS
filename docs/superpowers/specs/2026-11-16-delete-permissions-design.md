@@ -133,3 +133,4 @@ File layout of new application services and repositories (follow the existing `*
 ## Amendments (2026-11-16, owner approved)
 
 - (1) Customer erasure clears WhatsApp opt-in status and evidence while keeping KVKK notice evidence; (2) any PENDING or CONFIRMED appointment, not only future ones, blocks staff, service and customer deletes.
+- (3) Creating or renaming a service to a name held by an archived service of the same tenant renames the archived row to `<name> (silindi)` (then `(silindi 2)` ... up to 50, base name truncated to fit the length limit) in the same transaction; a name held by a live service still returns the duplicate-name result. Service names only; the tenant slug non-goal is unchanged.

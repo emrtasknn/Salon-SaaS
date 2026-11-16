@@ -1,5 +1,9 @@
 import type { ServiceRepository } from "../application/service-management";
-import type { ServiceRecord } from "../domain/service";
+import {
+  archivedServiceNameCandidates,
+  chooseArchivedServiceName,
+  type ServiceRecord,
+} from "../domain/service";
 import {
   withPrismaTenantContext,
   type PrismaTenantClient,
@@ -50,8 +54,49 @@ export type PrismaServiceTransaction = PrismaTenantTransactionClient & {
       where: { tenantId: string; deletedAt: null };
       orderBy: { name: "asc" };
     }): Promise<ServiceRow[]>;
+    findMany(args: {
+      where: { tenantId: string; name: { in: string[] } };
+      select: { name: true };
+    }): Promise<Array<{ name: string }>>;
+    findFirst(args: {
+      where: { tenantId: string; name: string };
+      select: { id: true; deletedAt: true };
+    }): Promise<{ id: string; deletedAt: Date | null } | null>;
   };
 };
+
+/**
+ * Frees `name` for reuse when an ARCHIVED service of this tenant holds it, by
+ * renaming that row in the caller's transaction (before the create/update, so no
+ * P2002 aborts the transaction). Returns "conflict" when a live service (other
+ * than `selfId`) holds the name or no archived name is free.
+ */
+async function freeArchivedServiceName(
+  tx: PrismaServiceTransaction,
+  tenantId: string,
+  name: string,
+  selfId?: string,
+): Promise<"free" | "conflict"> {
+  const holder = await tx.service.findFirst({
+    where: { tenantId, name },
+    select: { id: true, deletedAt: true },
+  });
+  if (!holder || holder.id === selfId) return "free";
+  if (holder.deletedAt === null) return "conflict";
+
+  const taken = await tx.service.findMany({
+    where: { tenantId, name: { in: archivedServiceNameCandidates(name) } },
+    select: { name: true },
+  });
+  const newName = chooseArchivedServiceName(name, new Set(taken.map((row) => row.name)));
+  if (newName === null) return "conflict";
+
+  await tx.service.update({
+    where: { tenantId_id: { tenantId, id: holder.id } },
+    data: { name: newName },
+  });
+  return "free";
+}
 
 export type PrismaServiceClient = PrismaTenantClient;
 
@@ -89,10 +134,12 @@ export function createPrismaServiceRepository(
   return {
     async create(tenantContext, input) {
       try {
-        await withPrismaTenantContext(
+        return await withPrismaTenantContext(
           prisma,
           tenantContext,
           async (tx: PrismaServiceTransaction) => {
+            const freed = await freeArchivedServiceName(tx, tenantContext.tenantId, input.name);
+            if (freed === "conflict") return "conflict" as const;
             await tx.service.create({
               data: {
                 tenantId: tenantContext.tenantId,
@@ -105,9 +152,9 @@ export function createPrismaServiceRepository(
                 ...(input.priceIsFrom !== undefined ? { priceIsFrom: input.priceIsFrom } : {}),
               },
             });
+            return "created" as const;
           },
         );
-        return "created";
       } catch (error) {
         if (isUniqueConflict(error)) return "conflict";
         if (isForeignKeyViolation(error)) return "category_not_found";
@@ -131,6 +178,11 @@ export function createPrismaServiceRepository(
               },
             });
             if (!existing) return "not_found" as const;
+
+            if (patch.name !== undefined) {
+              const freed = await freeArchivedServiceName(tx, tenantContext.tenantId, patch.name, serviceId);
+              if (freed === "conflict") return "conflict" as const;
+            }
 
             await tx.service.update({
               where: {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  SERVICE_NAME_MAX_LENGTH,
+  archivedServiceNameCandidates,
+  chooseArchivedServiceName,
   createServiceBufferMinutes,
   createServiceDurationMinutes,
   createServiceRecord,
@@ -37,5 +40,37 @@ describe("service domain", () => {
     expect(service.active).toBe(true);
     expect(isServiceBookable(service.active)).toBe(true);
     expect(isServiceBookable(false)).toBe(false);
+  });
+});
+
+describe("archived service name reuse", () => {
+  it("appends the plain suffix", () => {
+    expect(chooseArchivedServiceName("Haircut", new Set())).toBe("Haircut (silindi)");
+  });
+
+  it("numbers the suffix when earlier names are taken", () => {
+    expect(chooseArchivedServiceName("Haircut", new Set(["Haircut (silindi)"]))).toBe("Haircut (silindi 2)");
+    expect(
+      chooseArchivedServiceName("Haircut", new Set(["Haircut (silindi)", "Haircut (silindi 2)"])),
+    ).toBe("Haircut (silindi 3)");
+  });
+
+  it("truncates the base name, not the suffix, and trims trailing whitespace", () => {
+    const long = "a".repeat(SERVICE_NAME_MAX_LENGTH);
+    const chosen = chooseArchivedServiceName(long, new Set());
+    expect(chosen).toBe(`${"a".repeat(SERVICE_NAME_MAX_LENGTH - " (silindi)".length)} (silindi)`);
+    expect(chosen?.length).toBe(SERVICE_NAME_MAX_LENGTH);
+
+    const spaced = `${"a".repeat(109)} ${"b".repeat(11)}`;
+    expect(chooseArchivedServiceName(spaced, new Set())).toBe(`${"a".repeat(109)} (silindi)`);
+    for (const candidate of archivedServiceNameCandidates(long)) {
+      expect(candidate.length).toBeLessThanOrEqual(SERVICE_NAME_MAX_LENGTH);
+    }
+  });
+
+  it("returns null when all 50 candidates are taken", () => {
+    const taken = new Set(archivedServiceNameCandidates("Haircut"));
+    expect(taken.size).toBe(50);
+    expect(chooseArchivedServiceName("Haircut", taken)).toBeNull();
   });
 });
