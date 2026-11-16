@@ -8,10 +8,18 @@ import { isTenantStatus, type TenantStatus } from "../domain/tenant";
 export interface PrismaPlatformTenantClient {
   tenant: {
     findMany(args: {
+      where: { deletedAt: null };
       select: { id: true; slug: true; name: true; status: true };
       orderBy: { name: "asc" };
     }): Promise<Array<{ id: string; slug: string; name: string; status: string }>>;
-    updateMany(args: { where: { id: string }; data: { status: TenantStatus } }): Promise<{ count: number }>;
+    findFirst(args: {
+      where: { id: string; deletedAt: null };
+      select: { slug: true; status: true };
+    }): Promise<{ slug: string; status: string } | null>;
+    updateMany(args: {
+      where: { id: string; deletedAt: null; status?: "INACTIVE" };
+      data: { status: TenantStatus } | { deletedAt: Date };
+    }): Promise<{ count: number }>;
   };
 }
 
@@ -19,6 +27,7 @@ export function createPrismaPlatformTenantRepository(prisma: PrismaPlatformTenan
   return {
     async list() {
       const tenants = await prisma.tenant.findMany({
+        where: { deletedAt: null },
         select: { id: true, slug: true, name: true, status: true },
         orderBy: { name: "asc" },
       });
@@ -33,11 +42,31 @@ export function createPrismaPlatformTenantRepository(prisma: PrismaPlatformTenan
 
     async setStatus(tenantId, status) {
       try {
-        const result = await prisma.tenant.updateMany({ where: { id: tenantId }, data: { status } });
+        // deletedAt: null — an archived tenant can never be reactivated.
+        const result = await prisma.tenant.updateMany({ where: { id: tenantId, deletedAt: null }, data: { status } });
         return result.count === 1 ? "updated" : "not_found";
       } catch {
         return "persistence_failure";
       }
+    },
+
+    async archive(tenantId, confirmSlug, at) {
+      const read = () =>
+        prisma.tenant.findFirst({ where: { id: tenantId, deletedAt: null }, select: { slug: true, status: true } });
+      const tenant = await read();
+      if (tenant === null) return "not_found";
+      if (tenant.status === "ACTIVE") return "active";
+      if (tenant.slug !== confirmSlug) return "slug_mismatch";
+      // Conditional write: a concurrent reactivation or archive makes this match 0 rows.
+      const result = await prisma.tenant.updateMany({
+        where: { id: tenantId, deletedAt: null, status: "INACTIVE" },
+        data: { deletedAt: at },
+      });
+      if (result.count === 1) return "archived";
+      const after = await read();
+      if (after === null) return "not_found";
+      if (after.status === "ACTIVE") return "active";
+      return "not_found";
     },
   };
 }

@@ -7,6 +7,7 @@ function makeService() {
   const repository = {
     list: vi.fn().mockResolvedValue([{ id: "t1", slug: "salon", name: "Salon", status: "ACTIVE" }]),
     setStatus: vi.fn().mockResolvedValue("updated"),
+    archive: vi.fn().mockResolvedValue("archived"),
   };
   return { repository, service: createPlatformTenantStatus({ repository }) };
 }
@@ -50,6 +51,7 @@ describe("platform tenant status (WP-07)", () => {
     const repository = {
       list: vi.fn().mockRejectedValue(new Error("pool exhausted")),
       setStatus: vi.fn(),
+      archive: vi.fn(),
     };
     const reportError = vi.fn();
     const service = createPlatformTenantStatus({ repository, reportError });
@@ -58,12 +60,57 @@ describe("platform tenant status (WP-07)", () => {
   });
 
   it("still returns PERSISTENCE_FAILURE when the error reporter itself throws", async () => {
-    const repository = { list: vi.fn().mockRejectedValue(new Error("down")), setStatus: vi.fn() };
+    const repository = { list: vi.fn().mockRejectedValue(new Error("down")), setStatus: vi.fn(), archive: vi.fn() };
     const reportError = vi.fn(() => {
       throw new Error("logger broken");
     });
     const service = createPlatformTenantStatus({ repository, reportError });
     await expect(service.list(superAdmin)).resolves.toEqual({ ok: false, code: "PERSISTENCE_FAILURE" });
+  });
+
+  describe("delete (tenant archive)", () => {
+    const NOW = new Date("2026-11-16T10:00:00.000Z");
+    function makeDeleteService(outcomes: Array<"archived" | "not_found" | "active" | "slug_mismatch">) {
+      const queue = [...outcomes];
+      const repository = {
+        list: vi.fn(),
+        setStatus: vi.fn().mockResolvedValue("not_found"),
+        archive: vi.fn(async () => queue.shift() ?? "not_found"),
+      };
+      return { repository, service: createPlatformTenantStatus({ repository }) };
+    }
+
+    it("forbids non-super-admins without calling the repository", async () => {
+      const { service, repository } = makeDeleteService(["archived"]);
+      await expect(service.delete(null, { tenantId: "t1", confirmSlug: "salon-a" }, NOW)).resolves.toEqual({ status: "FORBIDDEN" });
+      expect(repository.archive).not.toHaveBeenCalled();
+    });
+
+    it.each([{ tenantId: "t1", confirmSlug: 5 }, { tenantId: "t1", confirmSlug: "" }, { tenantId: "t1", confirmSlug: null }, { tenantId: " t1", confirmSlug: "s" }, { tenantId: 1, confirmSlug: "s" }])(
+      "rejects invalid input %j",
+      async (input) => {
+        const { service, repository } = makeDeleteService(["archived"]);
+        await expect(service.delete(superAdmin, input, NOW)).resolves.toEqual({ status: "INVALID_INPUT" });
+        expect(repository.archive).not.toHaveBeenCalled();
+      },
+    );
+
+    it("maps repository outcomes and passes the slug unmodified with the injected time", async () => {
+      const { service, repository } = makeDeleteService(["active", "slug_mismatch", "slug_mismatch", "archived", "not_found"]);
+      await expect(service.delete(superAdmin, { tenantId: "t1", confirmSlug: "salon-a" }, NOW)).resolves.toEqual({ status: "TENANT_ACTIVE" });
+      await expect(service.delete(superAdmin, { tenantId: "t1", confirmSlug: "Salon-A" }, NOW)).resolves.toEqual({ status: "CONFIRMATION_MISMATCH" });
+      await expect(service.delete(superAdmin, { tenantId: "t1", confirmSlug: " salon-a" }, NOW)).resolves.toEqual({ status: "CONFIRMATION_MISMATCH" });
+      await expect(service.delete(superAdmin, { tenantId: "t1", confirmSlug: "salon-a" }, NOW)).resolves.toEqual({ status: "DELETED" });
+      await expect(service.delete(superAdmin, { tenantId: "t1", confirmSlug: "salon-a" }, NOW)).resolves.toEqual({ status: "NOT_FOUND" });
+      expect(repository.archive).toHaveBeenNthCalledWith(2, "t1", "Salon-A", NOW);
+      expect(repository.archive).toHaveBeenNthCalledWith(3, "t1", " salon-a", NOW);
+    });
+
+    it("maps a thrown repository error to PERSISTENCE_FAILURE", async () => {
+      const { service, repository } = makeDeleteService([]);
+      repository.archive.mockRejectedValueOnce(new Error("down"));
+      await expect(service.delete(superAdmin, { tenantId: "t1", confirmSlug: "salon-a" }, NOW)).resolves.toEqual({ status: "PERSISTENCE_FAILURE" });
+    });
   });
 
   it("maps a missing tenant to NOT_FOUND and failures to PERSISTENCE_FAILURE", async () => {

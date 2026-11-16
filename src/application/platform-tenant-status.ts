@@ -1,3 +1,4 @@
+import { isRecordId, type DeleteResult } from "../domain/deletion";
 import { isTenantStatus, type TenantStatus } from "../domain/tenant";
 
 /** WP-07: platform-level (SUPER_ADMIN) tenant listing and status toggle. */
@@ -6,6 +7,8 @@ export type PlatformTenantSummary = Readonly<{ id: string; slug: string; name: s
 export type PlatformTenantRepository = Readonly<{
   list(): Promise<ReadonlyArray<PlatformTenantSummary>>;
   setStatus(tenantId: string, status: TenantStatus): Promise<"updated" | "not_found" | "persistence_failure">;
+  /** Soft-deletes (archives) an INACTIVE tenant whose slug equals `confirmSlug` exactly. */
+  archive(tenantId: string, confirmSlug: string, at: Date): Promise<"archived" | "not_found" | "active" | "slug_mismatch">;
 }>;
 
 export type PlatformActor = Readonly<{ kind: "SUPER_ADMIN"; subjectId: string }> | null;
@@ -41,6 +44,23 @@ export function createPlatformTenantStatus(
           // Reporting must not change the result.
         }
         return { ok: false, code: "PERSISTENCE_FAILURE" };
+      }
+    },
+
+    async delete(actor: PlatformActor, input: Readonly<{ tenantId: unknown; confirmSlug: unknown }>, now: Date = new Date()): Promise<DeleteResult> {
+      if (!isSuperAdmin(actor)) return { status: "FORBIDDEN" };
+      const { tenantId, confirmSlug } = input;
+      if (!isRecordId(tenantId) || typeof confirmSlug !== "string" || confirmSlug.length === 0) {
+        return { status: "INVALID_INPUT" };
+      }
+      try {
+        const result = await dependencies.repository.archive(tenantId, confirmSlug, now);
+        if (result === "archived") return { status: "DELETED" };
+        if (result === "not_found") return { status: "NOT_FOUND" };
+        if (result === "active") return { status: "TENANT_ACTIVE" };
+        return { status: "CONFIRMATION_MISMATCH" };
+      } catch {
+        return { status: "PERSISTENCE_FAILURE" };
       }
     },
 

@@ -6,7 +6,7 @@ import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTran
 import { readStaffServiceMap, type StaffServiceReadTransaction } from "./prisma-staff-services";
 
 type Tx = PrismaTenantTransactionClient & StaffServiceReadTransaction & {
-  tenant: { findUnique(args: { where: { slug: string } }): Promise<{
+  tenant: { findUnique(args: { where: { slug: string; deletedAt: null } }): Promise<{
     id: string; name: string; timezone: string; status: "ACTIVE" | "INACTIVE"; contactPhone: string | null;
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
     publicAddress: string | null; mapsUrl: string | null;
@@ -21,7 +21,7 @@ type Tx = PrismaTenantTransactionClient & StaffServiceReadTransaction & {
 export function createPrismaPublicSalonRepository(prisma: PrismaTenantClient): PublicSalonRepository {
   return {
     async resolveBySlug(slug) {
-      const tenant = await prisma.$transaction(async (tx) => (tx as Tx).tenant.findUnique({ where: { slug } }));
+      const tenant = await prisma.$transaction(async (tx) => (tx as Tx).tenant.findUnique({ where: { slug, deletedAt: null } })); // archived tenant == unknown slug
       if (!tenant) return null;
       return {
         tenantContext: { tenantId: tenant.id as never }, name: tenant.name, timezone: tenant.timezone,
