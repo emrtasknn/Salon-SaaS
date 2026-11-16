@@ -89,6 +89,7 @@ type Tx = PrismaTenantTransactionClient & {
           tenantId: string;
           id: string;
         };
+        deletedAt: null;
       };
     }): Promise<{
       id: string;
@@ -123,6 +124,7 @@ export function createPrismaCalendarCrmRepository(
         const profiles = await tx.profile.findMany({
           where: {
             tenantId: tenantContext.tenantId,
+            deletedAt: null,
             // Customers only: salon team members (any tenant membership or a staff
             // record) are not customers and must not appear in the CRM list.
             memberships: { none: {} },
@@ -256,6 +258,7 @@ export function createPrismaCalendarCrmRepository(
               tenantId: tenantContext.tenantId,
               id: customerProfileId,
             },
+            deletedAt: null,
           },
         });
 
@@ -319,6 +322,7 @@ export function createPrismaCalendarCrmRepository(
               tenantId: tenantContext.tenantId,
               id: customerProfileId,
             },
+            deletedAt: null,
           },
         });
 
