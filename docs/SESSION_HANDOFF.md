@@ -29,7 +29,7 @@
 |---|---|---|
 | Lint | `npm run lint` | PASS (0 errors, 3 pre-existing warnings) |
 | Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run --exclude '**/*.integration.test.ts'` (DATABASE_URL unset) | PASS (164 files, 1807 tests) |
+| Unit tests | `npx vitest run --exclude '**/*.integration.test.ts'` (DATABASE_URL unset) | PASS (164 files, 1816 tests) |
 | Integration | CI | not run |
 | Build | `npm run build` | PASS |
 | Browser | — | not run (needs DB/auth; verify on staging) |
@@ -38,10 +38,10 @@
 - Archive instead of hard delete; no restore UI; admin accounts not deletable; staff access revoked by deleting the membership.
 - Working-hours screen has no confirm dialog (no delete trigger there; closing a day is a reversible edit).
 - Owner 2026-11-16: customer erasure also clears WhatsApp opt-in and its evidence (KVKK notice evidence kept); any PENDING/CONFIRMED appointment blocks staff/service/customer delete (spec amended).
+- Owner 2026-11-16: reusing an archived service's name renames the archived row to `<name> (silindi)` (no partial index: it would break the CI drift gate).
 
 ## Open risks (owner decisions)
-- Integration suite has never run; CI must prove it (cross-tenant, concurrency, erase with opt-in).
-- Archived service name cannot be reused (`Service @@unique([tenantId, name])`); needs a partial unique index or acceptance.
+- CI run 1 on PR #205: new soft-delete integration suite passed; 3 failures in `prisma-admin-self-staff.integration.test.ts` (its ad-hoc role lacked SELECT on Tenant, now granted in the test). `migration-gate` stays red until the owner applies the migration to staging + pilot and adds `pilot-migrated`.
 - `prisma-booking-engine.ts:200` accepts a stale erased-customer id; one-line filter in a protected file (not approved yet).
 - Deleted staff member's Supabase auth user remains (no access; email reuse may fail).
 - Staff delete button is shown on the admin's own row (server refuses).
@@ -49,4 +49,4 @@
 - `npm ci` fails with npm 10 against the lockfile in the cloud sandbox; npm 11 (CI's Node 24) was used without the lockfile.
 
 ## Next task
-- Open a PR (owner request needed) and let CI run the integration suite; fix what it finds. Then owner decisions on service-name reuse and the booking-engine filter. Files first: `src/persistence/prisma-soft-delete.integration.test.ts`, `prisma/schema.prisma` (Service unique).
+- PR #205: get `quality-gates` green; owner applies the migration (staging, then pilot) and labels `pilot-migrated`; verify the dialog on staging. Open owner item: booking-engine filter for a stale erased-customer id.
