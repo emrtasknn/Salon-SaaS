@@ -1,7 +1,7 @@
 "use client";
 
 import { checkboxClassName, field } from "../../_ui/styles";
-import { DeleteButton } from "../../_ui/delete-button";
+import { DeleteButton, shouldRefreshAfterBlocked } from "../../_ui/delete-button";
 import { createStaffAction, deleteStaffAction, setStaffServicesAction, setStaffStatusAction, updateStaffProfileAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
@@ -207,6 +207,9 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                     className="text-destructive"
                     disabled={busy}
                     run={() => deleteStaffAction(item.id)}
+                    onBlocked={(result) => {
+                      if (shouldRefreshAfterBlocked(result)) refresh();
+                    }}
                     onDeleted={() => {
                       setFeedback(`${item.displayName} silindi.`);
                       refresh();

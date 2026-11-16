@@ -7,7 +7,14 @@ import type { DeleteResult } from "@/domain/deletion";
 import { ConfirmDialog } from "./confirm-dialog";
 import { deleteErrorMessage } from "./delete-messages";
 
-export type DeleteOutcome = Readonly<{ ok: true }> | Readonly<{ ok: false; error: string }>;
+type DeleteFailure = Exclude<DeleteResult, { status: "DELETED" }>;
+
+export type DeleteOutcome = Readonly<{ ok: true }> | Readonly<{ ok: false; error: string; result: DeleteFailure }>;
+
+/** A NOT_FOUND means the row behind the dialog is stale: the list should be re-read. */
+export function shouldRefreshAfterBlocked(result: DeleteFailure): boolean {
+  return result.status === "NOT_FOUND";
+}
 
 /**
  * Runs a delete action and turns its result into what the dialog needs: close on DELETED,
@@ -20,9 +27,10 @@ export async function runDelete(
   try {
     const result = await run(typedText);
     if (result.status === "DELETED") return { ok: true };
-    return { ok: false, error: deleteErrorMessage(result) };
+    return { ok: false, error: deleteErrorMessage(result), result };
   } catch {
-    return { ok: false, error: deleteErrorMessage({ status: "PERSISTENCE_FAILURE" }) };
+    const result: DeleteFailure = { status: "PERSISTENCE_FAILURE" };
+    return { ok: false, error: deleteErrorMessage(result), result };
   }
 }
 
@@ -40,6 +48,7 @@ export function DeleteButton({
   requireTextLabel,
   run,
   onDeleted,
+  onBlocked,
   variant = "danger-outline",
   size,
   disabled,
@@ -57,6 +66,8 @@ export function DeleteButton({
   run: (typedText?: string) => Promise<DeleteResult>;
   /** Called once after DELETED, with the dialog already closed; refresh the screen here. */
   onDeleted: () => void;
+  /** Called when the delete did not happen (dialog stays open); use it to refresh a stale list. */
+  onBlocked?: (result: DeleteFailure) => void;
   variant?: ButtonVariant;
   size?: ButtonSize;
   disabled?: boolean;
@@ -110,6 +121,7 @@ export function DeleteButton({
             } else {
               haptic("error");
               setError(outcome.error);
+              onBlocked?.(outcome.result);
             }
           })
         }

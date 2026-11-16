@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DeleteButton, runDelete } from "./delete-button";
+import { DeleteButton, runDelete, shouldRefreshAfterBlocked } from "./delete-button";
 import { AppointmentDeleteButton, canOfferAppointmentDelete } from "./appointment-delete-button";
 
 describe("runDelete", () => {
@@ -15,6 +15,7 @@ describe("runDelete", () => {
     await expect(runDelete(run)).resolves.toEqual({
       ok: false,
       error: "2 ileri tarihli aktif randevu var. Önce iptal edin veya taşıyın.",
+      result: { status: "HAS_ACTIVE_APPOINTMENTS", count: 2 },
     });
   });
 
@@ -22,7 +23,19 @@ describe("runDelete", () => {
     const run = async () => {
       throw new Error("boom");
     };
-    await expect(runDelete(run)).resolves.toEqual({ ok: false, error: "Silinemedi. Lütfen tekrar deneyin." });
+    await expect(runDelete(run)).resolves.toEqual({
+      ok: false,
+      error: "Silinemedi. Lütfen tekrar deneyin.",
+      result: { status: "PERSISTENCE_FAILURE" },
+    });
+  });
+});
+
+describe("shouldRefreshAfterBlocked", () => {
+  it("refreshes only when the record is gone (stale list)", () => {
+    expect(shouldRefreshAfterBlocked({ status: "NOT_FOUND" })).toBe(true);
+    expect(shouldRefreshAfterBlocked({ status: "FORBIDDEN" })).toBe(false);
+    expect(shouldRefreshAfterBlocked({ status: "HAS_ACTIVE_APPOINTMENTS", count: 1 })).toBe(false);
   });
 });
 

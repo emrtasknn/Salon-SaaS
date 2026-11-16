@@ -14,7 +14,7 @@ import type {
 import { formatLocalDate } from "../create-appointment-dialog";
 import { createClosure, deleteClosure, listClosures, previewClosureImpact } from "./closure-actions";
 import { Button } from "@/components/ui/button";
-import { DeleteButton } from "../_ui/delete-button";
+import { DeleteButton, shouldRefreshAfterBlocked } from "../_ui/delete-button";
 import { checkboxClassName, field } from "../_ui/styles";
 
 type Props = Readonly<{
@@ -271,6 +271,9 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
                     variant="secondary"
                     disabled={busy}
                     run={() => deleteClosure(c.id)}
+                    onBlocked={(result) => {
+                      if (shouldRefreshAfterBlocked(result)) void reload();
+                    }}
                     onDeleted={() => {
                       setStatus(`${formatLocalDate(c.date)} artık kapalı gün değil.`);
                       void reload();

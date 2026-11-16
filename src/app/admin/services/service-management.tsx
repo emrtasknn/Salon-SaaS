@@ -15,7 +15,7 @@ import {
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
 import { StatusToggle } from "../../_ui/status-toggle";
-import { DeleteButton } from "../../_ui/delete-button";
+import { DeleteButton, shouldRefreshAfterBlocked } from "../../_ui/delete-button";
 import type { DeleteResult } from "@/domain/deletion";
 import { formatServicePrice, parseTryAmount } from "../../../domain/service-price";
 import { groupServicesByCategory } from "../../../domain/service-category";
@@ -182,6 +182,9 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                       className="ml-auto"
                       disabled={busy}
                       run={async () => categoryDeleteResult(await deleteServiceCategoryAction(category.id))}
+                      onBlocked={(result) => {
+                        if (shouldRefreshAfterBlocked(result)) refresh();
+                      }}
                       onDeleted={() => {
                         setFeedback(`"${category.name}" silindi. İçindeki hizmetler kategorisiz kaldı.`);
                         refresh();
@@ -365,6 +368,9 @@ export function ServiceManagement({ initialData }: { initialData: AdminData }) {
                             className="text-destructive"
                             disabled={busy}
                             run={() => deleteServiceAction(item.id)}
+                            onBlocked={(result) => {
+                              if (shouldRefreshAfterBlocked(result)) refresh();
+                            }}
                             onDeleted={() => {
                               setFeedback(`${item.name} silindi.`);
                               refresh();
