@@ -16,7 +16,7 @@ type Tx = PrismaTenantTransactionClient & {
   };
   appointment: {
     findUnique(args: {
-      where: { tenantId_id: { tenantId: string; id: string } };
+      where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null };
       select: { id: true; status: true; startAt: true; endAt: true; serviceId: true; staffId: true };
     }): Promise<AppointmentRow | null>;
     updateMany(args: { where: { tenantId: string; id: string; status: AppointmentStatus }; data: { status: AppointmentStatus } }): Promise<{ count: number }>;
@@ -57,7 +57,7 @@ async function findTokenAppointment(tx: Tx, tenantId: string, tokenHash: string,
     select: { appointmentId: true },
   });
   if (!token) return null;
-  return tx.appointment.findUnique({ where: { tenantId_id: { tenantId, id: token.appointmentId } }, select: appointmentSelect });
+  return tx.appointment.findUnique({ where: { tenantId_id: { tenantId, id: token.appointmentId }, deletedAt: null }, select: appointmentSelect });
 }
 
 export function createPrismaAppointmentAccessTokenRepository(prisma: PrismaTenantClient): CustomerAppointmentStatusRepository {
@@ -117,7 +117,7 @@ export function createPrismaAppointmentAccessTokenRepository(prisma: PrismaTenan
             return appointment ? { appointmentId: appointment.id, status: appointment.status, startAt: appointment.startAt } : null;
           },
           async readAppointment(appointmentId) {
-            const appointment = await tx.appointment.findUnique({ where: { tenantId_id: { tenantId, id: appointmentId } }, select: appointmentSelect });
+            const appointment = await tx.appointment.findUnique({ where: { tenantId_id: { tenantId, id: appointmentId }, deletedAt: null }, select: appointmentSelect });
             return appointment ? { status: appointment.status, startAt: appointment.startAt } : null;
           },
           async updateStatus(appointmentId, from, to) {

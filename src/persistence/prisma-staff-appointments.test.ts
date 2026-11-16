@@ -24,7 +24,7 @@ describe("prisma staff appointments repository", () => {
 
     expect(executeRaw).toHaveBeenCalled();
     expect(appointment.findMany).toHaveBeenCalledWith({
-      where: { tenantId: "t", staffId: "s1", startAt: { lt: range.endAt }, endAt: { gt: range.startAt } },
+      where: { tenantId: "t", staffId: "s1", deletedAt: null, startAt: { lt: range.endAt }, endAt: { gt: range.startAt } },
       orderBy: { startAt: "asc" },
       include: {
         contact: { select: { displayName: true, phone: true, email: true, whatsappOptIn: true, optOutAt: true } },
@@ -39,5 +39,17 @@ describe("prisma staff appointments repository", () => {
     expect(result[0]).not.toHaveProperty("service");
     expect(result[0]).not.toHaveProperty("customerProfile");
     expect(result[0]).not.toHaveProperty("contact");
+  });
+
+  it("findById ignores archived appointments", async () => {
+    const appointment = { findMany: vi.fn(), findUnique: vi.fn().mockResolvedValue(null) };
+    const transaction = { $executeRaw: vi.fn().mockResolvedValue(0), appointment, staff: { findUnique: vi.fn() } };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (value: typeof transaction) => Promise<unknown>) => callback(transaction)),
+    } as unknown as PrismaTenantClient;
+
+    await createPrismaStaffAppointmentsRepository(prisma).findById({ tenantId: "t" as never }, "a1");
+
+    expect(appointment.findUnique).toHaveBeenCalledWith({ where: { tenantId_id: { tenantId: "t", id: "a1" }, deletedAt: null } });
   });
 });
