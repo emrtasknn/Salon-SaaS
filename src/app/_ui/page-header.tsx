@@ -16,6 +16,7 @@ export function PageHeader({
   children,
   widthClassName = "max-w-xl",
   titleAs: Title = "h1",
+  busy = false,
 }: {
   title: ReactNode;
   /** Small line above the title (salon · date). */
@@ -27,6 +28,8 @@ export function PageHeader({
   widthClassName?: string;
   /** Use "p" when the page already renders its own h1. */
   titleAs?: "h1" | "p";
+  /** Data under this header is reloading: a thin bar runs along its bottom edge. */
+  busy?: boolean;
 }) {
   return (
     <header data-page-header className="glass safe-top sticky top-0 z-30 border-b pb-3">
@@ -45,6 +48,7 @@ export function PageHeader({
         </div>
         {children ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2">{children}</div> : null}
       </div>
+      {busy ? <span data-header-progress="" aria-hidden="true" className="header-progress" /> : null}
     </header>
   );
 }

@@ -32,16 +32,16 @@ export function StaffAppointments({ initialDate, initialData, bell }: Props) {
   const appointments = data.status === "ok" ? data.appointments : [];
 
   return <main className="min-h-screen bg-canvas">
-    <PageHeader eyebrow={formatListDay(date)} title="Randevularım" accessory={bell} widthClassName="max-w-4xl">
+    <PageHeader eyebrow={formatListDay(date)} title="Randevularım" accessory={bell} widthClassName="max-w-4xl" busy={busy}>
       <div className="flex flex-wrap items-center gap-2">
         <input type="date" aria-label="Tarih" value={date} onChange={(e) => { setDate(e.target.value); refresh(e.target.value); }} className={`${fieldInline} tabular-nums`} />
-        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary" leadingIcon={RotateCw} aria-label={busy ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{busy ? "Yükleniyor…" : "Yenile"}</span></Button>
+        <Button type="button" onClick={() => refresh()} pending={busy} variant="secondary" leadingIcon={RotateCw} aria-label={busy ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{busy ? "Yükleniyor…" : "Yenile"}</span></Button>
       </div>
     </PageHeader>
     <div className="mx-auto max-w-4xl px-4 pb-10 pt-4 sm:px-6">
       {feedback && <p role="status" className={`${statusNote} mb-4`}>{feedback}</p>}
       {appointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
-        <ul className="inset-group">{appointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
+        <ul className="inset-group stagger-rows">{appointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 [overflow-wrap:anywhere]">
               <p className="text-headline tabular-nums">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit", timeZone: TIMELINE_TIME_ZONE }).format(new Date(a.startAt))}<span className="font-normal text-ink-muted">–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit", timeZone: TIMELINE_TIME_ZONE }).format(new Date(a.endAt))}</span></p>

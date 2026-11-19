@@ -34,7 +34,7 @@ export const checkboxClassName =
 
 /** Inline feedback card (BoardUI Notification look). For a toned card with an icon use <Notice>. */
 export const statusNote =
-  "rounded-card border border-separator bg-surface p-3.5 text-subhead text-ink shadow-raised";
+  "enter-fade rounded-card border border-separator bg-surface p-3.5 text-subhead text-ink shadow-raised";
 
 /** Turkish status labels (single source; always shown with the color, never color-only). */
 export const appointmentStatusLabel: Record<string, string> = {

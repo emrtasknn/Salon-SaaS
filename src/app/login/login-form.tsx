@@ -115,8 +115,8 @@ export function LoginForm() {
 
       {resetNotice ? <p role="status" className={statusNote}>{resetNotice}</p> : null}
 
-      <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} variant="primary" className="w-full">
-        {isSubmitting ? "Giriş yapılıyor..." : "Giriş yap"}
+      <Button type="submit" pending={isSubmitting} variant="primary" className="w-full">
+        {isSubmitting ? "Giriş yapılıyor…" : "Giriş yap"}
       </Button>
       <Button type="button" onClick={handleForgotPassword} disabled={isSubmitting} variant="secondary" className="w-full">
         Şifremi unuttum

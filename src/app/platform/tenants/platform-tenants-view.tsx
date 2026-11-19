@@ -73,7 +73,7 @@ export function PlatformTenantsView({ tenants }: { tenants: ReadonlyArray<Tenant
         aria-labelledby={titleId}
         aria-modal="true"
         onClose={() => triggerRef.current?.focus()}
-        className="mx-0 mb-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 backdrop:backdrop-blur-sm md:m-auto md:w-[calc(100%-2rem)] md:max-w-lg md:rounded-sheet"
+        className="sheet-motion sheet-md mx-0 mb-0 mt-auto max-h-[92dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 backdrop:backdrop-blur-sm md:m-auto md:w-[calc(100%-2rem)] md:max-w-lg md:rounded-sheet"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-separator bg-surface px-4 py-3">
           <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-headline text-ink focus:outline-none">

@@ -142,8 +142,8 @@ export function TenantProvisioningForm({ onCreated }: { onCreated?: (salonName: 
         </div>
       </fieldset>
 
-      <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} variant="primary" className="w-full">
-        {isSubmitting ? "Oluşturuluyor..." : "İşletme oluştur"}
+      <Button type="submit" pending={isSubmitting} variant="primary" className="w-full">
+        {isSubmitting ? "Oluşturuluyor…" : "İşletme oluştur"}
       </Button>
 
       {message !== "" ? <p role="status" className={statusNote}>{message}</p> : null}

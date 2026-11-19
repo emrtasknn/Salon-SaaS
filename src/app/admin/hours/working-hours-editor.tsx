@@ -140,7 +140,7 @@ export function WorkingHoursEditor({ initialData }: { initialData: AdminData }) 
             );
           })}
         </ul>
-        <Button type="submit" disabled={busy} variant="primary" className="w-full">
+        <Button type="submit" pending={busy} variant="primary" className="w-full">
           {busy ? "Kaydediliyor…" : "Kaydet"}
         </Button>
         <p className="px-4 text-footnote text-ink-muted">Saati olmayan günlerde online randevu alınmaz.</p>

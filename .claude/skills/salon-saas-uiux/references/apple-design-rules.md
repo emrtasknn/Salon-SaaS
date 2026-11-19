@@ -65,6 +65,10 @@ Tokens and utilities implementing these rules live in `src/app/globals.css` (`@t
 - [ ] Theme switch opens the new theme as a circle from the toggle (`theme-reveal.ts`, View Transitions API; instant where unsupported or with reduced motion). Do not start other view transitions without checking the global `::view-transition-*` rule in `globals.css`.
 - [ ] Confirmation moment: `<SuccessMark>` (accent disc, drawn tick, one ring). The only place the tick draw animates a stroke; use it once per confirmed outcome, next to the heading that states it.
 - [ ] Motion never carries information alone: every animated state is also complete at rest.
+- [ ] Route entry (owner 2026-11-19, "karma"): each area's `template.tsx` renders `RouteMotion`. Tab to tab fades in place with a 6px rise; into a subpage pushes in from the right; back to its parent comes in from the left (`route-transition.ts`, parent map for breadcrumb parents). Public `[slug]` pages fade only (the booking bar is `position: fixed`). No exit animation (would need the experimental React `<ViewTransition>`).
+- [ ] Loading: every signed-in and public route has a `loading.tsx` skeleton built from `src/app/_ui/skeleton.tsx` (same shapes as the page, fades in after 150ms, one hidden "Yükleniyor…" status). Buttons that wait use `<Button pending>` (spinner + label); data reloads under a header use `PageHeader busy`. Never a bare "Yükleniyor…" text.
+- [ ] Dialogs: add `sheet-motion` (bottom sheet; `sheet-md` when it switches at 768px) or `dialog-motion` (centered) to every native `<dialog>`; open/close then animate in CSS (`@starting-style` + `allow-discrete`), including Esc and backdrop taps. Content that the caller clears on close must stay rendered until the dialog is closed (see `AppointmentSheet`).
+- [ ] Popovers animate with `AnimatePresence` from their trigger corner; inline confirm rows and status lines use `enter-fade`; main lists use `stagger-rows` (first 6 rows, 30ms apart).
 
 ### Logo
 - [ ] Use `Wordmark` / `LogoMark` from `src/components/ui/logo.tsx` (generated outlines; no font needed). Never retype the name as styled text in place of the logo.

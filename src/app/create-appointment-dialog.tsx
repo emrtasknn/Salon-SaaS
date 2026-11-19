@@ -320,7 +320,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
           if (searchTimer.current) clearTimeout(searchTimer.current);
           triggerRef.current?.focus();
         }}
-        className="m-auto max-h-[92dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+        className="dialog-motion m-auto max-h-[92dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 backdrop:backdrop-blur-sm"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-separator bg-surface px-4 py-3">
           <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
@@ -694,7 +694,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
                 <Button type="button" onClick={closeDialog} variant="secondary">
                   Vazgeç
                 </Button>
-                <Button type="submit" disabled={submitting || !slot} variant="primary">
+                <Button type="submit" pending={submitting} disabled={submitting || !slot} variant="primary">
                   {submitting ? "Oluşturuluyor…" : "Randevuyu oluştur"}
                 </Button>
               </div>

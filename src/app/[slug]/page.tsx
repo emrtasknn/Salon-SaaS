@@ -72,7 +72,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ sl
             {groupServicesByCategory(result.categories ?? [], result.services).map((group) => (
               <div key={group.id ?? "none"}>
                 {group.name && <h3 className="px-4 pb-1.5 text-subhead font-semibold text-ink-muted">{group.name}</h3>}
-                <ul className="inset-group">
+                <ul className="inset-group stagger-rows">
                   {group.services.map((s) => {
                     const price = formatServicePrice(s.priceMinor, s.priceIsFrom);
                     return (

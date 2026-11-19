@@ -123,7 +123,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const movableOf = (a: (typeof appointments)[number]) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, title: customerOf(a), detail: a.serviceName });
 
   return <main className="min-h-screen bg-canvas">
-    <PageHeader eyebrow={eyebrow ?? "RandevuN"} title={title} accessory={bell} widthClassName="max-w-5xl">
+    <PageHeader eyebrow={eyebrow ?? "RandevuN"} title={title} accessory={bell} widthClassName="max-w-5xl" busy={loading}>
       <ViewSwitch view={view} onChange={(next) => { setSelectedId(null); setView(next); }} />
       <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
         <DateField value={date} onChange={changeDate} disabled={busy} />
@@ -134,7 +134,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <p className="mr-auto text-subhead font-semibold text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
         <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
-        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary" leadingIcon={RotateCw} aria-label={loading ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span></Button>
+        <Button type="button" onClick={() => refresh()} disabled={busy} pending={loading} variant="secondary" leadingIcon={RotateCw} aria-label={loading ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span></Button>
       </div>
       {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
       <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
@@ -158,7 +158,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
             if (a) move.propose(movableOf(a), deltaMinutes);
           }}
         /> :
-        <ul className="inset-group">{dayAppointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
+        <ul className="inset-group stagger-rows">{dayAppointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-headline tabular-nums">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.startAt))}<span className="font-normal text-ink-muted">–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.endAt))}</span></p>
