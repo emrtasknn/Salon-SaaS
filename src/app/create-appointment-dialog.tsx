@@ -4,7 +4,7 @@
 // The UI never sends tenantId; the staff variant never sends staffId.
 // Slots shown here are a hint only — the server re-validates on create.
 
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type {
   AdminCreateAppointmentInput,
   CreateAppointmentResult,
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { checkboxClassName, field } from "./_ui/styles";
 import { haptic } from "@/lib/haptics";
+import { minutesFromDayStart } from "./_ui/timeline-layout";
 
 type AdminVariant = Readonly<{
   kind: "admin";
@@ -43,7 +44,23 @@ type Props = Readonly<{
   onCreated: (result: { date: LocalDateIso; notified: boolean }) => void;
   /** "fab": round "+" button floating above the phone tab bar (calendar screens). */
   trigger?: "button" | "fab";
+  /**
+   * Opens the dialog prefilled (tap on an empty time in the day view). A new `key` opens it again.
+   * The time only preselects a matching free slot; the slot list still comes from the server.
+   */
+  request?: CreateRequest | null;
 }>;
+
+export type CreateRequest = Readonly<{ key: number; date: LocalDateIso; staffId?: string; minute?: number }>;
+
+/** First free slot starting at or up to an hour after `minute` on `dateIso` (tenant zone), else "". */
+export function slotNearMinute(slots: ReadonlyArray<{ startAt: string }>, dateIso: string, minute: number): string {
+  for (const slot of slots) {
+    const start = minutesFromDayStart(slot.startAt, dateIso);
+    if (start >= minute && start < minute + 60) return slot.startAt;
+  }
+  return "";
+}
 
 type SlotsState =
   | { state: "idle" }
@@ -86,7 +103,7 @@ export function formatLocalDate(date: LocalDateIso): string {
   );
 }
 
-export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigger = "button" }: Props) {
+export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigger = "button", request = null }: Props) {
   const isAdmin = variant.kind === "admin";
   const titleId = useId();
   const fieldId = useId();
@@ -94,6 +111,8 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigg
   const triggerRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const slotRequest = useRef(0);
+  /** Minute the user tapped in the day view; preselects the matching slot once slots load. */
+  const wantedMinute = useRef<number | null>(null);
   const searchRequest = useRef(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -143,7 +162,10 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigg
     promise
       .then((result) => {
         if (request !== slotRequest.current) return;
-        if (result.status === "OK") setSlots({ state: "ok", slots: result.slots });
+        if (result.status === "OK") {
+          setSlots({ state: "ok", slots: result.slots });
+          if (wantedMinute.current !== null) setStartAt(slotNearMinute(result.slots, next.date, wantedMinute.current));
+        }
         else setSlots({ state: "error", message: slotErrors[result.status] ?? "Saatler yüklenemedi." });
       })
       .catch(() => {
@@ -175,8 +197,9 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigg
     setEmailExists(null);
   }
 
-  function openDialog() {
+  function openDialog(preset?: Omit<CreateRequest, "key">) {
     resetForm();
+    wantedMinute.current = preset?.minute ?? null;
     dialogRef.current?.showModal();
     headingRef.current?.focus();
     variant
@@ -187,9 +210,11 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigg
           return;
         }
         const minDate = todayIn(result.timezone);
-        const nextDate = initialDate < minDate ? minDate : initialDate;
+        const wantedDate = preset?.date ?? initialDate;
+        const nextDate = wantedDate < minDate ? minDate : wantedDate;
         const nextService = result.services.length === 1 ? result.services[0].id : "";
-        const nextStaff = result.staff.length === 1 ? result.staff[0].id : "";
+        const presetStaff = preset?.staffId && result.staff.some((s) => s.id === preset.staffId) ? preset.staffId : "";
+        const nextStaff = presetStaff || (result.staff.length === 1 ? result.staff[0].id : "");
         setOptions(result);
         setOptionsState("ready");
         setDate(nextDate);
@@ -199,6 +224,16 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigg
       })
       .catch(() => setOptionsState("error"));
   }
+
+  // A new request (tap on an empty time) opens the dialog with that day, staff and time.
+  const lastRequestKey = useRef<number | null>(null);
+  useEffect(() => {
+    if (!request || request.key === lastRequestKey.current) return;
+    lastRequestKey.current = request.key;
+    openDialog({ date: request.date, staffId: request.staffId, minute: request.minute });
+    // Only a new request key opens the dialog.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.key]);
 
   function closeDialog() {
     dialogRef.current?.close();
@@ -314,7 +349,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigg
         <button
           ref={triggerRef}
           type="button"
-          onClick={openDialog}
+          onClick={() => openDialog()}
           aria-label="Randevu oluştur"
           data-create-fab=""
           className="pressable focus-ring fixed right-4 z-20 inline-flex size-14 items-center justify-center rounded-full bg-action text-on-action shadow-sheet hover:bg-action-hover bottom-[calc(5.25rem+max(0.5rem,env(safe-area-inset-bottom)))] md:bottom-8 md:right-8"
@@ -322,7 +357,7 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigg
           <Plus className="size-7" strokeWidth={2.25} aria-hidden />
         </button>
       ) : (
-        <Button ref={triggerRef} type="button" onClick={openDialog} variant="primary">
+        <Button ref={triggerRef} type="button" onClick={() => openDialog()} variant="primary">
           Randevu oluştur
         </Button>
       )}

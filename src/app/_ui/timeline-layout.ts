@@ -292,3 +292,13 @@ export function layoutColumn(items: ReadonlyArray<LaneInput>, minDurationMin = 0
   flush();
   return result;
 }
+
+/**
+ * Minute of the day under a tap at `offsetPx` from the top of a vertical grid column, snapped
+ * down to `snap` minutes and kept inside the range. Used to prefill "new appointment" times.
+ */
+export function minuteAtOffset(offsetPx: number, range: MinuteRange, hourPx: number, padPx: number, snap = 15) {
+  const raw = range.startMin + ((offsetPx - padPx) / hourPx) * 60;
+  const snapped = Math.floor(raw / snap) * snap;
+  return Math.min(Math.max(snapped, range.startMin), Math.max(range.startMin, range.endMin - snap));
+}

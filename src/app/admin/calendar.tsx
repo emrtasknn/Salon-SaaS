@@ -11,7 +11,7 @@ import {
   transitionAdminAppointment,
 } from "./calendar-actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
-import { CreateAppointmentDialog } from "../create-appointment-dialog";
+import { CreateAppointmentDialog, type CreateRequest } from "../create-appointment-dialog";
 import { BookingContactSummary } from "../booking-contact-summary";
 import {
   AppointmentSheet,
@@ -125,6 +125,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
   });
   const [closureData, setClosureData] = useState(closures.initialData);
   const sheetTrigger = useRef<HTMLElement | null>(null);
+  const [createRequest, setCreateRequest] = useState<CreateRequest | null>(null);
   const closuresReturnFocus = useRef<HTMLElement | null>(null);
 
   const closedDates = useMemo(
@@ -250,7 +251,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
           />
         }
       />
-      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} trigger="fab" />
+      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} trigger="fab" request={createRequest} />
       <div className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6">
         {(feedback || loadError) && (
           <p
@@ -282,8 +283,13 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
             onOpenDay={openDay}
           />
         ) : dayAppointments.length === 0 ? (
-          <div className="inset-group p-8 text-center text-body text-ink-muted">
+          <div className="inset-group flex flex-col items-center gap-3 p-8 text-center text-body text-ink-muted">
             {closedDates.has(date) ? "Bu gün kapalı gün olarak işaretli. Randevu yok." : "Bu gün için randevu yok."}
+            {!closedDates.has(date) ? (
+              <Button type="button" variant="secondary" onClick={() => setCreateRequest({ key: Date.now(), date })}>
+                Bu güne randevu ekle
+              </Button>
+            ) : null}
           </div>
         ) : view === "day" ? (
           <DayTimeline
@@ -299,6 +305,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
               service: a.serviceName,
             }))}
             onSelect={select}
+            onCreateAt={(staffId, minute) => setCreateRequest({ key: Date.now(), date, staffId, minute })}
             pendingId={move.pendingId}
             onMove={(id, deltaMinutes) => {
               const a = dayAppointments.find((candidate) => candidate.id === id);
