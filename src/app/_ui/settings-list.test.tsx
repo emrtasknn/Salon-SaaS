@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {} }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: () => {}, refresh: () => {}, push: () => {} }) }));
 vi.mock("../push-actions", () => ({
   getWebPushConfigAction: async () => ({ enabled: false }),
   subscribeWebPushAction: async () => ({ status: "UNAUTHORIZED" }),
@@ -60,5 +60,18 @@ describe("AccountRows", () => {
     expect(html).toContain('href="/admin/settings"');
     expect(html).toContain("Ayarlar");
     expect(html).toMatch(/<button[^>]*>.*Çıkış yap/);
+  });
+});
+
+describe("SettingsList with an area tour", () => {
+  const html = renderToStaticMarkup(<SettingsList pushBindingKey="k" tour={{ id: "admin", href: "/admin" }} />);
+
+  it("adds a replay-the-tour row", () => {
+    expect(html.match(/inset-row/g)).toHaveLength(5);
+    expect(html).toContain("Tanıtım turunu tekrar izle");
+  });
+
+  it("has no replay row without a tour", () => {
+    expect(renderToStaticMarkup(<SettingsList pushBindingKey="k" />)).not.toContain("Tanıtım turunu tekrar izle");
   });
 });

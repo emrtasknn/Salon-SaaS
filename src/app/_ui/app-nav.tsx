@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { CalendarCheck, CalendarDays, LayoutGrid, Users } from "lucide-react";
 
 import { haptic } from "@/lib/haptics";
+import { navTourTarget } from "./tour/tour-steps";
 import { lensIndex, lensOffset, shownNavHref, type NavIcon, type NavItem, type PendingNav } from "./nav-items";
 
 const icons: Record<NavIcon, ComponentType<{ className?: string; "aria-hidden"?: boolean; strokeWidth?: number }>> = {
@@ -116,6 +117,7 @@ export function AppNavShell({
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                  data-tour={navTourTarget(item.href)}
                     aria-current={current ? "page" : undefined}
                     className={`focus-ring tap-target inline-flex items-center justify-center rounded-[10px] px-4 text-subhead font-semibold transition-colors ${
                       current ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"
@@ -165,6 +167,7 @@ export function AppNavShell({
               <li key={item.href} className="min-w-0 flex-1">
                 <Link
                   href={item.href}
+                  data-tour={navTourTarget(item.href)}
                   draggable={false}
                   aria-current={current ? "page" : undefined}
                   onClick={(event) => {

@@ -1,29 +1,37 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-16 — Plan tenant-owned WhatsApp Business connection; implement the pilot step (WP-15).
+2026-11-19 — First-visit product tour (driver.js) for admin and staff areas, incl. the admin setup checklist.
 
 ## State
-- Branch: `claude/amazing-ramanujan-rljbe8`
-- Environment touched: none (no database, no deploy, no Meta call; `DATABASE_URL` unset)
+- Branch / commit: `claude/amazing-dirac-nxg1k7` (uncommitted at time of writing)
+- Working tree: uncommitted — `package.json`, `package-lock.json`, `docs/ROADMAP.md`, `src/app/_ui/tour/*` (new), `src/app/_ui/{app-nav,settings-list,settings-screen}.tsx`, `src/app/_ui/settings-list.test.tsx`, `src/app/admin/page.tsx`, `src/app/admin/settings/page.tsx`, `src/app/staff/{page,calendar}.tsx`, `src/app/staff/settings/page.tsx`
+- Environment touched: local only (no `DATABASE_URL`; placeholder used only for `prisma generate`/build)
 
 ## Done
-- Plan report for the owner (outside the repo): Embedded Signup self-service is Faz 1, blocked until Randevu'N can pass Meta business verification.
-- Owner decisions: no in-app messaging; continue with one real pilot business and its own WhatsApp Business account (Faz 0).
-- WP-15 (owner-approved C3): the configured WhatsApp sender is used only for the tenant with a matching `ACTIVE` `WhatsAppIntegration` row; other tenants get no WhatsApp. See `docs/tasks/WP-15.md`, ADR-042 addendum 2026-11-16.
+- Owner approved (2026-11-19): build now, `localStorage` persistence, admin setup checklist in first release.
+- `driver.js@1.14.0` (MIT, 0 runtime deps) added; JS loaded lazily only when the tour has not been seen.
+- Tours: admin (welcome → Kurulum → Bugün → Takvim → Müşteriler → İşletme → Ayarlar), staff (welcome → Takvim → Randevularım → Ayarlar). Steps whose element is absent (e.g. finished setup list) are dropped before start.
+- Seen-flag `salon-saas:tour:v1:<admin|staff>` per device; blocked storage counts as seen. "Tanıtım turunu tekrar izle" row in admin/staff Ayarlar.
+- Theming via `src/app/_ui/tour/tour.css` (theme tokens, 44px targets, light/dark checked by screenshot on iPhone 13 viewport).
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| Lint | `npm run lint` | PASS (3 existing warnings) |
+| Lint | `npm run lint` | PASS (0 errors; 3 pre-existing warnings in untouched files) |
 | Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run --exclude "**/*.integration.test.ts"` | PASS (146 files, 1658 tests) |
-| Integration | CI | new case (9) in `prisma-whatsapp-webhook.integration.test.ts`, not run locally |
+| Unit tests | `npx vitest run src/app --exclude "**/*.integration.test.ts"` (no DATABASE_URL) | PASS 84 files / 946 tests |
+| Integration | CI | not run |
+| Build | `npm run build` | PASS |
+
+## Decisions
+- Reuse the existing server-derived setup checklist (`admin/setup-steps.ts`) instead of `driver.js/checklist` widget — avoids a duplicate list; tour points at it. ROADMAP updated.
+- Step text is static only (driver.js renders popover text as HTML) — enforced by `tour-steps.test.ts`.
+- Lockfile regenerated with npm 11 (CI npm line); it also adds previously missing `@emnapi/*` entries that made local `npm ci` fail.
 
 ## Open risks
-- After deploy, a tenant without a matching integration row gets no WhatsApp. Verify the pilot tenant's live row before deploying.
-- Meta details (coexistence without a partner, unverified-business limits, token lifetime) are unverified.
-- `npm ci` fails on Node 22 / npm in the cloud container (lockfile reported out of sync for `@emnapi/*`); CI uses Node 24.11.1.
+- Not exercised against a real signed-in session (needs Supabase auth); verify on staging/pilot after deploy.
+- Per-device flag: a new phone/reinstall shows the tour once more (accepted).
 
 ## Next task
-- Owner: set up the pilot business's Meta assets and decide which number to use (WP-15 operational steps).
+- Commit/push when owner asks; run CI; smoke the tour on staging on phone + desktop.

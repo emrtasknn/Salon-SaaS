@@ -174,7 +174,7 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
           </div>}
         </article></li>)}</ul>}
       </div>
-      <section aria-labelledby="staff-account-title" className="mt-10">
+      <section aria-labelledby="staff-account-title" className="mt-10" data-tour="account">
         <h2 id="staff-account-title" className="group-label">Hesap</h2>
         <AccountRows settingsHref="/staff/settings" />
       </section>
