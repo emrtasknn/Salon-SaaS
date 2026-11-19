@@ -17,8 +17,11 @@ import type { TourId } from "./tour/tour-steps";
 export function SettingsList({
   pushBindingKey,
   tour,
+  calendarHref,
 }: {
   pushBindingKey?: string | null;
+  /** Phone calendar subscription page. */
+  calendarHref?: string;
   /** Area tour to replay, and the page it runs on. */
   tour?: { id: TourId; href: string };
 }) {
@@ -34,6 +37,18 @@ export function SettingsList({
       {pushBindingKey ? (
         <li className="inset-row">
           <PushPermission bindingKey={pushBindingKey} layout="row" />
+        </li>
+      ) : null}
+      {calendarHref ? (
+        <li className="inset-row">
+          <Link
+            href={calendarHref}
+            className="focus-ring tap-target flex items-center gap-3 px-4 py-3 text-body text-ink [outline-offset:-2px] hover:bg-surface-muted active:bg-surface-muted"
+          >
+            <span className="min-w-0 flex-1">Telefon takvimi</span>
+            <span className="shrink-0 text-subhead text-ink-muted">Apple, Google</span>
+            <ChevronRight className="size-5 shrink-0 text-ink-muted" aria-hidden />
+          </Link>
         </li>
       ) : null}
       {tour ? (

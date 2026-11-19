@@ -42,6 +42,7 @@ model Tenant {
   customerNotes CustomerNote[]
   appointmentAccessTokens AppointmentAccessToken[]
   pushSubscriptions PushSubscription[]
+  calendarFeedTokens CalendarFeedToken[]
   closureDates ClosureDate[]
   appointmentContacts AppointmentContact[]
 }
@@ -61,6 +62,7 @@ model Profile {
   appointments Appointment[] @relation("AppointmentCustomer")
   notes       CustomerNote[]
   pushSubscriptions PushSubscription[]
+  calendarFeedTokens CalendarFeedToken[]
   closureDatesCreated ClosureDate[]
   appointmentContactOptInsRecorded AppointmentContact[] @relation("AppointmentContactOptInRecordedBy")
 
@@ -449,4 +451,30 @@ model Appointment {
   @@index([tenantId, staffId, startAt])
   @@index([tenantId, customerProfileId, startAt])
   @@index([tenantId, staffId, status, startAt])
+}
+// ADR-045 phase A: private iCalendar subscription feed per profile. Only the SHA-256 hash of the
+// token is stored. STAFF_SELF = the staff member's own appointments; TENANT_ALL = every staff
+// member's (TENANT_ADMIN only, re-checked on every fetch). RLS (ENABLE + FORCE, 4 tenant policies)
+// and the hash CHECK live in migration 20261120100000_calendar_feed_token.
+enum CalendarFeedScope {
+  STAFF_SELF
+  TENANT_ALL
+}
+
+model CalendarFeedToken {
+  id         String            @id @default(cuid())
+  tenantId   String
+  profileId  String
+  scope      CalendarFeedScope
+  tokenHash  String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime          @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  profile Profile @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "CalendarFeedToken_profile_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, tokenHash])
+  @@index([tenantId, profileId, scope, revokedAt])
 }

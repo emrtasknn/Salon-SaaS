@@ -1,0 +1,32 @@
+export const dynamic = "force-dynamic";
+
+import { House } from "lucide-react";
+import { redirect } from "next/navigation";
+
+import { CalendarFeedPanel } from "../../../_ui/calendar-feed-panel";
+import { PageHeader } from "../../../_ui/page-header";
+import { readPushBindingKey } from "../../../_ui/push-binding-key";
+import { readAdminStaffFlag } from "../../admin-staff-flag";
+
+// Phone calendar subscription (ADR-045). The key is a non-authoritative "signed in" hint; the
+// panel's actions check the session and the admin role themselves.
+export default async function AdminCalendarFeedPage() {
+  const [pushBindingKey, servesAsStaff] = await Promise.all([readPushBindingKey(), readAdminStaffFlag()]);
+  if (!pushBindingKey) redirect("/login");
+  return (
+    <main className="min-h-screen bg-canvas text-ink">
+      <PageHeader
+        title="Telefon takvimi"
+        breadcrumb={[{ label: "Yönetim", href: "/admin", icon: House }, { label: "Ayarlar", href: "/admin/settings" }, { label: "Telefon takvimi" }]}
+      />
+      <div className="mx-auto w-full max-w-xl space-y-8 px-4 pb-10 pt-6 sm:px-6">
+        <CalendarFeedPanel scope="TENANT_ALL" />
+        {servesAsStaff ? <CalendarFeedPanel scope="STAFF_SELF" /> : null}
+        <p className="px-4 text-footnote text-ink-muted">
+          Randevuyu bu uygulamada oluşturun veya değiştirin; telefon takviminiz birkaç dakika içinde güncellenir (Google Takvim saatler
+          sürebilir). Telefonda yaptığınız değişiklikler uygulamaya geri gelmez.
+        </p>
+      </div>
+    </main>
+  );
+}

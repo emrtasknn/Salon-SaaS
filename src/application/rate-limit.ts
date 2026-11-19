@@ -22,6 +22,10 @@ export const RATE_LIMIT_POLICIES = {
   // WP-6 status link (src/app/[slug]/randevu/[token]/data.ts).
   "status.view": { limit: 30, windowSeconds: 600, scope: "ip" },
   "status.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
+  // ADR-045 calendar feed (src/app/[slug]/takvim/[feed]/route.ts): phones poll every few minutes,
+  // several devices can share a salon's IP.
+  "feed.view": { limit: 120, windowSeconds: 600, scope: "ip" },
+  "feed.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 export type RateLimitBucket = keyof typeof RATE_LIMIT_POLICIES;
