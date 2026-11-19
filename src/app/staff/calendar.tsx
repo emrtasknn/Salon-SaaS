@@ -4,11 +4,9 @@ import { useRef, useState, useTransition, type ReactNode } from "react";
 import { completeStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog } from "../create-appointment-dialog";
-import { PageHeader } from "../_ui/page-header";
-import { AccountRows } from "../_ui/account-links";
+import { CalendarHeader, OverflowMenu } from "../_ui/calendar-header";
 import { appointmentStatusBadge, badgeBase, statusNote, appointmentStatusLabel } from "../_ui/styles";
-import { DateField } from "../_ui/date-field";
-import { useMinuteClock, AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
+import { useMinuteClock, AppointmentSheet, DayTimeline, DetailList, formatTimeRange, useCalendarData, useCalendarView } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
 import { dateInZone } from "../_ui/timeline-layout";
@@ -21,17 +19,14 @@ const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listS
 import { decideAndNotify } from "./decide";
 import { BookingContactSummary } from "../booking-contact-summary";
 import { haptic } from "@/lib/haptics";
-import { RotateCw } from "lucide-react";
+import { liveAppointmentDates } from "../_ui/calendar-marks";
 
 type Props = {
   initialDate: string;
+  /** Inclusive range `initialData` covers (the server loads the anchor's week). */
+  initialRange: Readonly<{ startDate: string; endDate: string }>;
   initialData: Awaited<ReturnType<typeof listStaffAppointments>>;
-  /** Fixed top layer content (greeting + bell), composed by the server page. */
-  eyebrow?: ReactNode;
-  title?: ReactNode;
   bell?: ReactNode;
-  /** Push opt-in prompt, shown at the top of the content. */
-  pushPrompt?: ReactNode;
   /** Appointment to open on load (deep link from a notification); UI selection only. */
   initialSelectedId?: string | null;
 };
@@ -40,11 +35,11 @@ type Props = {
 const SELF_COLUMN = [{ id: "self", label: "Randevularım" }] as const;
 const NO_CLOSURES: ReadonlySet<string> = new Set();
 
-export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Randevularım", bell, pushPrompt, initialSelectedId = null }: Props) {
+export function StaffCalendar({ initialDate, initialRange, initialData, bell, initialSelectedId = null }: Props) {
   const [date, setDate] = useState(initialDate);
   const [view, setView] = useCalendarView();
   // Own appointments only: the loader derives the staff member from the session.
-  const { data, stale, busy: loading, refresh } = useCalendarData(listStaffAppointments, view, date, { startDate: initialDate, endDate: initialDate, data: initialData });
+  const { data, stale, busy: loading, refresh } = useCalendarData(listStaffAppointments, view, date, { ...initialRange, data: initialData });
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
@@ -123,19 +118,20 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const movableOf = (a: (typeof appointments)[number]) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, title: customerOf(a), detail: a.serviceName });
 
   return <main className="min-h-screen bg-canvas">
-    <PageHeader eyebrow={eyebrow ?? "RandevuN"} title={title} accessory={bell} widthClassName="max-w-5xl" busy={loading}>
-      <ViewSwitch view={view} onChange={(next) => { setSelectedId(null); setView(next); }} />
-      <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
-        <DateField value={date} onChange={changeDate} disabled={busy} />
-      </DateStepper>
-    </PageHeader>
-    <div className="mx-auto max-w-5xl px-4 pb-10 pt-4 sm:px-6">
-      {pushPrompt ? <div className="mb-4">{pushPrompt}</div> : null}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <p className="mr-auto text-subhead font-semibold text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
-        <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
-        <Button type="button" onClick={() => refresh()} disabled={busy} pending={loading} variant="secondary" leadingIcon={RotateCw} aria-label={loading ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span></Button>
-      </div>
+    <CalendarHeader
+      title="Takvim"
+      view={view}
+      onViewChange={(next) => { setSelectedId(null); setView(next); }}
+      date={date}
+      onDateChange={changeDate}
+      marked={liveAppointmentDates(appointments)}
+      disabled={busy}
+      busy={loading}
+      accessory={bell}
+      menu={<OverflowMenu actions={[{ label: loading ? "Yükleniyor…" : "Yenile", onSelect: refresh, disabled: busy }]} />}
+    />
+    <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} trigger="fab" />
+    <div className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6">
       {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
       <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
       {view === "month" ? <MonthView date={date} items={appointments} closedDates={NO_CLOSURES} onOpenDay={openDay} /> :
@@ -174,10 +170,6 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
           </div>}
         </article></li>)}</ul>}
       </div>
-      <section aria-labelledby="staff-account-title" className="mt-10" data-tour="account">
-        <h2 id="staff-account-title" className="group-label">Hesap</h2>
-        <AccountRows settingsHref="/staff/settings" />
-      </section>
     </div>
 
     <AppointmentSheet

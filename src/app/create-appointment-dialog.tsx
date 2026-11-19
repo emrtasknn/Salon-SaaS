@@ -17,6 +17,7 @@ import type {
 } from "./appointment-create-contract";
 
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { checkboxClassName, field } from "./_ui/styles";
 import { haptic } from "@/lib/haptics";
 
@@ -40,6 +41,8 @@ type Props = Readonly<{
   /** Calendar's currently selected local date, used as the default. */
   initialDate: LocalDateIso;
   onCreated: (result: { date: LocalDateIso; notified: boolean }) => void;
+  /** "fab": round "+" button floating above the phone tab bar (calendar screens). */
+  trigger?: "button" | "fab";
 }>;
 
 type SlotsState =
@@ -83,7 +86,7 @@ export function formatLocalDate(date: LocalDateIso): string {
   );
 }
 
-export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Props) {
+export function CreateAppointmentDialog({ variant, initialDate, onCreated, trigger = "button" }: Props) {
   const isAdmin = variant.kind === "admin";
   const titleId = useId();
   const fieldId = useId();
@@ -307,9 +310,22 @@ export function CreateAppointmentDialog({ variant, initialDate, onCreated }: Pro
 
   return (
     <>
-      <Button ref={triggerRef} type="button" onClick={openDialog} variant="primary">
-        Randevu oluştur
-      </Button>
+      {trigger === "fab" ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={openDialog}
+          aria-label="Randevu oluştur"
+          data-create-fab=""
+          className="pressable focus-ring fixed right-4 z-20 inline-flex size-14 items-center justify-center rounded-full bg-action text-on-action shadow-sheet hover:bg-action-hover bottom-[calc(5.25rem+max(0.5rem,env(safe-area-inset-bottom)))] md:bottom-8 md:right-8"
+        >
+          <Plus className="size-7" strokeWidth={2.25} aria-hidden />
+        </button>
+      ) : (
+        <Button ref={triggerRef} type="button" onClick={openDialog} variant="primary">
+          Randevu oluştur
+        </Button>
+      )}
 
       <dialog
         ref={dialogRef}

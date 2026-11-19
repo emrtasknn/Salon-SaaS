@@ -35,6 +35,7 @@ import {
   type MinuteRange,
 } from "./timeline-layout";
 import { Button } from "@/components/ui/button";
+import { loadDateRange } from "./calendar-header-model";
 import { haptic } from "@/lib/haptics";
 import { motion, useReducedMotion } from "motion/react";
 
@@ -130,10 +131,10 @@ export function useCalendarView(): [CalendarView, (view: CalendarView) => void] 
 
 const viewLabels: Record<CalendarView, string> = { day: "Gün", week: "Hafta", month: "Ay", list: "Liste" };
 
-export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (view: CalendarView) => void }) {
+export function ViewSwitch({ view, onChange, compact = false }: { view: CalendarView; onChange: (view: CalendarView) => void; compact?: boolean }) {
   const reduceMotion = useReducedMotion();
   return (
-    <div role="group" aria-label="Görünüm" className="inline-flex rounded-control bg-separator/70 p-0.5">
+    <div role="group" aria-label="Görünüm" className={`${compact ? "flex w-full" : "inline-flex"} rounded-control bg-separator/70 p-0.5`}>
       {VIEWS.map((value) => {
         const selected = view === value;
         return (
@@ -145,7 +146,7 @@ export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (
               haptic("selection");
               onChange(value);
             }}
-            className={`pressable focus-ring tap-target relative isolate rounded-[10px] px-3.5 text-subhead font-semibold sm:px-4 ${
+            className={`pressable focus-ring relative isolate rounded-[10px] text-subhead font-semibold ${compact ? "min-h-9 flex-1 px-2" : "tap-target px-3.5 sm:px-4"} ${
               selected ? "text-ink" : "text-ink-muted hover:text-ink"
             }`}
           >
@@ -176,13 +177,16 @@ export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (
  * request always wins over a slower older one. `stale` is true while the shown data belongs to
  * another range (e.g. right after switching Day → Week).
  */
+/** Reload on return to the app only when the data is older than this. */
+const FOCUS_RELOAD_AFTER_MS = 30_000;
+
 export function useCalendarData<T>(
   load: (startDate: string, endDate: string) => Promise<T>,
   view: CalendarView,
   date: string,
   initial: Readonly<{ startDate: string; endDate: string; data: T }>,
 ) {
-  const range = viewDateRange(view, date);
+  const range = loadDateRange(view, date);
   const key = `${range.startDate}|${range.endDate}`;
   const [state, setState] = useState({ key: `${initial.startDate}|${initial.endDate}`, token: 0, data: initial.data });
   const [token, setToken] = useState(0);
@@ -200,6 +204,25 @@ export function useCalendarData<T>(
     // Load only when the range or the refresh token changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, token]);
+
+  // Coming back to the app (or tab) after a while reloads, so no manual "Yenile" is needed.
+  const loadedAt = useRef(0);
+  useEffect(() => {
+    loadedAt.current = Date.now();
+  }, [state]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && Date.now() - loadedAt.current > FOCUS_RELOAD_AFTER_MS) {
+        setToken((value) => value + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, []);
 
   return {
     data: state.data,

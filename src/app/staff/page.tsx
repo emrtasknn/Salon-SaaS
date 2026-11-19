@@ -1,49 +1,65 @@
 export const dynamic = "force-dynamic";
 
+import { redirect } from "next/navigation";
+
 import { listStaffAppointments, listStaffNotifications } from "./actions";
-import { StaffCalendar } from "./calendar";
-import { ProductTour } from "../_ui/tour/product-tour";
+import { StaffHomeView } from "./home-view";
 import { InAppNotifications } from "../in-app-notifications";
-import { parseCalendarDeepLink } from "../_ui/deep-link";
 import { PushPermission } from "../pwa/push-permission";
 import { readPushBindingKey } from "../_ui/push-binding-key";
-import { formatGreetingDate } from "../_ui/greeting";
 import { readViewerGreeting } from "../_ui/viewer-greeting";
 import { greetingName } from "../_ui/display-name";
+import { addDays, todayInZone } from "../_ui/timeline-layout";
 
-function todayIso() {
-  const now = new Date();
-  // Tenants are locked to Europe/Istanbul (MVP); UTC would show yesterday between 00:00 and 03:00.
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-}
+const CALENDAR = "/staff/calendar";
 
-export default async function StaffPage({
+/**
+ * Staff home ("Özet"): next appointment, today's numbers, waiting requests and today's list.
+ * Everything comes from listStaffAppointments, which derives the staff member server-side.
+ * Old notification links (/staff?date=…&appointment=…) still open the calendar.
+ */
+export default async function StaffHomePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { date, appointmentId } = parseCalendarDeepLink(await searchParams, todayIso());
+  const params = await searchParams;
+  if (params.date !== undefined || params.appointment !== undefined) {
+    const query = new URLSearchParams();
+    for (const key of ["date", "appointment"] as const) {
+      const value = params[key];
+      if (typeof value === "string") query.set(key, value);
+    }
+    redirect(`${CALENDAR}?${query.toString()}`);
+  }
+
+  const today = todayInZone();
+  const now = new Date();
   const [data, notifications, pushBindingKey, greeting] = await Promise.all([
-    listStaffAppointments(date),
+    listStaffAppointments(today, addDays(today, 6)),
     listStaffNotifications(),
     readPushBindingKey(),
     readViewerGreeting(),
   ]);
-  const firstName = greetingName(greeting.displayName);
+  if (data.status === "UNAUTHORIZED") {
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+        <h1 className="text-title">Yetkisiz erişim</h1>
+        <p className="mt-2 text-body text-ink-muted">Bu alan aktif personel hesabına açıktır.</p>
+      </main>
+    );
+  }
+
   return (
-    <>
-    <StaffCalendar
-      key={`${date}:${appointmentId ?? ""}`}
-      initialDate={date}
-      initialData={data}
-      initialSelectedId={appointmentId}
-      eyebrow={<>{greeting.tenantName ? `${greeting.tenantName} · ` : ""}<span className="tabular-nums">{formatGreetingDate(new Date())}</span></>}
-      title={firstName ? `Merhaba, ${firstName}` : "Merhaba"}
-      bell={<InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff" />}
-      pushPrompt={pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" layout="banner-only" /> : undefined}
+    <StaffHomeView
+      appointments={data.status === "ok" ? data.appointments : []}
+      loadFailed={data.status !== "ok"}
+      now={now}
+      today={today}
+      tenantName={greeting.tenantName}
+      firstName={greetingName(greeting.displayName)}
+      bell={<InAppNotifications initialData={notifications} reload={listStaffNotifications} href={CALENDAR} />}
+      pushPrompt={pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" layout="banner-only" /> : null}
     />
-    {/* StaffCalendar shows only "Yetkisiz erişim" then; nothing to tour. */}
-    {data.status !== "UNAUTHORIZED" ? <ProductTour tour="staff" /> : null}
-    </>
   );
 }

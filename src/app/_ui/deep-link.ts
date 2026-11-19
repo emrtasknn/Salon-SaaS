@@ -22,7 +22,7 @@ export function parseCalendarDeepLink(params: SearchParams | undefined, today: s
 }
 
 /** Link from a notification item to its day in the calendar with the appointment opened. */
-export function appointmentHref(base: string, item: { appointmentId: string; startAt: string }) {
+export function appointmentHref(base: string, item: { appointmentId: string; startAt: Date | string }) {
   const query = new URLSearchParams({ date: dateInZone(item.startAt), appointment: item.appointmentId });
   return `${base}?${query.toString()}`;
 }

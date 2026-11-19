@@ -66,9 +66,14 @@ export const staffTourSteps: readonly TourStep[] = [
     description: "Kısa bir turla ekranınızı tanıyalım. İstediğiniz an kapatabilirsiniz.",
   },
   {
-    target: navTourTarget("/staff"),
+    target: "next",
+    title: "Sıradaki randevu",
+    description: "Sıradaki müşteriniz ve kaç dakika kaldığı burada. Dokununca takvimde açılır.",
+  },
+  {
+    target: navTourTarget("/staff/calendar"),
     title: "Takvim",
-    description: "Günlük randevularınızı buradan takip edin.",
+    description: "Gün, hafta ve ay görünümleriyle randevularınız. Sağ alttaki + ile yeni randevu ekleyin.",
   },
   {
     target: navTourTarget("/staff/appointments"),
