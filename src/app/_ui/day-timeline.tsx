@@ -23,6 +23,7 @@ import {
   formatMinute,
   initialScrollMinute,
   layoutColumn,
+  minuteAtOffset,
   minutesFromDayStart,
   placeVertical,
   stepDate,
@@ -35,6 +36,7 @@ import {
   type MinuteRange,
 } from "./timeline-layout";
 import { Button } from "@/components/ui/button";
+import { loadDateRange } from "./calendar-header-model";
 import { haptic } from "@/lib/haptics";
 import { motion, useReducedMotion } from "motion/react";
 
@@ -130,10 +132,10 @@ export function useCalendarView(): [CalendarView, (view: CalendarView) => void] 
 
 const viewLabels: Record<CalendarView, string> = { day: "Gün", week: "Hafta", month: "Ay", list: "Liste" };
 
-export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (view: CalendarView) => void }) {
+export function ViewSwitch({ view, onChange, compact = false }: { view: CalendarView; onChange: (view: CalendarView) => void; compact?: boolean }) {
   const reduceMotion = useReducedMotion();
   return (
-    <div role="group" aria-label="Görünüm" className="inline-flex rounded-control bg-separator/70 p-0.5">
+    <div role="group" aria-label="Görünüm" className={`${compact ? "flex w-full" : "inline-flex"} rounded-control bg-separator/70 p-0.5`}>
       {VIEWS.map((value) => {
         const selected = view === value;
         return (
@@ -145,7 +147,7 @@ export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (
               haptic("selection");
               onChange(value);
             }}
-            className={`pressable focus-ring tap-target relative isolate rounded-[10px] px-3.5 text-subhead font-semibold sm:px-4 ${
+            className={`pressable focus-ring relative isolate rounded-[10px] text-subhead font-semibold ${compact ? "min-h-9 flex-1 px-2" : "tap-target px-3.5 sm:px-4"} ${
               selected ? "text-ink" : "text-ink-muted hover:text-ink"
             }`}
           >
@@ -176,13 +178,16 @@ export function ViewSwitch({ view, onChange }: { view: CalendarView; onChange: (
  * request always wins over a slower older one. `stale` is true while the shown data belongs to
  * another range (e.g. right after switching Day → Week).
  */
+/** Reload on return to the app only when the data is older than this. */
+const FOCUS_RELOAD_AFTER_MS = 30_000;
+
 export function useCalendarData<T>(
   load: (startDate: string, endDate: string) => Promise<T>,
   view: CalendarView,
   date: string,
   initial: Readonly<{ startDate: string; endDate: string; data: T }>,
 ) {
-  const range = viewDateRange(view, date);
+  const range = loadDateRange(view, date);
   const key = `${range.startDate}|${range.endDate}`;
   const [state, setState] = useState({ key: `${initial.startDate}|${initial.endDate}`, token: 0, data: initial.data });
   const [token, setToken] = useState(0);
@@ -200,6 +205,25 @@ export function useCalendarData<T>(
     // Load only when the range or the refresh token changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, token]);
+
+  // Coming back to the app (or tab) after a while reloads, so no manual "Yenile" is needed.
+  const loadedAt = useRef(0);
+  useEffect(() => {
+    loadedAt.current = Date.now();
+  }, [state]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && Date.now() - loadedAt.current > FOCUS_RELOAD_AFTER_MS) {
+        setToken((value) => value + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, []);
 
   return {
     data: state.data,
@@ -543,6 +567,7 @@ export function TimeGrid({
   canMove,
   onMove,
   pendingId,
+  onEmptyTap,
 }: {
   caption: string;
   cornerLabel?: string;
@@ -556,6 +581,8 @@ export function TimeGrid({
   onMove?: (id: string, deltaMinutes: number) => void;
   /** Block waiting for the move confirmation (shown with a dashed outline). */
   pendingId?: string | null;
+  /** Tap on free space in a column: column id and the snapped minute of the day. */
+  onEmptyTap?: (columnId: string, minute: number) => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const captionId = useId();
@@ -694,8 +721,20 @@ export function TimeGrid({
               <div
                 key={column.id}
                 data-today-column={index === todayColumn ? "" : undefined}
-                className={`relative flex-1 basis-0 border-l border-separator ${index === todayColumn ? "bg-surface-muted/60" : ""}`}
+                className={`relative flex-1 basis-0 border-l border-separator ${index === todayColumn ? "bg-surface-muted/60" : ""} ${onEmptyTap ? "cursor-pointer" : ""}`}
                 style={{ minWidth: `${minColumnRem}rem` }}
+                data-empty-tap={onEmptyTap ? "" : undefined}
+                onClick={
+                  onEmptyTap
+                    ? (event) => {
+                        // Taps on an appointment are handled by its own button.
+                        if ((event.target as Element).closest("li")) return;
+                        const top = event.currentTarget.getBoundingClientRect().top;
+                        haptic("selection");
+                        onEmptyTap(column.id, minuteAtOffset(event.clientY - top, range, HOUR_PX, GRID_PAD_PX));
+                      }
+                    : undefined
+                }
               >
                 {ticks(range).map((tick) => (
                   <span
@@ -781,6 +820,7 @@ export function DayTimeline({
   onSelect,
   onMove,
   pendingId,
+  onCreateAt,
 }: {
   date: string;
   /** One column per staff member. */
@@ -790,6 +830,8 @@ export function DayTimeline({
   /** Enables long-press drag-to-move; receives the snapped shift in minutes. */
   onMove?: (id: string, deltaMinutes: number) => void;
   pendingId?: string | null;
+  /** Tap on a free time: staff column id and minute of the day (prefills "Randevu oluştur"). */
+  onCreateAt?: (rowId: string, minute: number) => void;
 }) {
   const columns = useMemo(() => rows.map((row) => ({ id: row.id, date, label: row.label })), [rows, date]);
   const gridItems = useMemo(
@@ -815,6 +857,7 @@ export function DayTimeline({
       canMove={onMove ? canMoveGridItem : undefined}
       onMove={onMove}
       pendingId={pendingId}
+      onEmptyTap={onCreateAt}
     />
   );
 }
@@ -841,6 +884,11 @@ export function AppointmentSheet({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
+  // Callers clear title/children when they close the sheet; keep the last open content so the
+  // close animation (globals.css `.sheet-motion`) does not show an empty sheet sliding away.
+  const [shown, setShown] = useState({ title, children });
+  if (open && (shown.title !== title || shown.children !== children)) setShown({ title, children });
+  const visible = open ? { title, children } : shown;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -864,19 +912,19 @@ export function AppointmentSheet({
       }}
       className={
         wide
-          ? "sheet-motion mx-0 mb-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 md:m-auto md:w-[calc(100%-2rem)] md:max-w-xl md:rounded-sheet"
+          ? "sheet-motion sheet-md mx-0 mb-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 md:m-auto md:w-[calc(100%-2rem)] md:max-w-xl md:rounded-sheet"
           : "sheet-motion mx-0 mb-0 mt-auto max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-md sm:rounded-sheet"
       }
     >
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-separator bg-surface px-4 py-3">
         <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-headline tabular-nums focus:outline-none">
-          {title}
+          {visible.title}
         </h2>
         <Button type="button" onClick={() => dialogRef.current?.close()} variant="secondary">
           Kapat
         </Button>
       </div>
-      <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">{children}</div>
+      <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">{visible.children}</div>
     </dialog>
   );
 }

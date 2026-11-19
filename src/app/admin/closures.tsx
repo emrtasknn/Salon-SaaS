@@ -241,6 +241,7 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
 
           <Button
             type="submit"
+            pending={busy}
             disabled={busy || !date || (impact !== null && impact.length > 0 && !confirmed)}
             variant="primary"
           >

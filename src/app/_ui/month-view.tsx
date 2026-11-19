@@ -1,7 +1,7 @@
 "use client";
 
 // Month view: Mon–Sun grid with the appointment count and status dots per day, closure days
-// marked. Tapping a day opens the Day view of that date. Presentation only.
+// marked. Tapping a day selects it (its agenda shows under the grid). Presentation only.
 
 import { appointmentStatusDot } from "./styles";
 import { appointmentStatusLabels, formatLongDate } from "./day-timeline";
@@ -30,12 +30,16 @@ export function MonthView({
   items,
   closedDates,
   onOpenDay,
+  selected,
 }: {
   date: string;
   items: ReadonlyArray<MonthItem>;
   /** Tenant closure dates (YYYY-MM-DD); empty when not available to this role. */
   closedDates: ReadonlySet<string>;
+  /** Called with the tapped day (the calendars select it and show its agenda). */
   onOpenDay: (date: string) => void;
+  /** Selected day, outlined. */
+  selected?: string;
 }) {
   const grid = monthGrid(date);
   const today = todayInZone();
@@ -74,9 +78,10 @@ export function MonthView({
               <button
                 type="button"
                 onClick={() => onOpenDay(day)}
-                aria-label={`${label}. Gün görünümünü aç`}
+                aria-label={label}
+                aria-pressed={selected === day}
                 aria-current={isToday ? "date" : undefined}
-                className={`focus-ring flex h-full min-h-[4.25rem] w-full flex-col items-start gap-1 p-1.5 text-left transition-colors duration-150 hover:bg-surface-muted motion-reduce:transition-none sm:min-h-24 sm:p-2 ${
+                className={`focus-ring flex h-full min-h-[3.5rem] w-full ${selected === day ? "ring-2 ring-inset ring-action" : ""} flex-col items-start gap-1 p-1.5 text-left transition-colors duration-150 hover:bg-surface-muted motion-reduce:transition-none sm:min-h-24 sm:p-2 ${
                   closed ? "bg-status-rejected-bg/60" : inMonth ? "bg-surface" : "bg-surface-muted"
                 }`}
               >

@@ -7,7 +7,7 @@ import { createNextSupabaseBrowserClient } from "../../infrastructure/auth/supab
 import { releaseWebPushSubscription } from "../pwa/push-permission";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LoaderCircle } from "lucide-react";
 
 const rowClass =
   "focus-ring tap-target flex w-full items-center gap-3 px-4 py-3 text-left text-body [outline-offset:-2px] hover:bg-surface-muted active:bg-surface-muted";
@@ -42,7 +42,8 @@ export function AccountRows({ settingsHref, settingsDetail = "Görünüm, bildir
         </Link>
       </li>
       <li className="inset-row">
-        <button type="button" onClick={logout} disabled={busy} className={`${rowClass} text-destructive disabled:opacity-60`}>
+        <button type="button" onClick={logout} disabled={busy} aria-busy={busy || undefined} className={`${rowClass} text-destructive disabled:opacity-60`}>
+          {busy ? <LoaderCircle className="size-5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
           {busy ? "Çıkış yapılıyor…" : "Çıkış yap"}
         </button>
       </li>

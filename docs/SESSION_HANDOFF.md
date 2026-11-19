@@ -15,7 +15,7 @@
 ## Changes
 | Area | Change |
 |---|---|
-| `prisma/schema.prisma`, `prisma/migrations/20261116100000_soft_delete_columns` | `deletedAt` on Tenant, Staff, Service, Profile, Appointment (additive, NOT applied) |
+| `prisma/schema.prisma`, `prisma/migrations/20261122100000_soft_delete_columns` | `deletedAt` on Tenant, Staff, Service, Profile, Appointment (additive, NOT applied) |
 | `src/domain/deletion.ts` | shared result type and appointment delete rule |
 | `src/application/*-deletion.ts`, `platform-tenant-status.ts` | delete use cases, authorization and blocking rules |
 | `src/persistence/prisma-*-deletion.ts`, `prisma-platform-tenants.ts` | transactional archive writes; read paths filter `deletedAt` |

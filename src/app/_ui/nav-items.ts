@@ -2,7 +2,7 @@
 // authorization: every page re-checks identity, tenant and role on the server.
 
 /** Icon keys (plain strings so server layouts can pass items to the client tab bar). */
-export const NAV_ICONS = ["manage", "calendar", "customers", "appointments"] as const;
+export const NAV_ICONS = ["manage", "calendar", "customers", "appointments", "home"] as const;
 export type NavIcon = (typeof NAV_ICONS)[number];
 
 export type NavItem = { href: string; label: string; icon: NavIcon };
@@ -20,7 +20,8 @@ export const adminServesAsStaffNavItem: NavItem = { href: "/staff", label: "Rand
 export const backToAdminNavItem: NavItem = { href: "/admin", label: "Yönetim", icon: "manage" };
 
 export const staffNavItems: readonly NavItem[] = [
-  { href: "/staff", label: "Takvim", icon: "calendar" },
+  { href: "/staff", label: "Özet", icon: "home" },
+  { href: "/staff/calendar", label: "Takvim", icon: "calendar" },
   { href: "/staff/appointments", label: "Randevularım", icon: "appointments" },
 ];
 

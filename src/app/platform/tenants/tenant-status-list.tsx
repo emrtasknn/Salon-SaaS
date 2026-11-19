@@ -72,7 +72,7 @@ export function TenantStatusList({ tenants }: { tenants: ReadonlyArray<TenantRow
       {visible.length === 0 ? (
         <p className={statusNote}>“{query.trim()}” ile eşleşen işletme yok.</p>
       ) : null}
-      <ul className={visible.length === 0 ? "hidden" : "inset-group"}>
+      <ul className={visible.length === 0 ? "hidden" : "inset-group stagger-rows"}>
         {visible.map((tenant) => {
           const active = tenant.status === "ACTIVE";
           const next = active ? "INACTIVE" : "ACTIVE";

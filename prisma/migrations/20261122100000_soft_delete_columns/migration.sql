@@ -1,3 +1,4 @@
+-- Renamed from 20261116100000 on 2026-11-19 so it sorts after the calendar migrations (#211).
 -- Archive ("soft") delete support (delete-permissions plan, Task 1): a nullable "deletedAt"
 -- timestamp on Tenant, Staff, Service, Profile and Appointment. NULL = live row; set = archived.
 -- Read paths filter on it in later tasks; this migration only adds the columns.

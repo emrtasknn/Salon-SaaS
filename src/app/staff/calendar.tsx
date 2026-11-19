@@ -4,14 +4,13 @@ import { useRef, useState, useTransition, type ReactNode } from "react";
 import { AppointmentDeleteButton } from "../_ui/appointment-delete-button";
 import { completeStaffAppointment, deleteStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
-import { CreateAppointmentDialog } from "../create-appointment-dialog";
-import { PageHeader } from "../_ui/page-header";
-import { AccountRows } from "../_ui/account-links";
+import { CreateAppointmentDialog, type CreateRequest } from "../create-appointment-dialog";
+import { CalendarHeader, OverflowMenu } from "../_ui/calendar-header";
 import { appointmentStatusBadge, badgeBase, statusNote, appointmentStatusLabel } from "../_ui/styles";
-import { DateField } from "../_ui/date-field";
-import { useMinuteClock, AppointmentSheet, DateStepper, DayTimeline, DetailList, formatPeriod, formatTimeRange, useCalendarData, useCalendarView, ViewSwitch } from "../_ui/day-timeline";
+import { useMinuteClock, AppointmentSheet, DayTimeline, DetailList, formatTimeRange, useCalendarData, useCalendarView } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
+import { DayAgenda, WeekAgenda } from "../_ui/agenda-list";
 import { dateInZone } from "../_ui/timeline-layout";
 import { formatDayLabel } from "../_ui/date-format";
 import { ConfirmButton } from "../_ui/confirm-button";
@@ -22,17 +21,14 @@ const createVariant = { kind: "staff", loadOptions: getStaffCreateOptions, listS
 import { decideAndNotify } from "./decide";
 import { BookingContactSummary } from "../booking-contact-summary";
 import { haptic } from "@/lib/haptics";
-import { RotateCw } from "lucide-react";
+import { liveAppointmentDates } from "../_ui/calendar-marks";
 
 type Props = {
   initialDate: string;
+  /** Inclusive range `initialData` covers (the server loads the anchor's week). */
+  initialRange: Readonly<{ startDate: string; endDate: string }>;
   initialData: Awaited<ReturnType<typeof listStaffAppointments>>;
-  /** Fixed top layer content (greeting + bell), composed by the server page. */
-  eyebrow?: ReactNode;
-  title?: ReactNode;
   bell?: ReactNode;
-  /** Push opt-in prompt, shown at the top of the content. */
-  pushPrompt?: ReactNode;
   /** Appointment to open on load (deep link from a notification); UI selection only. */
   initialSelectedId?: string | null;
 };
@@ -41,17 +37,18 @@ type Props = {
 const SELF_COLUMN = [{ id: "self", label: "Randevularım" }] as const;
 const NO_CLOSURES: ReadonlySet<string> = new Set();
 
-export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Randevularım", bell, pushPrompt, initialSelectedId = null }: Props) {
+export function StaffCalendar({ initialDate, initialRange, initialData, bell, initialSelectedId = null }: Props) {
   const [date, setDate] = useState(initialDate);
   const [view, setView] = useCalendarView();
   // Own appointments only: the loader derives the staff member from the session.
-  const { data, stale, busy: loading, refresh } = useCalendarData(listStaffAppointments, view, date, { startDate: initialDate, endDate: initialDate, data: initialData });
+  const { data, stale, busy: loading, refresh } = useCalendarData(listStaffAppointments, view, date, { ...initialRange, data: initialData });
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
   const nowMs = useMinuteClock();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const sheetTrigger = useRef<HTMLElement | null>(null);
+  const [createRequest, setCreateRequest] = useState<CreateRequest | null>(null);
   const move = useAppointmentMove({
     reschedule: rescheduleStaffAppointment,
     onDone: (message) => { setFeedback(message); refresh(); },
@@ -127,25 +124,27 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
   const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setFeedback(""); setSelectedId(id); };
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const customerOf = (a: (typeof appointments)[number]) => a.bookingContact?.displayName ?? a.customerName;
+  const agendaItems = appointments.map((a) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }));
   const movableOf = (a: (typeof appointments)[number]) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, title: customerOf(a), detail: a.serviceName });
 
   return <main className="min-h-screen bg-canvas">
-    <PageHeader eyebrow={eyebrow ?? "RandevuN"} title={title} accessory={bell} widthClassName="max-w-5xl">
-      <ViewSwitch view={view} onChange={(next) => { setSelectedId(null); setView(next); }} />
-      <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
-        <DateField value={date} onChange={changeDate} disabled={busy} />
-      </DateStepper>
-    </PageHeader>
-    <div className="mx-auto max-w-5xl px-4 pb-10 pt-4 sm:px-6">
-      {pushPrompt ? <div className="mb-4">{pushPrompt}</div> : null}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <p className="mr-auto text-subhead font-semibold text-ink-muted" aria-live="polite">{formatPeriod(view, date)}</p>
-        <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} />
-        <Button type="button" onClick={() => refresh()} disabled={busy} variant="secondary" leadingIcon={RotateCw} aria-label={loading ? "Yükleniyor" : "Yenile"} className="px-3 sm:px-4"><span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span></Button>
-      </div>
+    <CalendarHeader
+      title="Takvim"
+      view={view}
+      onViewChange={(next) => { setSelectedId(null); setView(next); }}
+      date={date}
+      onDateChange={changeDate}
+      marked={liveAppointmentDates(appointments)}
+      disabled={busy}
+      busy={loading}
+      accessory={bell}
+      menu={<OverflowMenu actions={[{ label: loading ? "Yükleniyor…" : "Yenile", onSelect: refresh, disabled: busy }]} />}
+    />
+    <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} trigger="fab" request={createRequest} />
+    <div className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6">
       {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
       <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
-      {view === "month" ? <MonthView date={date} items={appointments} closedDates={NO_CLOSURES} onOpenDay={openDay} /> :
+      {view === "month" ? <><MonthView date={date} selected={date} items={appointments} closedDates={NO_CLOSURES} onOpenDay={changeDate} /><DayAgenda date={date} items={agendaItems} onSelect={select} onOpenDay={openDay} /></> :
         view === "week" ? <WeekView
           date={date}
           perStaffColors={false}
@@ -153,39 +152,20 @@ export function StaffCalendar({ initialDate, initialData, eyebrow, title = "Rand
           onSelect={select}
           onOpenDay={openDay}
         /> :
-        dayAppointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
         view === "day" ? <DayTimeline
           date={date}
           rows={SELF_COLUMN}
           items={dayAppointments.map((a) => move.preview({ id: a.id, rowId: "self", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
           onSelect={select}
+          onCreateAt={(_rowId, minute) => setCreateRequest({ key: Date.now(), date, minute })}
           pendingId={move.pendingId}
           onMove={(id, deltaMinutes) => {
             const a = dayAppointments.find((candidate) => candidate.id === id);
             if (a) move.propose(movableOf(a), deltaMinutes);
           }}
         /> :
-        <ul className="inset-group">{dayAppointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-headline tabular-nums">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.startAt))}<span className="font-normal text-ink-muted">–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.endAt))}</span></p>
-              <p className="mt-1 break-words text-body">{customerOf(a)}</p>
-              <p className="break-words text-footnote text-ink-muted">{a.serviceName}</p>
-              <BookingContactSummary contact={a.bookingContact} profile={{ displayName: customerOf(a) }} />
-            </div>
-            <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{appointmentStatusLabel[a.status] ?? a.status}</span>
-          </div>
-          {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="submit" disabled={busy} onClick={() => decide(a.id, "CONFIRMED")} variant="primary" className="flex-1 sm:flex-none">Onayla</Button>
-            <Button type="submit" disabled={busy} onClick={() => decide(a.id, "REJECTED")} variant="danger-outline" className="flex-1 sm:flex-none">Reddet</Button>
-          </div>}
-          <AppointmentDeleteButton actor="ASSIGNED_STAFF" status={a.status} appointmentId={a.id} summary={`${customerOf(a)} · ${a.serviceName}`} run={deleteStaffAppointment} onDeleted={afterDelete} size="small" disabled={busy} className="mt-3" />
-        </article></li>)}</ul>}
+        <WeekAgenda date={date} items={agendaItems} onSelect={select} />}
       </div>
-      <section aria-labelledby="staff-account-title" className="mt-10">
-        <h2 id="staff-account-title" className="group-label">Hesap</h2>
-        <AccountRows settingsHref="/staff/settings" />
-      </section>
     </div>
 
     <AppointmentSheet
