@@ -1,6 +1,7 @@
 "use server";
 
 import { createPublicAvailability } from "../../../application/public-availability";
+import { syncStaleCalendarsLater } from "../../calendar-sync-runtime";
 import { createPrismaPublicAvailabilityRepository } from "../../../persistence/prisma-public-availability";
 import { createPublicVitrin } from "../../../application/public-vitrin";
 import { createPrismaPublicSalonRepository } from "../../../persistence/prisma-public-vitrin";
@@ -32,6 +33,8 @@ export async function getPublicAvailability(input: {
   if (limit.status === "RATE_LIMITED") {
     return { status: "RATE_LIMITED" as const, retryAfterSeconds: limit.retryAfterSeconds, slots: [] as const };
   }
+  // ADR-045: refresh connected Google calendars of this salon after the response (busy times).
+  syncStaleCalendarsLater(v.tenantContext);
   const availability = createPublicAvailability(createPrismaPublicAvailabilityRepository(getPrisma()));
   if (input.staffId !== ANY_STAFF_ID) return availability.list(v.tenantContext, input);
   // "Fark etmez": union of the salon's ACTIVE staff (server catalog, never client input). One rate-limit

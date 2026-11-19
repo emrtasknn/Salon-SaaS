@@ -1,7 +1,8 @@
 # ADR-045 — Phone Calendar Integration: Subscription Feed and Two-Way Sync
 
 ## Status
-Proposed 2026-11-19. Owner direction recorded; implementation phases B and C still need the gates in §7.
+Accepted 2026-11-19 (owner). Phase A and phase B implemented (PR #211). Phase C deferred.
+Owner decision on phase B: Google busy time closes **online** booking only; staff/admin creation is not blocked.
 
 ## 1. Context
 Salon owners and staff already keep appointments in Apple Calendar (iPhone) or Google Calendar (Android). Owner requirement (2026-11-19): they must be able to keep that habit and still use the app.
@@ -52,7 +53,7 @@ Salon owners and staff already keep appointments in Apple Calendar (iPhone) or G
   - `REFRESH-INTERVAL`/`X-PUBLISHED-TTL` = PT15M (a hint; clients may ignore it).
 - **Privacy:** customer name and service per owner decision. Phone/email are not included. The feed URL is a bearer secret; the UI says so and offers revoke.
 
-## 5. Phase B design (summary, to be detailed before implementation)
+## 5. Phase B design (implemented)
 - **Tables (tenant-scoped, RLS):**
   - `CalendarConnection`: provider, profile, encrypted refresh token, chosen calendar ids, `RandevuN` calendar id, sync state.
   - `ExternalBusyBlock`: staff, start, end, source, external id hash.
@@ -65,6 +66,24 @@ Salon owners and staff already keep appointments in Apple Calendar (iPhone) or G
   - A Google Cloud project with the Calendar API enabled.
   - An OAuth consent screen and client id/secret in Vercel env.
   - Google app verification for the sensitive calendar scopes before public launch. The pilot can run in testing mode with listed test users.
+
+### 5.1 As built
+- **Scopes:** `calendar.app.created` lets the app write only the calendar it creates. `calendar.freebusy` lets it read only busy/free from the chosen calendars (default `primary`), never event contents. `openid email` is used to show the account.
+- **OAuth:** `/api/google-calendar/connect` → Google → `/api/google-calendar/callback`.
+  - The state is HMAC-signed with `CALENDAR_TOKEN_KEY`, holds tenant, profile, nonce and a 10-minute expiry, and is bound to an httpOnly nonce cookie.
+  - The callback re-reads the session and requires the same tenant and profile.
+  - The refresh token is stored AES-256-GCM encrypted.
+- **Sync** (`src/application/calendar-sync.ts`):
+  - Runs after the response (`after()`) whenever calendars or online slots are read, for up to 3 connections synced more than 5 minutes ago. There is no cron job.
+  - Window: 7 days back to 90 days ahead.
+  - Outbound creates, patches and deletes events by `CalendarEventLink`.
+  - Inbound replaces `ExternalBusyBlock` rows; the app's own appointments are subtracted.
+- **Trust:**
+  - Online availability and the booking transaction read busy blocks only from `ACTIVE` connections synced within the last 6 hours, so a broken sync cannot keep slots closed.
+  - Revoke or `invalid_grant` deletes the blocks at once.
+  - A deactivated staff member's connection is revoked on the next sync.
+- **Admin without a staff row:** outbound mirror of the whole salon, no busy blocks.
+- **Env:** `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `CALENDAR_TOKEN_KEY`. When unset, the feature is hidden.
 
 ## 6. Consequences
 - Phase A gives "see everything in my phone calendar" quickly with no provider dependency.

@@ -19,6 +19,7 @@ import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import { isStaffWorkspaceRole } from "../../domain/staff-workspace";
 import type { AppointmentStatus } from "../../domain/appointment";
 import { parseCalendarRange } from "../_ui/timeline-layout";
+import { syncStaleCalendarsLater } from "../calendar-sync-runtime";
 import { createOnBehalf, createOnBehalfBookingEngine, listSlotsOnBehalf, readCreateOptions, rescheduleOnBehalf, type RescheduleView } from "../appointment-create-runtime";
 import type {
   CreateAppointmentResult, CreateOptionsView, LocalDateIso, SlotListResult, StaffCreateAppointmentInput,
@@ -128,6 +129,8 @@ export async function listStaffAppointments(startDate: string, endDate?: string)
   if (!context) return { status: "UNAUTHORIZED" as const };
   const range = parseCalendarRange(startDate, endDate);
   if (!range) return { status: "INVALID_INPUT" as const };
+  // ADR-045: keep connected Google calendars of this salon fresh (after the response).
+  syncStaleCalendarsLater(context.tenantContext);
   const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
   if (!tenant) return { status: "NOT_FOUND" as const };
   const { localWallTimeToUtc } = await import("../../domain/availability");
