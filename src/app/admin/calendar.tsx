@@ -230,6 +230,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
         eyebrow={<span aria-live="polite">{formatPeriod(view, date)}</span>}
         accessory={bell}
         widthClassName="max-w-5xl"
+        busy={loading}
       >
         <ViewSwitch
           view={view}
@@ -261,6 +262,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
             type="button"
             onClick={() => refresh()}
             disabled={busy}
+            pending={loading}
             variant="secondary"
             leadingIcon={RotateCw}
             aria-label={loading ? "Yükleniyor" : "Yenile"}

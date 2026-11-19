@@ -25,7 +25,7 @@ export function customerContact(customer: Pick<CustomerListItem, "email" | "phon
  */
 export function CustomerList({ customers, now }: { customers: ReadonlyArray<CustomerListItem>; now: Date }) {
   return (
-    <ul className="inset-group">
+    <ul className="inset-group stagger-rows">
       {customers.map((customer) => {
         const contact = customerContact(customer);
         return (

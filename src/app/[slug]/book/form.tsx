@@ -1,5 +1,6 @@
 "use client";
 
+import { SkeletonSlots } from "../../_ui/skeleton";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { PublicLegalView } from "../../legal-consent-contract";
 import { getPublicAvailability } from "./actions";
@@ -224,6 +225,10 @@ export function PublicBookingForm({
     headingRef.current?.focus();
   }, [step]);
 
+  // Direction of the last step change, so the new step slides in from the side it comes from.
+  const [stepView, setStepView] = useState<{ step: BookingStep; motion: "none" | "forward" | "back" }>({ step, motion: "none" });
+  if (stepView.step !== step) setStepView({ step, motion: step > stepView.step ? "forward" : "back" });
+
   function goTo(next: BookingStep) {
     haptic("selection");
     setStep(next);
@@ -421,6 +426,7 @@ export function PublicBookingForm({
 
           {status && <p role="status" className={statusNote}>{status}</p>}
 
+          <div key={step} data-step-motion={stepView.motion} className="space-y-6">
           {step === 1 && (
             services.length === 0 ? (
               <p className={`${card} text-subhead text-ink-muted`}>
@@ -554,14 +560,19 @@ export function PublicBookingForm({
               <section aria-labelledby="slots-title" aria-live="polite" className={`${card} space-y-4`}>
                 <h2 id="slots-title" className="text-headline">Uygun saatler</h2>
                 {availabilityStatus === "idle" && <p className="text-subhead text-ink-muted">Saatleri görmek için bir uzman seçin.</p>}
-                {availabilityStatus === "loading" && <p className="text-subhead text-ink-muted">Uygun saatler kontrol ediliyor…</p>}
+                {availabilityStatus === "loading" && (
+                  <>
+                    <p className="sr-only">Uygun saatler kontrol ediliyor…</p>
+                    <SkeletonSlots />
+                  </>
+                )}
                 {availabilityStatus === "empty" && <p className="text-subhead text-ink-muted">Bu tarih için uygun saat yok. Başka bir gün seçin.</p>}
                 {availabilityStatus === "error" && <p className="text-subhead text-ink-muted">Uygun saatler yüklenemedi. Lütfen tekrar deneyin.</p>}
                 {availabilityStatus === "inactive" && <p className="text-subhead text-ink-muted">Şu anda online randevu alınmıyor.</p>}
                 {availabilityStatus === "limited" && <p className="text-subhead text-ink-muted">Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.</p>}
                 {availabilityStatus === "ready" &&
                   slotGroups.map((group) => (
-                    <div key={group.label} className="space-y-2">
+                    <div key={group.label} className="enter-fade space-y-2">
                       <h3 className="text-footnote font-semibold uppercase text-ink-muted">{group.label}</h3>
                       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                         {group.slots.map((slot) => (
@@ -689,6 +700,7 @@ export function PublicBookingForm({
               )}
             </>
           )}
+          </div>
         </form>
 
         {/* Room for the fixed bar so the last field is never hidden behind it. */}
@@ -707,6 +719,7 @@ export function PublicBookingForm({
             type="submit"
             form="booking-form"
             variant={step === 3 ? "accent" : "primary"}
+            pending={step === 3 && busy}
             disabled={step === 3 ? busy || stale || !selectedSlot : !canContinue}
             aria-describedby={step === 3 ? "booking-notice" : undefined}
             className="shrink-0"

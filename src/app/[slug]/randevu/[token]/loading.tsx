@@ -1,0 +1,11 @@
+import { PublicSkeleton } from "../../../_ui/public-skeleton";
+import { SkeletonCard, SkeletonList } from "../../../_ui/skeleton";
+
+export default function Loading() {
+  return (
+    <PublicSkeleton>
+      <SkeletonCard />
+      <SkeletonList rows={3} lines={1} label={false} />
+    </PublicSkeleton>
+  );
+}

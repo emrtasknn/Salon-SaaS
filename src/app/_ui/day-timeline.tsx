@@ -841,6 +841,11 @@ export function AppointmentSheet({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
+  // Callers clear title/children when they close the sheet; keep the last open content so the
+  // close animation (globals.css `.sheet-motion`) does not show an empty sheet sliding away.
+  const [shown, setShown] = useState({ title, children });
+  if (open && (shown.title !== title || shown.children !== children)) setShown({ title, children });
+  const visible = open ? { title, children } : shown;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -864,19 +869,19 @@ export function AppointmentSheet({
       }}
       className={
         wide
-          ? "sheet-motion mx-0 mb-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 md:m-auto md:w-[calc(100%-2rem)] md:max-w-xl md:rounded-sheet"
+          ? "sheet-motion sheet-md mx-0 mb-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 md:m-auto md:w-[calc(100%-2rem)] md:max-w-xl md:rounded-sheet"
           : "sheet-motion mx-0 mb-0 mt-auto max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-t-sheet border-0 bg-surface p-0 text-ink shadow-sheet backdrop:bg-black/40 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-md sm:rounded-sheet"
       }
     >
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-separator bg-surface px-4 py-3">
         <h2 id={titleId} ref={headingRef} tabIndex={-1} className="text-headline tabular-nums focus:outline-none">
-          {title}
+          {visible.title}
         </h2>
         <Button type="button" onClick={() => dialogRef.current?.close()} variant="secondary">
           Kapat
         </Button>
       </div>
-      <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">{children}</div>
+      <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">{visible.children}</div>
     </dialog>
   );
 }

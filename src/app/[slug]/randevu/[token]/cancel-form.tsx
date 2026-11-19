@@ -59,7 +59,7 @@ export function CancelForm({ slug, token }: { slug: string; token: string }) {
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               type="button"
-              disabled={busy}
+              pending={busy}
               onClick={cancel}
               variant="danger" className="flex-1"
             >

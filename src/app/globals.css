@@ -446,16 +446,237 @@ body {
   }
 }
 
-/* Timeline detail sheet: short rise-in; skipped when reduced motion is requested. */
-@keyframes sheet-in {
+/*
+ * Dialogs open and close with motion (owner request 2026-11-19). CSS only, so Esc, backdrop taps
+ * and `dialog.close()` all animate the same way: `@starting-style` gives the entry state and
+ * `allow-discrete` keeps the dialog in the top layer until the exit transition ends. Browsers
+ * without support (iOS < 17.5) open and close instantly.
+ *   .sheet-motion     bottom sheet on phones, scale + fade from 640px (`.sheet-md`: from 768px)
+ *   .dialog-motion    centered dialog: scale + fade
+ * Exit is shorter than entry and keeps ease-out (never ease-in).
+ */
+@media (prefers-reduced-motion: no-preference) {
+  dialog.sheet-motion,
+  dialog.dialog-motion,
+  dialog.sheet-motion::backdrop,
+  dialog.dialog-motion::backdrop {
+    transition-property: transform, opacity, overlay, display;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
+    transition-behavior: allow-discrete;
+  }
+  dialog.sheet-motion[open],
+  dialog.dialog-motion[open],
+  dialog.sheet-motion[open]::backdrop,
+  dialog.dialog-motion[open]::backdrop {
+    transition-duration: var(--duration-slow);
+  }
+
+  dialog.sheet-motion {
+    --sheet-from: translateY(100%);
+    --sheet-from-opacity: 1;
+  }
+  @media (min-width: 640px) {
+    dialog.sheet-motion:not(.sheet-md) {
+      --sheet-from: scale(0.96);
+      --sheet-from-opacity: 0;
+    }
+  }
+  @media (min-width: 768px) {
+    dialog.sheet-motion.sheet-md {
+      --sheet-from: scale(0.96);
+      --sheet-from-opacity: 0;
+    }
+  }
+  dialog.dialog-motion {
+    --sheet-from: scale(0.96);
+    --sheet-from-opacity: 0;
+  }
+
+  dialog.sheet-motion:not([open]),
+  dialog.dialog-motion:not([open]) {
+    transform: var(--sheet-from);
+    opacity: var(--sheet-from-opacity);
+  }
+  dialog.sheet-motion:not([open])::backdrop,
+  dialog.dialog-motion:not([open])::backdrop {
+    opacity: 0;
+  }
+  @starting-style {
+    dialog.sheet-motion[open],
+    dialog.dialog-motion[open] {
+      transform: var(--sheet-from);
+      opacity: var(--sheet-from-opacity);
+    }
+    dialog.sheet-motion[open]::backdrop,
+    dialog.dialog-motion[open]::backdrop {
+      opacity: 0;
+    }
+  }
+}
+
+/*
+ * Route entry (src/app/_ui/route-motion.tsx, rendered by each area's template.tsx). No fill mode,
+ * so no transform is left on the wrapper afterwards (fixed descendants stay viewport-fixed).
+ *   fade  tab to tab, first load: fade + 6px rise
+ *   push  into a subpage: from the right     pop  back to the parent: from the left
+ *   still public pages (fixed booking bar inside): opacity only
+ */
+@keyframes route-fade {
   from {
     opacity: 0;
-    transform: translateY(1rem);
+    transform: translateY(6px);
+  }
+}
+@keyframes route-push {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes route-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  dialog.sheet-motion[open] {
-    animation: sheet-in var(--duration-slow) var(--ease-out);
+  [data-route-motion="fade"] {
+    animation: route-fade var(--duration-base) var(--ease-out);
+  }
+  [data-route-motion="push"] {
+    animation: route-push 260ms var(--ease-out);
+  }
+  [data-route-motion="pop"] {
+    animation: route-pop 260ms var(--ease-out);
+  }
+  [data-route-motion="still"] {
+    animation: fade-in var(--duration-base) var(--ease-out);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-route-motion] {
+    animation: fade-in var(--duration-fast) linear;
+  }
+}
+
+/*
+ * Loading skeletons (src/app/_ui/skeleton.tsx). The whole skeleton fades in after 150ms, so a
+ * fast navigation never flashes it. Blocks shimmer with a moving highlight (transform only).
+ */
+@keyframes skeleton-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.skeleton-screen {
+  animation: fade-in var(--duration-base) var(--ease-out) 150ms both;
+}
+.skeleton-block {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background-color: var(--color-surface-muted);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-block::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent);
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+  :root[data-theme="dark"] .skeleton-block::after {
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .skeleton-block::after {
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+  }
+}
+
+/* Thin indeterminate bar under the page header while its data reloads (PageHeader `busy`). */
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+.header-progress {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 2px;
+  overflow: hidden;
+  animation: fade-in var(--duration-fast) var(--ease-out) 120ms both;
+}
+.header-progress::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 40%;
+  border-radius: 9999px;
+  background-color: var(--color-action);
+  animation: progress-slide 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-progress::before {
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Tab icon while its page is still loading (app-nav.tsx `TabIcon`). */
+@keyframes tab-pending {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tab-pending {
+    animation: tab-pending 0.9s ease-in-out infinite;
+  }
+}
+
+/* First rows of a list rise in one after another when the list mounts (30ms apart, max 6). */
+@media (prefers-reduced-motion: no-preference) {
+  .stagger-rows > :nth-child(-n + 6) {
+    animation: route-fade var(--duration-base) var(--ease-out) both;
+  }
+  .stagger-rows > :nth-child(2) { animation-delay: 30ms; }
+  .stagger-rows > :nth-child(3) { animation-delay: 60ms; }
+  .stagger-rows > :nth-child(4) { animation-delay: 90ms; }
+  .stagger-rows > :nth-child(5) { animation-delay: 120ms; }
+  .stagger-rows > :nth-child(6) { animation-delay: 150ms; }
+}
+
+/* Booking steps slide in from the side they come from (forward: right, back: left). */
+@media (prefers-reduced-motion: no-preference) {
+  [data-step-motion="forward"] {
+    animation: route-push 240ms var(--ease-out);
+  }
+  [data-step-motion="back"] {
+    animation: route-pop 240ms var(--ease-out);
+  }
+}
+
+/* Status lines (`statusNote`) and inline confirm rows fade in where they appear. */
+@media (prefers-reduced-motion: no-preference) {
+  .enter-fade {
+    animation: route-fade var(--duration-base) var(--ease-out);
   }
 }
 
@@ -519,7 +740,8 @@ body {
 
 /* Inside the app shell (top nav + tab-bar spacer), a `min-h-screen` page would add the bars' height
    as blank scroll space at the bottom. Fill the remaining height instead. */
-[data-app-content] > main.min-h-screen {
+[data-app-content] > main.min-h-screen,
+[data-app-content] > [data-route-motion] > main.min-h-screen {
   min-height: 0;
   flex: 1 1 auto;
 }

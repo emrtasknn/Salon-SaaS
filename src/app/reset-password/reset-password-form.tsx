@@ -97,7 +97,7 @@ export function ResetPasswordForm() {
       ) : null}
 
       <Button type="submit" pending={isSubmitting} className="w-full">
-        {isSubmitting ? "Şifre güncelleniyor..." : "Şifreyi güncelle"}
+        {isSubmitting ? "Şifre güncelleniyor…" : "Şifreyi güncelle"}
       </Button>
     </form>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
@@ -16,6 +16,21 @@ const icons: Record<NavIcon, ComponentType<{ className?: string; "aria-hidden"?:
   customers: Users,
   appointments: CalendarCheck,
 };
+
+/**
+ * Tab icon; pulses while its link is still loading the next page (useLinkStatus must be rendered
+ * inside the <Link>). Presentation only.
+ */
+function TabIcon({ icon: Icon, strong }: { icon: (typeof icons)[NavIcon]; strong: boolean }) {
+  const { pending } = useLinkStatus();
+  return (
+    <Icon
+      className={`size-[22px] shrink-0 ${pending ? "tab-pending" : ""}`}
+      aria-hidden
+      strokeWidth={strong ? 2.25 : 2}
+    />
+  );
+}
 
 /** Finger travel before a press on the tab bar counts as a drag rather than a tap. */
 const DRAG_THRESHOLD_PX = 6;
@@ -191,7 +206,7 @@ export function AppNavShell({
                     animate={{ scale: lifted && highlighted && !reduceMotion ? 1.14 : 1 }}
                     transition={reduceMotion ? { duration: 0 } : spring}
                   >
-                    <Icon className="size-[22px] shrink-0" aria-hidden strokeWidth={highlighted ? 2.25 : 2} />
+                    <TabIcon icon={Icon} strong={highlighted} />
                     <span className="max-w-full truncate">{item.label}</span>
                   </motion.span>
                 </Link>
