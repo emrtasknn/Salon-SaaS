@@ -5,6 +5,8 @@ import { ChevronRight } from "lucide-react";
 import { HapticsToggle } from "./haptics-toggle";
 import { ThemeToggle } from "./theme-toggle";
 import { PushPermission } from "../pwa/push-permission";
+import { ReplayTourRow } from "./tour/replay-tour-row";
+import type { TourId } from "./tour/tour-steps";
 
 /**
  * Device settings as one inset group: appearance, vibration, notifications, password.
@@ -12,7 +14,14 @@ import { PushPermission } from "../pwa/push-permission";
  * has no push). Appearance and vibration are stored on this device only. Presentation only:
  * the push actions and the password page authorize themselves.
  */
-export function SettingsList({ pushBindingKey }: { pushBindingKey?: string | null }) {
+export function SettingsList({
+  pushBindingKey,
+  tour,
+}: {
+  pushBindingKey?: string | null;
+  /** Area tour to replay, and the page it runs on. */
+  tour?: { id: TourId; href: string };
+}) {
   return (
     <ul className="inset-group">
       <li className="inset-row flex min-h-11 items-center gap-3 px-4 py-2 text-body text-ink">
@@ -25,6 +34,11 @@ export function SettingsList({ pushBindingKey }: { pushBindingKey?: string | nul
       {pushBindingKey ? (
         <li className="inset-row">
           <PushPermission bindingKey={pushBindingKey} layout="row" />
+        </li>
+      ) : null}
+      {tour ? (
+        <li className="inset-row">
+          <ReplayTourRow tour={tour.id} href={tour.href} />
         </li>
       ) : null}
       <li className="inset-row">

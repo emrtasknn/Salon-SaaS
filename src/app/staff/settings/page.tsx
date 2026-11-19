@@ -10,5 +10,5 @@ import { SettingsScreen } from "../../_ui/settings-screen";
 export default async function StaffSettingsPage() {
   const pushBindingKey = await readPushBindingKey();
   if (!pushBindingKey) redirect("/login");
-  return <SettingsScreen home={{ label: "Takvim", href: "/staff", icon: CalendarDays }} pushBindingKey={pushBindingKey} />;
+  return <SettingsScreen home={{ label: "Takvim", href: "/staff", icon: CalendarDays }} pushBindingKey={pushBindingKey} tour="staff" />;
 }

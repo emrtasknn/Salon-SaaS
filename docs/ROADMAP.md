@@ -309,7 +309,7 @@ MVP v1 is reached only after the real-salon journey is usable and the critical s
 ## Post-MVP Roadmap
 
 ### Productization
-- onboarding improvements
+- onboarding improvements — **first-visit product tour pulled forward (owner decision 2026-11-19):** driver.js tour for `/admin` and `/staff`, seen-flag in `localStorage` per device (no schema), replay from Ayarlar; the admin setup checklist (`src/app/admin/setup-steps.ts`) is part of the admin tour. Per-user (DB) persistence remains post-MVP and needs schema/RLS review.
 - mobile UX
 - calendar UX
 - customer UX

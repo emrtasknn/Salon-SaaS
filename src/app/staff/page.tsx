@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { listStaffAppointments, listStaffNotifications } from "./actions";
 import { StaffCalendar } from "./calendar";
+import { ProductTour } from "../_ui/tour/product-tour";
 import { InAppNotifications } from "../in-app-notifications";
 import { parseCalendarDeepLink } from "../_ui/deep-link";
 import { PushPermission } from "../pwa/push-permission";
@@ -30,6 +31,7 @@ export default async function StaffPage({
   ]);
   const firstName = greetingName(greeting.displayName);
   return (
+    <>
     <StaffCalendar
       key={`${date}:${appointmentId ?? ""}`}
       initialDate={date}
@@ -40,5 +42,8 @@ export default async function StaffPage({
       bell={<InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff" />}
       pushPrompt={pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" layout="banner-only" /> : undefined}
     />
+    {/* StaffCalendar shows only "Yetkisiz erişim" then; nothing to tour. */}
+    {data.status !== "UNAUTHORIZED" ? <ProductTour tour="staff" /> : null}
+    </>
   );
 }
