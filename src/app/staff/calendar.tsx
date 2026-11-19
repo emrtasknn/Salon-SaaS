@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import { completeStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
-import { CreateAppointmentDialog } from "../create-appointment-dialog";
+import { CreateAppointmentDialog, type CreateRequest } from "../create-appointment-dialog";
 import { CalendarHeader, OverflowMenu } from "../_ui/calendar-header";
 import { appointmentStatusBadge, badgeBase, statusNote, appointmentStatusLabel } from "../_ui/styles";
 import { useMinuteClock, AppointmentSheet, DayTimeline, DetailList, formatTimeRange, useCalendarData, useCalendarView } from "../_ui/day-timeline";
@@ -46,6 +46,7 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
   const nowMs = useMinuteClock();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const sheetTrigger = useRef<HTMLElement | null>(null);
+  const [createRequest, setCreateRequest] = useState<CreateRequest | null>(null);
   const move = useAppointmentMove({
     reschedule: rescheduleStaffAppointment,
     onDone: (message) => { setFeedback(message); refresh(); },
@@ -130,7 +131,7 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
       accessory={bell}
       menu={<OverflowMenu actions={[{ label: loading ? "Yükleniyor…" : "Yenile", onSelect: refresh, disabled: busy }]} />}
     />
-    <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} trigger="fab" />
+    <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} trigger="fab" request={createRequest} />
     <div className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6">
       {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
       <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
@@ -142,18 +143,19 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
           onSelect={select}
           onOpenDay={openDay}
         /> :
-        dayAppointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
         view === "day" ? <DayTimeline
           date={date}
           rows={SELF_COLUMN}
           items={dayAppointments.map((a) => move.preview({ id: a.id, rowId: "self", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
           onSelect={select}
+          onCreateAt={(_rowId, minute) => setCreateRequest({ key: Date.now(), date, minute })}
           pendingId={move.pendingId}
           onMove={(id, deltaMinutes) => {
             const a = dayAppointments.find((candidate) => candidate.id === id);
             if (a) move.propose(movableOf(a), deltaMinutes);
           }}
         /> :
+        dayAppointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
         <ul className="inset-group stagger-rows">{dayAppointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

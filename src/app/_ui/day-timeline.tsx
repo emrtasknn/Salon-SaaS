@@ -23,6 +23,7 @@ import {
   formatMinute,
   initialScrollMinute,
   layoutColumn,
+  minuteAtOffset,
   minutesFromDayStart,
   placeVertical,
   stepDate,
@@ -566,6 +567,7 @@ export function TimeGrid({
   canMove,
   onMove,
   pendingId,
+  onEmptyTap,
 }: {
   caption: string;
   cornerLabel?: string;
@@ -579,6 +581,8 @@ export function TimeGrid({
   onMove?: (id: string, deltaMinutes: number) => void;
   /** Block waiting for the move confirmation (shown with a dashed outline). */
   pendingId?: string | null;
+  /** Tap on free space in a column: column id and the snapped minute of the day. */
+  onEmptyTap?: (columnId: string, minute: number) => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const captionId = useId();
@@ -717,8 +721,20 @@ export function TimeGrid({
               <div
                 key={column.id}
                 data-today-column={index === todayColumn ? "" : undefined}
-                className={`relative flex-1 basis-0 border-l border-separator ${index === todayColumn ? "bg-surface-muted/60" : ""}`}
+                className={`relative flex-1 basis-0 border-l border-separator ${index === todayColumn ? "bg-surface-muted/60" : ""} ${onEmptyTap ? "cursor-pointer" : ""}`}
                 style={{ minWidth: `${minColumnRem}rem` }}
+                data-empty-tap={onEmptyTap ? "" : undefined}
+                onClick={
+                  onEmptyTap
+                    ? (event) => {
+                        // Taps on an appointment are handled by its own button.
+                        if ((event.target as Element).closest("li")) return;
+                        const top = event.currentTarget.getBoundingClientRect().top;
+                        haptic("selection");
+                        onEmptyTap(column.id, minuteAtOffset(event.clientY - top, range, HOUR_PX, GRID_PAD_PX));
+                      }
+                    : undefined
+                }
               >
                 {ticks(range).map((tick) => (
                   <span
@@ -804,6 +820,7 @@ export function DayTimeline({
   onSelect,
   onMove,
   pendingId,
+  onCreateAt,
 }: {
   date: string;
   /** One column per staff member. */
@@ -813,6 +830,8 @@ export function DayTimeline({
   /** Enables long-press drag-to-move; receives the snapped shift in minutes. */
   onMove?: (id: string, deltaMinutes: number) => void;
   pendingId?: string | null;
+  /** Tap on a free time: staff column id and minute of the day (prefills "Randevu oluştur"). */
+  onCreateAt?: (rowId: string, minute: number) => void;
 }) {
   const columns = useMemo(() => rows.map((row) => ({ id: row.id, date, label: row.label })), [rows, date]);
   const gridItems = useMemo(
@@ -838,6 +857,7 @@ export function DayTimeline({
       canMove={onMove ? canMoveGridItem : undefined}
       onMove={onMove}
       pendingId={pendingId}
+      onEmptyTap={onCreateAt}
     />
   );
 }
