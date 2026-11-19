@@ -26,7 +26,8 @@ import { CalendarHeader, OverflowMenu } from "../_ui/calendar-header";
 import { liveAppointmentDates } from "../_ui/calendar-marks";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
-import { dateInZone, TIMELINE_TIME_ZONE } from "../_ui/timeline-layout";
+import { DayAgenda, WeekAgenda } from "../_ui/agenda-list";
+import { dateInZone } from "../_ui/timeline-layout";
 import { formatDayLabel } from "../_ui/date-format";
 import { ConfirmButton } from "../_ui/confirm-button";
 import { appointmentStatusBadge, badgeBase, appointmentStatusLabel } from "../_ui/styles";
@@ -96,12 +97,6 @@ type Props = {
   /** Appointment to open on load (deep link from a notification); UI selection only. */
   initialSelectedId?: string | null;
 };
-
-const timeFormatter = new Intl.DateTimeFormat("tr-TR", {
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: TIMELINE_TIME_ZONE,
-});
 
 export function AdminCalendar({ initialDate, initialRange, initialData, closures, bell, initialSelectedId = null }: Props) {
   const [date, setDate] = useState(initialDate);
@@ -207,6 +202,15 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
   const loadError = data.status !== "ok" ? "Takvim yüklenemedi." : "";
   // Day and list show only the anchor date (data may still hold a wider range while reloading).
   const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
+  const agendaItems = appointments.map((a) => ({
+    id: a.id,
+    startAt: a.startAt,
+    endAt: a.endAt,
+    status: a.status,
+    customer: a.bookingContact?.displayName ?? a.customerDisplayName,
+    service: a.serviceName,
+    staffName: a.staffDisplayName,
+  }));
   const movableOf = (a: (typeof appointments)[number]) => ({
     id: a.id,
     startAt: a.startAt,
@@ -264,7 +268,16 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
 
         <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
         {view === "month" ? (
-          <MonthView date={date} items={appointments} closedDates={closedDates} onOpenDay={openDay} />
+          <>
+            <MonthView date={date} selected={date} items={appointments} closedDates={closedDates} onOpenDay={changeDate} />
+            <DayAgenda
+              date={date}
+              items={agendaItems}
+              onSelect={select}
+              onOpenDay={openDay}
+              emptyText={closedDates.has(date) ? "Bu gün kapalı gün olarak işaretli." : "Bu gün için randevu yok."}
+            />
+          </>
         ) : view === "week" ? (
           <WeekView
             date={date}
@@ -282,6 +295,8 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
             onSelect={select}
             onOpenDay={openDay}
           />
+        ) : view === "list" ? (
+          <WeekAgenda date={date} items={agendaItems} onSelect={select} />
         ) : dayAppointments.length === 0 ? (
           <div className="inset-group flex flex-col items-center gap-3 p-8 text-center text-body text-ink-muted">
             {closedDates.has(date) ? "Bu gün kapalı gün olarak işaretli. Randevu yok." : "Bu gün için randevu yok."}
@@ -291,7 +306,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
               </Button>
             ) : null}
           </div>
-        ) : view === "day" ? (
+        ) : (
           <DayTimeline
             date={date}
             rows={staffRows(dayAppointments)}
@@ -312,78 +327,6 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
               if (a) move.propose(movableOf(a), deltaMinutes);
             }}
           />
-        ) : (
-          <div className="space-y-3">
-            {dayAppointments.map((appointment) => (
-              <article
-                key={appointment.id}
-                className="rounded-xl border bg-surface p-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">
-                      {timeFormatter.format(new Date(appointment.startAt))}–
-                      {timeFormatter.format(new Date(appointment.endAt))}
-                    </p>
-
-                    <p className="mt-2 text-sm text-ink-muted">
-                      <span className="font-medium">Personel:</span>{" "}
-                      {appointment.staffDisplayName}
-                    </p>
-
-                    <p className="text-sm text-ink-muted">
-                      <span className="font-medium">Müşteri:</span>{" "}
-                      {appointment.customerDisplayName}
-                    </p>
-
-                    <p className="text-sm text-ink-muted">
-                      <span className="font-medium">Hizmet:</span>{" "}
-                      {appointment.serviceName}
-                    </p>
-
-                    <BookingContactSummary
-                      contact={appointment.bookingContact}
-                      profile={{ displayName: appointment.customerDisplayName }}
-                    />
-                  </div>
-
-                  <span className="rounded-full border px-2 py-1 text-xs">
-                    {appointmentStatusLabel[appointment.status] ?? appointment.status}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {availableActions(appointment, nowMs).map((action) => {
-                    const ask = confirmCopy[action.to];
-                    return ask ? (
-                      <ConfirmButton
-                        key={action.to}
-                        label={action.label}
-                        question={ask.question}
-                        detail={CONFIRM_DETAIL}
-                        confirmLabel={ask.confirmLabel}
-                        size="small"
-                        variant={actionVariant[action.kind]}
-                        disabled={busy}
-                        onConfirm={() => transition(appointment.id, action.to)}
-                      />
-                    ) : (
-                      <Button
-                        key={action.to}
-                        type="button"
-                        size="small"
-                        variant={actionVariant[action.kind]}
-                        disabled={busy}
-                        onClick={() => transition(appointment.id, action.to)}
-                      >
-                        {action.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </article>
-            ))}
-          </div>
         )}
         </div>
       </div>
