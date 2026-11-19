@@ -1,14 +1,16 @@
-import { Bone, SkeletonCalendarToolbar, SkeletonScreen } from "../_ui/skeleton";
+import { Bone, SkeletonScreen } from "../_ui/skeleton";
 
-// Staff home (own calendar) while the server loads it.
+// Staff home ("Özet") while the server loads it.
 export default function Loading() {
   return (
-    <SkeletonScreen eyebrow accessory widthClassName="max-w-5xl" toolbar={<SkeletonCalendarToolbar />}>
-      <div className="flex justify-between gap-2">
-        <Bone className="h-5 w-48" />
-        <Bone className="h-11 w-40 rounded-control" />
+    <SkeletonScreen eyebrow accessory>
+      <Bone className="h-24 w-full rounded-card" />
+      <div className="grid grid-cols-3 gap-2">
+        <Bone className="h-20 rounded-card" />
+        <Bone className="h-20 rounded-card" />
+        <Bone className="h-20 rounded-card" />
       </div>
-      <Bone className="h-[28rem] w-full rounded-card" />
+      <Bone className="h-48 w-full rounded-card" />
     </SkeletonScreen>
   );
 }

@@ -4,7 +4,7 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { CalendarCheck, CalendarDays, LayoutGrid, Users } from "lucide-react";
+import { CalendarCheck, CalendarDays, House, LayoutGrid, Users } from "lucide-react";
 
 import { haptic } from "@/lib/haptics";
 import { navTourTarget } from "./tour/tour-steps";
@@ -15,6 +15,7 @@ const icons: Record<NavIcon, ComponentType<{ className?: string; "aria-hidden"?:
   calendar: CalendarDays,
   customers: Users,
   appointments: CalendarCheck,
+  home: House,
 };
 
 /**

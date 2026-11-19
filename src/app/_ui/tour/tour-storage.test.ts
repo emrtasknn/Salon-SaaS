@@ -27,7 +27,7 @@ const throwing = {
 describe("tour storage", () => {
   it("uses a versioned key per area", () => {
     expect(tourStorageKey("admin")).toBe("salon-saas:tour:v1:admin");
-    expect(tourStorageKey("staff")).toBe("salon-saas:tour:v1:staff");
+    expect(tourStorageKey("staff")).toBe("salon-saas:tour:v2:staff");
   });
 
   it("is unseen until marked, then seen, then unseen again after a reset", () => {

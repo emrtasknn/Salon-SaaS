@@ -15,29 +15,25 @@ import { CreateAppointmentDialog } from "../create-appointment-dialog";
 import { BookingContactSummary } from "../booking-contact-summary";
 import {
   AppointmentSheet,
-  DateStepper,
   DayTimeline,
   DetailList,
-  formatPeriod,
   formatTimeRange,
   useMinuteClock,
   useCalendarData,
   useCalendarView,
-  ViewSwitch,
 } from "../_ui/day-timeline";
+import { CalendarHeader, OverflowMenu } from "../_ui/calendar-header";
+import { liveAppointmentDates } from "../_ui/calendar-marks";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
 import { dateInZone, TIMELINE_TIME_ZONE } from "../_ui/timeline-layout";
 import { formatDayLabel } from "../_ui/date-format";
 import { ConfirmButton } from "../_ui/confirm-button";
 import { appointmentStatusBadge, badgeBase, appointmentStatusLabel } from "../_ui/styles";
-import { DateField } from "../_ui/date-field";
-import { PageHeader } from "../_ui/page-header";
 import { AdminClosures } from "./closures";
 import type { ClosureListResult, LocalDateIso } from "../appointment-create-contract";
 import { Button, type ButtonVariant } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
-import { RotateCw } from "lucide-react";
 
 type AdminTransitionTarget = "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 type ActionKind = "primary" | "destructive" | "secondary";
@@ -91,6 +87,8 @@ const createVariant = {
 
 type Props = {
   initialDate: string;
+  /** Inclusive range `initialData` covers (the server loads the anchor's week). */
+  initialRange: Readonly<{ startDate: string; endDate: string }>;
   initialData: Awaited<ReturnType<typeof listAdminAppointments>>;
   closures: Readonly<{ initialData: ClosureListResult; range: Readonly<{ from: LocalDateIso; to: LocalDateIso }> }>;
   /** Notification bell, rendered in the fixed top layer. */
@@ -105,12 +103,11 @@ const timeFormatter = new Intl.DateTimeFormat("tr-TR", {
   timeZone: TIMELINE_TIME_ZONE,
 });
 
-export function AdminCalendar({ initialDate, initialData, closures, bell, initialSelectedId = null }: Props) {
+export function AdminCalendar({ initialDate, initialRange, initialData, closures, bell, initialSelectedId = null }: Props) {
   const [date, setDate] = useState(initialDate);
   const [view, setView] = useCalendarView();
   const { data, stale, busy: loading, refresh } = useCalendarData(listAdminAppointments, view, date, {
-    startDate: initialDate,
-    endDate: initialDate,
+    ...initialRange,
     data: initialData,
   });
   const [acting, startTransition] = useTransition();
@@ -128,7 +125,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   });
   const [closureData, setClosureData] = useState(closures.initialData);
   const sheetTrigger = useRef<HTMLElement | null>(null);
-  const closuresTrigger = useRef<HTMLButtonElement | null>(null);
+  const closuresReturnFocus = useRef<HTMLElement | null>(null);
 
   const closedDates = useMemo(
     () => new Set(closureData.status === "OK" ? closureData.closures.map((closure) => closure.date) : []),
@@ -225,53 +222,36 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
 
   return (
     <main className="min-h-screen bg-canvas">
-      <PageHeader
+      <CalendarHeader
         title="Randevu takvimi"
-        eyebrow={<span aria-live="polite">{formatPeriod(view, date)}</span>}
-        accessory={bell}
-        widthClassName="max-w-5xl"
+        view={view}
+        onViewChange={(next) => {
+          setSelectedId(null);
+          setView(next);
+        }}
+        date={date}
+        onDateChange={changeDate}
+        marked={liveAppointmentDates(appointments)}
+        disabled={busy}
         busy={loading}
-      >
-        <ViewSwitch
-          view={view}
-          onChange={(next) => {
-            setSelectedId(null);
-            setView(next);
-          }}
-        />
-        <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
-          <DateField value={date} onChange={changeDate} disabled={busy} />
-        </DateStepper>
-      </PageHeader>
-      <div className="mx-auto max-w-5xl p-4 sm:p-6">
-        <div className="mb-4 flex flex-wrap gap-2">
-          <CreateAppointmentDialog
-            variant={createVariant}
-            initialDate={date}
-            onCreated={onCreated}
+        accessory={bell}
+        menu={
+          <OverflowMenu
+            actions={[
+              {
+                label: "Kapalı günler",
+                onSelect: () => {
+                  closuresReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                  setClosuresOpen(true);
+                },
+              },
+              { label: loading ? "Yükleniyor…" : "Yenile", onSelect: refresh, disabled: busy },
+            ]}
           />
-          <Button
-            ref={closuresTrigger}
-            type="button"
-            onClick={() => setClosuresOpen(true)}
-            variant="secondary"
-          >
-            Kapalı günler
-          </Button>
-          <Button
-            type="button"
-            onClick={() => refresh()}
-            disabled={busy}
-            pending={loading}
-            variant="secondary"
-            leadingIcon={RotateCw}
-            aria-label={loading ? "Yükleniyor" : "Yenile"}
-            className="ml-auto px-3 sm:px-4"
-          >
-            <span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span>
-          </Button>
-        </div>
-
+        }
+      />
+      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} trigger="fab" />
+      <div className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6">
         {(feedback || loadError) && (
           <p
             role="status"
@@ -485,7 +465,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
         title="Kapalı günler"
         onClose={() => {
           setClosuresOpen(false);
-          closuresTrigger.current?.focus();
+          closuresReturnFocus.current?.focus();
         }}
       >
         <AdminClosures

@@ -13,7 +13,7 @@ export default async function StaffAppointmentsPage() {
     <StaffAppointments
       initialDate={date}
       initialData={data}
-      bell={<InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff" />}
+      bell={<InAppNotifications initialData={notifications} reload={listStaffNotifications} href="/staff/calendar" />}
     />
   );
 }
