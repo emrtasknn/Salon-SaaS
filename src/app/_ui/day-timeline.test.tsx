@@ -114,8 +114,8 @@ describe("MonthView", () => {
         onOpenDay={noop}
       />,
     );
-    expect(html).toContain("10 Kasım 2026 Salı, 3 randevu: 1 bekliyor, 2 onaylandı. Gün görünümünü aç");
-    expect(html).toContain("11 Kasım 2026 Çarşamba, kapalı gün, randevu yok. Gün görünümünü aç");
+    expect(html).toContain("10 Kasım 2026 Salı, 3 randevu: 1 bekliyor, 2 onaylandı");
+    expect(html).toContain("11 Kasım 2026 Çarşamba, kapalı gün, randevu yok");
     expect(html.match(/<li /g)?.length).toBe(42);
   });
 

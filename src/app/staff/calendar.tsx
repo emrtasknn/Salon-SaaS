@@ -9,6 +9,7 @@ import { appointmentStatusBadge, badgeBase, statusNote, appointmentStatusLabel }
 import { useMinuteClock, AppointmentSheet, DayTimeline, DetailList, formatTimeRange, useCalendarData, useCalendarView } from "../_ui/day-timeline";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
+import { DayAgenda, WeekAgenda } from "../_ui/agenda-list";
 import { dateInZone } from "../_ui/timeline-layout";
 import { formatDayLabel } from "../_ui/date-format";
 import { ConfirmButton } from "../_ui/confirm-button";
@@ -116,6 +117,7 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
   const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setFeedback(""); setSelectedId(id); };
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const customerOf = (a: (typeof appointments)[number]) => a.bookingContact?.displayName ?? a.customerName;
+  const agendaItems = appointments.map((a) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }));
   const movableOf = (a: (typeof appointments)[number]) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, title: customerOf(a), detail: a.serviceName });
 
   return <main className="min-h-screen bg-canvas">
@@ -135,7 +137,7 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
     <div className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6">
       {(feedback || loadError) && <p role="status" className={`${statusNote} mb-4`}>{feedback || loadError}</p>}
       <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
-      {view === "month" ? <MonthView date={date} items={appointments} closedDates={NO_CLOSURES} onOpenDay={openDay} /> :
+      {view === "month" ? <><MonthView date={date} selected={date} items={appointments} closedDates={NO_CLOSURES} onOpenDay={changeDate} /><DayAgenda date={date} items={agendaItems} onSelect={select} onOpenDay={openDay} /></> :
         view === "week" ? <WeekView
           date={date}
           perStaffColors={false}
@@ -155,22 +157,7 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
             if (a) move.propose(movableOf(a), deltaMinutes);
           }}
         /> :
-        dayAppointments.length === 0 ? <div className="inset-group p-8 text-center text-body text-ink-muted">Bu gün için randevu yok.</div> :
-        <ul className="inset-group stagger-rows">{dayAppointments.map((a) => <li key={a.id} className="inset-row"><article className="px-4 py-3.5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-headline tabular-nums">{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.startAt))}<span className="font-normal text-ink-muted">–{new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(a.endAt))}</span></p>
-              <p className="mt-1 break-words text-body">{customerOf(a)}</p>
-              <p className="break-words text-footnote text-ink-muted">{a.serviceName}</p>
-              <BookingContactSummary contact={a.bookingContact} profile={{ displayName: customerOf(a) }} />
-            </div>
-            <span className={`${badgeBase} shrink-0 ${appointmentStatusBadge[a.status] ?? "bg-surface-muted text-ink"}`}>{appointmentStatusLabel[a.status] ?? a.status}</span>
-          </div>
-          {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2">
-            <Button type="submit" disabled={busy} onClick={() => decide(a.id, "CONFIRMED")} variant="primary" className="flex-1 sm:flex-none">Onayla</Button>
-            <Button type="submit" disabled={busy} onClick={() => decide(a.id, "REJECTED")} variant="danger-outline" className="flex-1 sm:flex-none">Reddet</Button>
-          </div>}
-        </article></li>)}</ul>}
+        <WeekAgenda date={date} items={agendaItems} onSelect={select} />}
       </div>
     </div>
 
