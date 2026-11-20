@@ -47,6 +47,7 @@ function makeTransaction(overrides: Readonly<{
     appointmentContact: { create: vi.fn().mockResolvedValue({ id: "ac" }) },
     closureDate: { findMany: vi.fn().mockResolvedValue((overrides.closures ?? []).map((d) => ({ date: new Date(`${d}T00:00:00.000Z`) }))) },
     externalBusyBlock: { findMany: vi.fn().mockResolvedValue(overrides.busy ?? []) },
+    phoneCalendarEvent: { findMany: vi.fn().mockResolvedValue([]) },
   };
 }
 

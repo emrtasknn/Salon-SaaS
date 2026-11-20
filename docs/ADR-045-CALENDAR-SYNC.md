@@ -1,7 +1,7 @@
 # ADR-045 — Phone Calendar Integration: Subscription Feed and Two-Way Sync
 
 ## Status
-Accepted 2026-11-19 (owner). Phase A and phase B implemented (PR #211). Phase C deferred.
+Accepted 2026-11-19 (owner). Phase A and phase B implemented (PR #211). Phase C changed on 2026-11-20 (owner): instead of iCloud CalDAV *client* access, the app serves its own CalDAV account (former option D), with phone events shown with their title (§5.2).
 Owner decision on phase B: Google busy time closes **online** booking only; staff/admin creation is not blocked.
 
 ## 1. Context
@@ -84,6 +84,22 @@ Salon owners and staff already keep appointments in Apple Calendar (iPhone) or G
   - A deactivated staff member's connection is revoked on the next sync.
 - **Admin without a staff row:** outbound mirror of the whole salon, no busy blocks.
 - **Env:** `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `CALENDAR_TOKEN_KEY`. When unset, the feature is hidden.
+
+### 5.2 Phase C as built: the RandevuN CalDAV account (owner decision 2026-11-20)
+- **Why option D over C:** iCloud client access would need each user's app-specific Apple password, which also opens their iCloud mail and contacts, and Apple has no official API. With D the app issues its own credentials and no Apple secret is stored.
+- **Setup on the phone:**
+  - "iPhone'a kur" posts a same-origin form that returns a `.mobileconfig` (`com.apple.caldav.account` payload).
+  - "Elle kurulum" shows server, username and a one-time password instead.
+  - Username: `<8 chars>.<tenant slug>`.
+  - Password: app-generated, stored only as an scrypt hash.
+  - One live account per profile.
+- **Calendar contents:** one calendar `/dav/u/<username>/cal/randevun/`.
+  - Appointments appear as read-only `a-<id>.ics` items: the staff member's own, or the whole salon for an admin. PUT and DELETE on them are refused (403).
+  - Events the user creates are stored as `PhoneCalendarEvent` with their title.
+- **How phone events act:** they are busy time for online booking (slot list and booking re-check) and are drawn in the calendar grids, unless the event is all-day, "free" or cancelled.
+- **Where requests are served:** `proxy.ts` handles them (PROPFIND/REPORT/PROPPATCH/GET/PUT/DELETE/OPTIONS), because Route Handlers reject PROPFIND and REPORT. `skipTrailingSlashRedirect` is on, and the proxy keeps Next's slash redirect for every other path.
+- **Per-request checks:** tenant from the username slug; the account must be live; the password hash must verify; role and active staff are re-checked; a path of another account gets 403; rate limits `dav.request` and `dav.miss` apply.
+- **Limits (v1):** recurring events count only their first occurrence. The phone cannot edit appointments. Discovery uses ctag/etag polling (no sync-collection).
 
 ## 6. Consequences
 - Phase A gives "see everything in my phone calendar" quickly with no provider dependency.

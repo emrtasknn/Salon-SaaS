@@ -312,6 +312,9 @@ describe("RATE_LIMIT_POLICIES", () => {
       // ADR-045 calendar feed (owner-approved 2026-11-19).
       "feed.view": { limit: 120, windowSeconds: 600, scope: "ip" },
       "feed.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
+      // ADR-045 phase C CalDAV account (owner-approved 2026-11-20).
+      "dav.request": { limit: 600, windowSeconds: 600, scope: "ip" },
+      "dav.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
     });
   });
 

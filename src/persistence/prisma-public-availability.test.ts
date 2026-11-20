@@ -19,6 +19,7 @@ function makeRepository(timeZone: string, tenantStatus: "ACTIVE" | "INACTIVE" = 
     appointment: { findMany: appointmentFindMany },
     closureDate: { findMany: closureFindMany },
     externalBusyBlock: { findMany: vi.fn().mockResolvedValue([]) },
+    phoneCalendarEvent: { findMany: vi.fn().mockResolvedValue([]) },
   };
   const prisma = { $transaction: vi.fn(async (callback: (value: unknown) => unknown) => callback(tx)) } as unknown as PrismaTenantClient;
   return { repository: createPrismaPublicAvailabilityRepository(prisma), appointmentFindMany, closureFindMany, tx };

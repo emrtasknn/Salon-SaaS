@@ -145,11 +145,11 @@ export async function listStaffAppointments(startDate: string, endDate?: string)
 
 
 export type CalendarBusyView =
-  | Readonly<{ status: "ok"; busy: ReadonlyArray<{ id: string; staffId: string; startAt: string; endAt: string }> }>
+  | Readonly<{ status: "ok"; busy: ReadonlyArray<{ id: string; staffId: string; startAt: string; endAt: string; title: string | null }> }>
   | Readonly<{ status: "UNAUTHORIZED" | "INVALID_INPUT" | "NOT_FOUND" }>;
 
-function busyView(blocks: ReadonlyArray<{ id: string; staffId: string; startAt: Date; endAt: Date }>): CalendarBusyView {
-  return { status: "ok", busy: blocks.map((b) => ({ id: b.id, staffId: b.staffId, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() })) };
+function busyView(blocks: ReadonlyArray<{ id: string; staffId: string; startAt: Date; endAt: Date; title: string | null }>): CalendarBusyView {
+  return { status: "ok", busy: blocks.map((b) => ({ id: b.id, staffId: b.staffId, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString(), title: b.title })) };
 }
 
 /** ADR-045: the signed-in staff member's busy time from their connected phone calendar (display only). */
