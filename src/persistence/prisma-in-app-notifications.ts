@@ -63,8 +63,8 @@ export function createPrismaInAppNotificationRepository(prisma: PrismaTenantClie
     async read(tenantContext, scope, options) {
       const includeCustomer = scope.kind === "tenant";
       const scopeWhere = scope.kind === "staff"
-        ? { tenantId: tenantContext.tenantId, staffId: scope.staffId }
-        : { tenantId: tenantContext.tenantId };
+        ? { tenantId: tenantContext.tenantId, staffId: scope.staffId, deletedAt: null }
+        : { tenantId: tenantContext.tenantId, deletedAt: null };
       // Only display names and service name; never email/phone. Customer name only for tenant (admin) scope.
       const select: NotificationSelect = {
         id: true,

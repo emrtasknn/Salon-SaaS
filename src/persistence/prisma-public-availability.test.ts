@@ -103,7 +103,7 @@ describe("public availability multi-service (owner decision 2026-11-06)", () => 
 
     const result = await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09", extraServiceIds: ["service-b"] });
 
-    expect(tx.service.findMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", id: { in: ["service-b"] } } });
+    expect(tx.service.findMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", id: { in: ["service-b"] }, deletedAt: null } });
     expect(result).toMatchObject({ status: "ok", durationMinutes: 50, bufferMinutes: 10 });
   });
 

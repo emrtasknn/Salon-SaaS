@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
-import { completeStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
+import { AppointmentDeleteButton } from "../_ui/appointment-delete-button";
+import { completeStaffAppointment, deleteStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog, type CreateRequest } from "../create-appointment-dialog";
 import { CalendarHeader, OverflowMenu } from "../_ui/calendar-header";
@@ -85,6 +86,12 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
       setFeedback(messages[result.status] ?? "İşlem gerçekleştirilemedi.");
       if (result.status !== "UNAUTHORIZED") refresh();
     });
+  }
+
+  function afterDelete() {
+    setSelectedId(null);
+    setFeedback("Randevu silindi.");
+    refresh();
   }
 
   function decide(appointmentId: string, to: "CONFIRMED" | "REJECTED") {
@@ -185,6 +192,7 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
           <Button type="button" disabled={busy} onClick={() => complete(selected.id)} variant="primary">Tamamlandı</Button>
           <p className="text-footnote text-ink-muted">İptal işlemini işletme yöneticisi yapar.</p>
         </div> : <p className="text-subhead text-ink-muted">{selected.status === "CONFIRMED" ? "Randevu başlayınca tamamlandı olarak işaretleyebilirsiniz. İptal işlemini işletme yöneticisi yapar." : "Bu randevu için başka işlem yok."}</p>}
+        <AppointmentDeleteButton actor="ASSIGNED_STAFF" status={selected.status} appointmentId={selected.id} summary={`${customerOf(selected)} · ${selected.serviceName}`} run={deleteStaffAppointment} onDeleted={afterDelete} disabled={busy} className="w-full sm:w-auto" />
       </div>}
     </AppointmentSheet>
     {move.sheet}

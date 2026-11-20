@@ -111,6 +111,8 @@ describeDatabase("Admin serves as staff: own Staff row under RLS (integration)",
     await pool.query(`GRANT "${role}" TO CURRENT_USER WITH SET TRUE`);
     await pool.query(`GRANT USAGE ON SCHEMA public TO "${role}"`);
     for (const table of tables) await pool.query(`GRANT SELECT, INSERT, UPDATE ON "${table}" TO "${role}"`);
+    // The membership reader also reads Tenant.deletedAt (archived tenant => not_found); read-only, as salon_app has.
+    await pool.query(`GRANT SELECT ON "Tenant" TO "${role}"`);
     await seedTenant(tenantA, "A");
     await seedTenant(tenantB, "B");
   });
@@ -128,6 +130,7 @@ describeDatabase("Admin serves as staff: own Staff row under RLS (integration)",
     if (roleCreated) {
       try {
         for (const table of tables) await pool.query(`REVOKE SELECT, INSERT, UPDATE ON "${table}" FROM "${role}"`);
+        await pool.query(`REVOKE SELECT ON "Tenant" FROM "${role}"`);
         await pool.query(`REVOKE USAGE ON SCHEMA public FROM "${role}"`);
         await pool.query(`REVOKE "${role}" FROM CURRENT_USER`);
         await pool.query(`DROP ROLE IF EXISTS "${role}"`);

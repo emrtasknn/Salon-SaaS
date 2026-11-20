@@ -108,6 +108,9 @@ describeDatabase("CalendarFeedToken tenant isolation + feed repository integrati
     await appointment(`${f.tenantId}-pending`, "PENDING", "2 days");
     await appointment(`${f.tenantId}-cancelled`, "CANCELLED", "3 days");
     await appointment(`${f.tenantId}-far`, "CONFIRMED", "400 days");
+    // #205 archive: a deleted appointment must not reach the phone calendar.
+    await appointment(`${f.tenantId}-archived`, "CONFIRMED", "4 days");
+    await p.query(`UPDATE "Appointment" SET "deletedAt" = now() WHERE "id" = $1`, [`${f.tenantId}-archived`]);
   };
 
   const cleanupTenant = async (f: Fixture) => {
@@ -196,6 +199,15 @@ describeDatabase("CalendarFeedToken tenant isolation + feed repository integrati
     await repository().revoke(ctx(tenantA), input);
     expect(await repository().findActiveByHash(ctx(tenantA), second.tokenHash)).toBeNull();
     expect((await repository().status(ctx(tenantA), input)).active).toBe(false);
+  });
+
+  it("treats an archived staff member as inactive", async () => {
+    await db().query(`UPDATE "Staff" SET "deletedAt" = now() WHERE "id" = $1`, [tenantB.staffId]);
+    try {
+      expect(await repository().readHolder(ctx(tenantB), tenantB.staffProfileId)).toMatchObject({ staffId: null, staffActive: false });
+    } finally {
+      await db().query(`UPDATE "Staff" SET "deletedAt" = NULL WHERE "id" = $1`, [tenantB.staffId]);
+    }
   });
 
   it("reads the holder's current role and staff state", async () => {

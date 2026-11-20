@@ -11,8 +11,8 @@ export type StaffServiceReadTransaction = {
 };
 
 type Tx = PrismaTenantTransactionClient & StaffServiceReadTransaction & {
-  staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string } | null> };
-  service: { findMany(args: { where: { tenantId: string; id: { in: string[] } }; select: { id: true } }): Promise<Array<{ id: string }>> };
+  staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<{ id: string } | null> };
+  service: { findMany(args: { where: { tenantId: string; id: { in: string[] }; deletedAt: null }; select: { id: true } }): Promise<Array<{ id: string }>> };
   staffService: StaffServiceReadTransaction["staffService"] & {
     deleteMany(args: { where: { tenantId: string; staffId: string } }): Promise<{ count: number }>;
     createMany(args: { data: Array<{ tenantId: string; staffId: string; serviceId: string }> }): Promise<{ count: number }>;
@@ -46,10 +46,10 @@ export function createPrismaStaffServiceRepository(prisma: PrismaTenantClient): 
     async replace(tenantContext, staffId, serviceIds) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
         const tenantId = tenantContext.tenantId;
-        const staff = await tx.staff.findUnique({ where: { tenantId_id: { tenantId, id: staffId } } });
+        const staff = await tx.staff.findUnique({ where: { tenantId_id: { tenantId, id: staffId }, deletedAt: null } });
         if (!staff) return "not_found" as const;
         if (serviceIds.length) {
-          const found = await tx.service.findMany({ where: { tenantId, id: { in: [...serviceIds] } }, select: { id: true } });
+          const found = await tx.service.findMany({ where: { tenantId, id: { in: [...serviceIds] }, deletedAt: null }, select: { id: true } });
           if (found.length !== serviceIds.length) return "invalid_service" as const;
         }
         // Replace the whole set in one transaction; an empty set means "every service".

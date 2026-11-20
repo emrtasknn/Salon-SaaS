@@ -14,8 +14,8 @@ import type {
 import { formatLocalDate } from "../create-appointment-dialog";
 import { createClosure, deleteClosure, listClosures, previewClosureImpact } from "./closure-actions";
 import { Button } from "@/components/ui/button";
+import { DeleteButton, shouldRefreshAfterBlocked } from "../_ui/delete-button";
 import { checkboxClassName, field } from "../_ui/styles";
-import { haptic } from "@/lib/haptics";
 
 type Props = Readonly<{
   initialData: ClosureListResult;
@@ -56,7 +56,6 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
   const [confirmed, setConfirmed] = useState(false);
   const [formError, setFormError] = useState("");
   const [status, setStatus] = useState("");
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   if (data.status === "FORBIDDEN") return null;
 
@@ -139,23 +138,6 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
         }
       } catch {
         setFormError("Kapalı gün kaydedilemedi. Tekrar deneyin.");
-      }
-    });
-  }
-
-  function remove(closure: ClosureView) {
-    haptic("warning");
-    setStatus("");
-    startTransition(async () => {
-      try {
-        const result = await deleteClosure(closure.id);
-        setPendingDelete(null);
-        if (result.status === "DELETED") setStatus(`${formatLocalDate(closure.date)} artık kapalı gün değil.`);
-        else if (result.status === "NOT_FOUND") setStatus("Kapalı gün bulunamadı. Liste yenilendi.");
-        else setStatus("Bu işlem için yetkiniz yok.");
-        await reload();
-      } catch {
-        setStatus("Kapalı gün kaldırılamadı. Tekrar deneyin.");
       }
     });
   }
@@ -281,27 +263,23 @@ export function AdminClosures({ initialData, initialRange, embedded = false, onD
                     <p className="text-sm font-medium">{formatLocalDate(c.date)}</p>
                     {c.reason && <p className="break-words text-xs text-ink-muted">{c.reason}</p>}
                   </div>
-                  {pendingDelete === c.id ? (
-                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`${formatLocalDate(c.date)} kapalı gününü kaldır`}>
-                      <span className="text-xs text-ink-muted">Kaldırılsın mı?</span>
-                      <Button type="button" disabled={busy} onClick={() => remove(c)} variant="danger-outline" size="small">
-                        Evet, kaldır
-                      </Button>
-                      <Button type="button" disabled={busy} onClick={() => setPendingDelete(null)} variant="secondary" size="small">
-                        Vazgeç
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setPendingDelete(c.id)}
-                      aria-label={`${formatLocalDate(c.date)} kapalı gününü kaldır`}
-                      variant="secondary"
-                    >
-                      Kaldır
-                    </Button>
-                  )}
+                  <DeleteButton
+                    label="Kaldır"
+                    ariaLabel={`${formatLocalDate(c.date)} kapalı gününü kaldır`}
+                    title="Kapalı gün kaldırılsın mı?"
+                    description={`${formatLocalDate(c.date)} yeniden randevuya açılır.`}
+                    confirmLabel="Kapalı günü kaldır"
+                    variant="secondary"
+                    disabled={busy}
+                    run={() => deleteClosure(c.id)}
+                    onBlocked={(result) => {
+                      if (shouldRefreshAfterBlocked(result)) void reload();
+                    }}
+                    onDeleted={() => {
+                      setStatus(`${formatLocalDate(c.date)} artık kapalı gün değil.`);
+                      void reload();
+                    }}
+                  />
                 </li>
               ))}
             </ul>

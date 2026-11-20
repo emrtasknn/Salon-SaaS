@@ -66,6 +66,10 @@ Some server-only data has no tenant column and is used before or outside a tenan
 
 Owner-approved exception (2026-11-04): this pattern is for non-tenant data only and must never be used to reach tenant-owned rows.
 
+## Archive ("soft") delete columns
+
+Proposal migration `20261122100000_soft_delete_columns` (not applied; owner approval and CI validation first) adds a nullable `deletedAt TIMESTAMP(3)` to `Tenant`, `Staff`, `Service`, `Profile` and `Appointment`. RLS policies are unchanged: the tenant-isolation policies are `FOR ALL`, so updates that set `deletedAt` stay scoped to the tenant, and no index, grant or backfill is added.
+
 ## Migration validation
 
 The migration should be validated against disposable PostgreSQL before merge and against the actual Supabase role model before production deployment.

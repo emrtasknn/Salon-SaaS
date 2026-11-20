@@ -16,6 +16,7 @@ import {
   type PlatformTenantListResult,
   type PlatformTenantStatusResult,
 } from "@/application/platform-tenant-status";
+import type { DeleteResult } from "@/domain/deletion";
 import { createPrismaPlatformTenantRepository } from "@/persistence/prisma-platform-tenants";
 
 export async function readPlatformAccess() {
@@ -139,5 +140,20 @@ export async function setTenantStatusAction(
     });
   } catch {
     return { ok: false, code: "PERSISTENCE_FAILURE" };
+  }
+}
+
+/** SUPER_ADMIN-only archive of an INACTIVE tenant; `confirmSlug` must match the tenant slug exactly. */
+export async function deleteTenantAction(formData: FormData): Promise<DeleteResult> {
+  try {
+    const actor = await readPlatformActor();
+    if (!actor) return { status: "FORBIDDEN" };
+    if (!(formData instanceof FormData)) return { status: "INVALID_INPUT" };
+    return await platformTenants().delete(actor, {
+      tenantId: formData.get("tenantId"),
+      confirmSlug: formData.get("confirmSlug"),
+    });
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
   }
 }

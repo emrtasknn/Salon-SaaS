@@ -1,41 +1,52 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-19: calendar plan from the owner. Goals: a compact calendar header, more useful views, a staff home screen, and phone calendar integration (ADR-045). Owner asked to ship each part live.
+2026-11-16 — role-scoped archive ("soft") delete with confirmation dialog for tenant, staff, service, customer, customer note and appointment.
 
 ## State
-- Branch: `claude/amazing-dirac-nxg1k7`. PR #211 is open and waits for the migration gate.
-- Merged to main (auto-deploys staging + pilot): #208, #209, #210.
-- Environment touched: none of the real ones. A throwaway local PostgreSQL 16 in the container was used for the migration and integration tests.
+- Branch / commit: `claude/charming-sagan-cb78jh` @ see `git log` (plan base `a14277c`)
+- Working tree: clean
+- Environment touched: none (no database, no deploy; migration is a proposal, not applied)
 
 ## Done
-- #208: staff home "Özet" (`/staff`); staff calendar moved to `/staff/calendar` (old deep links redirect); compact `CalendarHeader` (week strip, ⋯ menu, + button); reload on app focus; staff tour v2.
-- #209: tap a free time in the day view to open create, prefilled with day, staff and time.
-- #210: month agenda (selected day under the grid) and week list (Tümü/Bekleyen filter).
-- #211 (open): `CalendarFeedToken` with migration `20261120100000`; `/<slug>/takvim/<token>.ics`; Ayarlar → Telefon takvimi; ADR-045.
+- Design: `docs/superpowers/specs/2026-11-16-delete-permissions-design.md` (owner approved)
+- Plan: `docs/superpowers/plans/2026-11-16-delete-permissions.md` (owner approved), Tasks 1–12 executed by role subagents with per-task review and one whole-branch review + fix wave
+
+## Changes
+| Area | Change |
+|---|---|
+| `prisma/schema.prisma`, `prisma/migrations/20261122100000_soft_delete_columns` | `deletedAt` on Tenant, Staff, Service, Profile, Appointment (additive, NOT applied) |
+| `src/domain/deletion.ts` | shared result type and appointment delete rule |
+| `src/application/*-deletion.ts`, `platform-tenant-status.ts` | delete use cases, authorization and blocking rules |
+| `src/persistence/prisma-*-deletion.ts`, `prisma-platform-tenants.ts` | transactional archive writes; read paths filter `deletedAt` |
+| `src/persistence/prisma-membership-reader.ts` | archived tenant → `not_found` (fail-closed read filter) |
+| `src/app/**/actions.ts` | seven delete actions; exact TENANT_ADMIN for tenant-scoped deletes |
+| `src/app/_ui/confirm-dialog.tsx`, `delete-button.tsx`, screens | confirm dialog and delete buttons |
+| `src/persistence/prisma-soft-delete.integration.test.ts` | integration suite (CI only) |
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| Lint / typecheck | `npm run lint`, `npm run typecheck` | PASS (3 old warnings) |
-| Unit | `npx vitest run --exclude "**/*.integration.test.ts"` | PASS |
-| Integration | full `npx vitest run` on a throwaway local PG16 | PASS, 178 files / 2023 tests |
-| CI | #208–#210 | green; #211 pending |
+| Lint | `npm run lint` | PASS (0 errors, 3 pre-existing warnings) |
+| Typecheck | `npm run typecheck` | PASS |
+| Unit tests | `npx vitest run --exclude '**/*.integration.test.ts'` (DATABASE_URL unset) | PASS (164 files, 1816 tests) |
+| Integration | CI | not run |
+| Build | `npm run build` | PASS |
+| Browser | — | not run (needs DB/auth; verify on staging) |
 
 ## Decisions
-- Native phone events never become appointments. Inbound sync will only create busy blocks (ADR-045 §2 E).
-- Customer names may appear in the phone calendar (owner, 2026-11-19).
+- Archive instead of hard delete; no restore UI; admin accounts not deletable; staff access revoked by deleting the membership.
+- Working-hours screen has no confirm dialog (no delete trigger there; closing a day is a reversible edit).
+- Owner 2026-11-16: customer erasure also clears WhatsApp opt-in and its evidence (KVKK notice evidence kept); any PENDING/CONFIRMED appointment blocks staff/service/customer delete (spec amended).
+- Owner 2026-11-16: reusing an archived service's name renames the archived row to `<name> (silindi)` (no partial index: it would break the CI drift gate).
 
-## Open risks / blocked
-- **#211 migration:**
-  - The owner applies it to staging and then the pilot (`docs/STAGING_RUNBOOK.md`).
-  - Then the owner adds the label `pilot-migrated`, and the PR can be merged.
-- **Phase B (Google two-way) needs from the owner:**
-  - a Google Cloud project with the Calendar API enabled;
-  - an OAuth consent screen and client id/secret (Vercel env);
-  - architecture approval of the busy-block availability rule.
-- No real signed-in phone check yet of #208–#211.
+## Open risks (owner decisions)
+- CI run 1 on PR #205: new soft-delete integration suite passed; 3 failures in `prisma-admin-self-staff.integration.test.ts` (its ad-hoc role lacked SELECT on Tenant, now granted in the test). `migration-gate` stays red until the owner applies the migration to staging + pilot and adds `pilot-migrated`.
+- `prisma-booking-engine.ts:200` accepts a stale erased-customer id; one-line filter in a protected file (not approved yet).
+- Deleted staff member's Supabase auth user remains (no access; email reuse may fail).
+- Staff delete button is shown on the admin's own row (server refuses).
+- Screens not browser-verified; check dialog focus/Escape/slug gate on staging.
+- `npm ci` fails with npm 10 against the lockfile in the cloud sandbox; npm 11 (CI's Node 24) was used without the lockfile.
 
 ## Next task
-- After #211: owner subscribes on an iPhone and in Google Calendar, then checks that an update arrives.
-- Then design phase B in detail (ADR-045 §5).
+- PR #205: get `quality-gates` green; owner applies the migration (staging, then pilot) and labels `pilot-migrated`; verify the dialog on staging. Open owner item: booking-engine filter for a stale erased-customer id.

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createAuthenticatedIdentity } from "../domain/auth-identity";
 import type { AppointmentRecord } from "../domain/appointment";
 import type { TenantContext } from "../domain/tenant-context";
-import { authorizeStaffCompletion, authorizeStaffDecision } from "./staff-appointment-authorization";
+import { authorizeStaffAppointmentDelete, authorizeStaffCompletion, authorizeStaffDecision } from "./staff-appointment-authorization";
 
 const tenantContext = { tenantId: "tenant-a" as never } satisfies TenantContext;
 const identity = createAuthenticatedIdentity("subject-a", "profile-a");
@@ -165,6 +165,26 @@ describe("authorizeStaffCompletion (owner decision 2026-11-06)", () => {
   it("denies customers and platform admins", async () => {
     for (const role of ["CUSTOMER", "SUPER_ADMIN"] as const) {
       await expect(authorizeStaffCompletion(dependencies({ role }).value, identity, tenantContext, confirmed)).resolves.toBe(false);
+    }
+  });
+});
+
+describe("authorizeStaffAppointmentDelete", () => {
+  it("allows the assigned ACTIVE staff member for any status (the status rule lives in appointmentDeleteRule)", async () => {
+    for (const status of ["PENDING", "CONFIRMED", "REJECTED", "CANCELLED", "COMPLETED"] as const) {
+      await expect(authorizeStaffAppointmentDelete(dependencies().value, identity, tenantContext, { ...appointment, status })).resolves.toBe(true);
+    }
+  });
+
+  it("denies other staff, inactive staff, other tenants and non-staff roles", async () => {
+    await expect(authorizeStaffAppointmentDelete(dependencies().value, identity, tenantContext, { ...appointment, staffId: "staff-b" })).resolves.toBe(false);
+    const inactive = dependencies({ staff: { id: "staff-a", tenantId: "tenant-a", profileId: "profile-a", status: "INACTIVE" } });
+    await expect(authorizeStaffAppointmentDelete(inactive.value, identity, tenantContext, appointment)).resolves.toBe(false);
+    const deps = dependencies();
+    await expect(authorizeStaffAppointmentDelete(deps.value, identity, tenantContext, { ...appointment, tenantId: "tenant-b" })).resolves.toBe(false);
+    expect(deps.readMembership).not.toHaveBeenCalled();
+    for (const role of ["CUSTOMER", "SUPER_ADMIN"] as const) {
+      await expect(authorizeStaffAppointmentDelete(dependencies({ role }).value, identity, tenantContext, appointment)).resolves.toBe(false);
     }
   });
 });

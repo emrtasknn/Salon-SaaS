@@ -19,18 +19,21 @@ vi.mock("../../infrastructure/prisma-runtime", () => ({ getPrisma: vi.fn(() => (
 vi.mock("../../persistence/prisma-membership-reader", () => ({ createPrismaMembershipReader: vi.fn(() => ({ readMembership })) }));
 vi.mock("../../persistence/prisma-service-management", () => ({ createPrismaServiceRepository: vi.fn(() => ({ list: vi.fn().mockResolvedValue([]) })) }));
 vi.mock("../../persistence/prisma-working-hours-management", () => ({ createPrismaWorkingHoursRepository: vi.fn(() => ({ list: vi.fn().mockResolvedValue([]) })) }));
+const { staffDeletionRepo, serviceDeletionRepo } = vi.hoisted(() => ({ staffDeletionRepo: { archive: vi.fn() }, serviceDeletionRepo: { archive: vi.fn() } }));
+vi.mock("../../persistence/prisma-staff-deletion", () => ({ createPrismaStaffDeletionRepository: vi.fn(() => staffDeletionRepo) }));
+vi.mock("../../persistence/prisma-service-deletion", () => ({ createPrismaServiceDeletionRepository: vi.fn(() => serviceDeletionRepo) }));
 vi.mock("../../persistence/prisma-staff-management", () => ({
   createPrismaStaffRepository: vi.fn(() => ({ list: vi.fn().mockResolvedValue([]) })),
   createPrismaAdminSelfStaffRepository: vi.fn(() => selfRepository),
 }));
 
-import { listAdminData, setAdminServesAsStaffAction } from "./actions";
+import { deleteServiceAction, deleteStaffAction, listAdminData, setAdminServesAsStaffAction } from "./actions";
 
 const sessionTenant = { tenantId: "tenant-from-session" };
 
 function authenticatedAs(role: string) {
   readAuthenticatedTenantRequest.mockResolvedValue({ state: "authenticated", identity: { state: "authenticated", subjectId: "user-1" }, tenantContext: sessionTenant });
-  readMembership.mockResolvedValue({ status: "found", membership: { profileId: "profile-1", role, tenantId: sessionTenant.tenantId } });
+  readMembership.mockResolvedValue({ status: "found", membership: { profileId: "profile-1", subjectId: "user-1", role, tenantId: sessionTenant.tenantId } });
 }
 
 beforeEach(() => {
@@ -76,5 +79,37 @@ describe("listAdminData adminServesAsStaff", () => {
     authenticatedAs("TENANT_ADMIN");
     selfRepository.findOwnStatus.mockRejectedValue(new Error("db down"));
     await expect(listAdminData()).resolves.toMatchObject({ status: "ok", adminServesAsStaff: false });
+  });
+});
+
+describe("deleteStaffAction / deleteServiceAction", () => {
+  it.each(["STAFF", "CUSTOMER", "SUPER_ADMIN"])("return FORBIDDEN for a %s membership and write nothing", async (role) => {
+    authenticatedAs(role);
+    await expect(deleteStaffAction("st1")).resolves.toEqual({ status: "FORBIDDEN" });
+    await expect(deleteServiceAction("sv1")).resolves.toEqual({ status: "FORBIDDEN" });
+    expect(staffDeletionRepo.archive).not.toHaveBeenCalled();
+    expect(serviceDeletionRepo.archive).not.toHaveBeenCalled();
+  });
+
+  it("return FORBIDDEN without a session", async () => {
+    readAuthenticatedTenantRequest.mockResolvedValue({ state: "unauthenticated" });
+    await expect(deleteStaffAction("st1")).resolves.toEqual({ status: "FORBIDDEN" });
+    await expect(deleteServiceAction("sv1")).resolves.toEqual({ status: "FORBIDDEN" });
+  });
+
+  it("archive exactly the submitted ids with the session tenant and actor profile", async () => {
+    authenticatedAs("TENANT_ADMIN");
+    staffDeletionRepo.archive.mockResolvedValue("archived");
+    serviceDeletionRepo.archive.mockResolvedValue("archived");
+    await expect(deleteStaffAction("st1")).resolves.toEqual({ status: "DELETED" });
+    await expect(deleteServiceAction("sv1")).resolves.toEqual({ status: "DELETED" });
+    expect(staffDeletionRepo.archive).toHaveBeenCalledWith(sessionTenant, { staffId: "st1", actorProfileId: "profile-1", now: expect.any(Date) });
+    expect(serviceDeletionRepo.archive).toHaveBeenCalledWith(sessionTenant, { serviceId: "sv1", now: expect.any(Date) });
+  });
+
+  it("map a thrown error to PERSISTENCE_FAILURE", async () => {
+    authenticatedAs("TENANT_ADMIN");
+    staffDeletionRepo.archive.mockRejectedValue(new Error("db"));
+    await expect(deleteStaffAction("st1")).resolves.toEqual({ status: "PERSISTENCE_FAILURE" });
   });
 });

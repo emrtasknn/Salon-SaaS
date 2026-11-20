@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
-vi.mock("./actions", () => ({ createTenantAction: vi.fn(), setTenantStatusAction: vi.fn() }));
+vi.mock("./actions", () => ({ createTenantAction: vi.fn(), setTenantStatusAction: vi.fn(), deleteTenantAction: vi.fn() }));
 vi.mock("../../_ui/account-links", () => ({ AccountRows: () => null }));
 
 import { PlatformTenantsView } from "./platform-tenants-view";
@@ -74,5 +74,12 @@ describe("PlatformTenantsView", () => {
     const html = renderToStaticMarkup(<PlatformTenantsView tenants={null} />);
     expect(html).toContain("İşletme listesi yüklenemedi.");
     expect(html).toContain("Yeni işletme");
+  });
+
+  it("offers delete only on INACTIVE salons, named after the salon", () => {
+    const html = renderToStaticMarkup(<PlatformTenantsView tenants={tenants} />);
+    expect(html.match(/salonunu sil"/g)?.length).toBe(1);
+    expect(html).toContain('aria-label="İsmail Berber salonunu sil"');
+    expect(html).not.toContain('aria-label="Kuaför Ayşe salonunu sil"');
   });
 });

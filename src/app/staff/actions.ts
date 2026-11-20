@@ -3,7 +3,10 @@
 import { createBookingEngine } from "../../application/booking-engine";
 import { createStaffAppointments } from "../../application/staff-appointments";
 import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
-import { authorizeStaffCompletion, authorizeStaffDecision } from "../../application/staff-appointment-authorization";
+import { createAppointmentDeletion } from "../../application/appointment-deletion";
+import { createPrismaAppointmentDeletionRepository } from "../../persistence/prisma-appointment-deletion";
+import type { DeleteResult } from "../../domain/deletion";
+import { authorizeStaffAppointmentDelete, authorizeStaffCompletion, authorizeStaffDecision } from "../../application/staff-appointment-authorization";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
@@ -240,4 +243,31 @@ export async function rescheduleStaffAppointment(appointmentId: string, newStart
     context.prisma, createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext,
     appointmentId, newStartAtIso,
   );
+}
+
+/**
+ * Deletes (archives) an appointment: the assigned ACTIVE staff member (status rule applied by the
+ * service) or a TENANT_ADMIN. Tenant and identity come from the trusted session context.
+ */
+export async function deleteStaffAppointment(appointmentId: string): Promise<DeleteResult> {
+  try {
+    const context = await getStaffContext();
+    if (!context) return { status: "FORBIDDEN" };
+    const { prisma, reader } = context;
+    return await createAppointmentDeletion({
+      repository: createPrismaAppointmentDeletionRepository(prisma),
+      authorizer: {
+        async authorizeAdmin(identity, tenantContext) {
+          const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
+          // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+          return result.authorization.status === "allowed" && result.authorization.role === "TENANT_ADMIN";
+        },
+        async authorizeAssignedStaff(identity, tenantContext, appointment) {
+          return authorizeStaffAppointmentDelete(staffDecisionAuthorization(prisma, reader), identity, tenantContext, appointment);
+        },
+      },
+    }).delete(context.identity, context.tenantContext, appointmentId);
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { checkboxClassName, field } from "../../_ui/styles";
-import { createStaffAction, setStaffServicesAction, setStaffStatusAction, updateStaffProfileAction } from "../actions";
+import { DeleteButton, shouldRefreshAfterBlocked } from "../../_ui/delete-button";
+import { createStaffAction, deleteStaffAction, setStaffServicesAction, setStaffStatusAction, updateStaffProfileAction } from "../actions";
 import { AdminSubpage, AdminUnauthorized, message, useAdminData, type AdminData } from "../admin-management";
 import { Button } from "@/components/ui/button";
 import { StatusToggle } from "../../_ui/status-toggle";
@@ -196,6 +197,25 @@ export function StaffManagement({ initialData }: { initialData: AdminData }) {
                     </form>
                   </details>
                 )}
+                <div className="mt-3 flex justify-end border-t border-separator pt-3">
+                  <DeleteButton
+                    ariaLabel={`${item.displayName} personelini sil`}
+                    title={`${item.displayName} silinsin mi?`}
+                    description="Giriş erişimi kapatılır, geçmiş randevular korunur."
+                    confirmLabel="Personeli sil"
+                    variant="ghost"
+                    className="text-destructive"
+                    disabled={busy}
+                    run={() => deleteStaffAction(item.id)}
+                    onBlocked={(result) => {
+                      if (shouldRefreshAfterBlocked(result)) refresh();
+                    }}
+                    onDeleted={() => {
+                      setFeedback(`${item.displayName} silindi.`);
+                      refresh();
+                    }}
+                  />
+                </div>
               </li>
             ))}
           </ul>

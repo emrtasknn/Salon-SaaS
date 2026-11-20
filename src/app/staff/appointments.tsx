@@ -2,7 +2,8 @@
 
 import { RotateCw } from "lucide-react";
 import { useState, useTransition, type ReactNode } from "react";
-import { completeStaffAppointment, listStaffAppointments } from "./actions";
+import { AppointmentDeleteButton } from "../_ui/appointment-delete-button";
+import { completeStaffAppointment, deleteStaffAppointment, listStaffAppointments } from "./actions";
 import { decideAndNotify } from "./decide";
 import { haptic } from "@/lib/haptics";
 import { BookingContactSummary } from "../booking-contact-summary";
@@ -53,6 +54,7 @@ export function StaffAppointments({ initialDate, initialData, bell }: Props) {
           </div>
           {a.status === "PENDING" && <div className="mt-3 flex flex-wrap gap-2"><Button type="submit" disabled={busy} onClick={() => { haptic("selection"); startTransition(async () => { const r = await decideAndNotify(a.id, "CONFIRMED"); haptic(r.status === "updated" ? "success" : "error"); setFeedback(r.status === "updated" ? "Randevu onaylandı." : "Randevu onaylanamadı."); if (r.status === "updated") refresh(); }); }} variant="primary" className="flex-1 sm:flex-none">Onayla</Button><ConfirmButton label="Reddet" question="Talep reddedilsin mi?" detail="Bu işlem geri alınamaz. Müşteri bildirim izni verdiyse bilgilendirilir." confirmLabel="Evet, reddet" disabled={busy} className="flex-1 sm:flex-none" onConfirm={() => { startTransition(async () => { const r = await decideAndNotify(a.id, "REJECTED"); haptic(r.status === "updated" ? "light" : "error"); setFeedback(r.status === "updated" ? "Randevu reddedildi." : "Randevu reddedilemedi."); if (r.status === "updated") refresh(); }); }} /></div>}
           {a.status === "CONFIRMED" && nowMs !== null && new Date(a.startAt).getTime() <= nowMs && <div className="mt-3"><Button type="button" disabled={busy} variant="secondary" className="w-full sm:w-auto" onClick={() => { haptic("selection"); startTransition(async () => { const r = await completeStaffAppointment(a.id); haptic(r.status === "updated" ? "success" : "error"); setFeedback(r.status === "updated" ? "Randevu tamamlandı." : r.status === "NOT_STARTED" ? "Randevu başlamadan tamamlandı olarak işaretlenemez." : "Randevu tamamlanamadı."); if (r.status === "updated") refresh(); }); }}>Tamamlandı</Button></div>}
+          <AppointmentDeleteButton actor="ASSIGNED_STAFF" status={a.status} appointmentId={a.id} summary={`${a.bookingContact?.displayName ?? a.customerName} · ${a.serviceName}`} run={deleteStaffAppointment} onDeleted={() => { setFeedback("Randevu silindi."); refresh(); }} size="small" disabled={busy} className="mt-3" />
         </article></li>)}</ul>}
     </div>
   </main>;

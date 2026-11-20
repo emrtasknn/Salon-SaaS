@@ -5,6 +5,9 @@ import { syncStaleCalendarsLater } from "../calendar-sync-runtime";
 import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
 import { createBookingEngine } from "../../application/booking-engine";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
+import { createAppointmentDeletion } from "../../application/appointment-deletion";
+import type { DeleteResult } from "../../domain/deletion";
+import { createPrismaAppointmentDeletionRepository } from "../../persistence/prisma-appointment-deletion";
 import { createPrismaCalendarCrmRepository } from "../../persistence/prisma-calendar-crm";
 import { createPrismaBookingRepository } from "../../persistence/prisma-booking-engine";
 import { createPrismaInAppNotificationRepository } from "../../persistence/prisma-in-app-notifications";
@@ -29,7 +32,7 @@ import type {
 
 type AppointmentLookupTx = PrismaTenantTransactionClient & {
   appointment: {
-    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<AppointmentRecord | null>;
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<AppointmentRecord | null>;
   };
 };
 
@@ -110,7 +113,7 @@ export async function transitionAdminAppointment(appointmentId: string, to: Appo
     context.prisma,
     context.tenantContext,
     async (tx: AppointmentLookupTx) => tx.appointment.findUnique({
-      where: { tenantId_id: { tenantId: context.tenantContext.tenantId, id: appointmentId } },
+      where: { tenantId_id: { tenantId: context.tenantContext.tenantId, id: appointmentId }, deletedAt: null },
     }),
   );
   if (!appointment) return { status: "NOT_FOUND" as const };
@@ -211,4 +214,29 @@ export async function rescheduleAdminAppointment(appointmentId: string, newStart
     context.prisma, createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext,
     appointmentId, newStartAtIso,
   );
+}
+
+/**
+ * Deletes (archives) an appointment as TENANT_ADMIN. Admin path only: the assigned-staff path
+ * always resolves false on this screen. Tenant comes from the trusted session context.
+ */
+export async function deleteAdminAppointment(appointmentId: string): Promise<DeleteResult> {
+  try {
+    const context = await getAdminContext();
+    if (!context) return { status: "FORBIDDEN" };
+    const { reader } = context;
+    return await createAppointmentDeletion({
+      repository: createPrismaAppointmentDeletionRepository(context.prisma),
+      authorizer: {
+        async authorizeAdmin(identity, tenantContext) {
+          const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
+          // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+          return result.authorization.status === "allowed" && result.authorization.role === "TENANT_ADMIN";
+        },
+        async authorizeAssignedStaff() { return false; },
+      },
+    }).delete(context.identity, context.tenantContext, appointmentId);
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
 }

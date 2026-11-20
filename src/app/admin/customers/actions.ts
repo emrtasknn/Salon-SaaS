@@ -3,6 +3,9 @@
 import { createCalendarCrm } from "../../../application/calendar-crm";
 import { enforceServerAuthorization } from "../../../application/server-authorization-enforcement";
 import { createAuthenticatedIdentity } from "../../../domain/auth-identity";
+import { createCustomerDeletion } from "../../../application/customer-deletion";
+import type { DeleteResult } from "../../../domain/deletion";
+import { createPrismaCustomerDeletionRepository } from "../../../persistence/prisma-customer-deletion";
 import { createPrismaCalendarCrmRepository } from "../../../persistence/prisma-calendar-crm";
 import { createPrismaMembershipReader } from "../../../persistence/prisma-membership-reader";
 import { createNextSupabaseServerClient } from "../../../infrastructure/auth/supabase-server-client";
@@ -96,4 +99,40 @@ export async function addCustomerNote(id: string, body: string) {
     id,
     body,
   );
+}
+
+function customerDeletion(context: AdminContext) {
+  return createCustomerDeletion({
+    repository: createPrismaCustomerDeletionRepository(context.prisma),
+    authorizer: {
+      async authorizeAdmin(identity, tenantContext) {
+        const result = await enforceServerAuthorization(
+          { identity, tenantContext, requiredRole: "TENANT_ADMIN" },
+          context.reader,
+        );
+        // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+        return result.authorization.status === "allowed" && result.authorization.role === "TENANT_ADMIN";
+      },
+    },
+  });
+}
+
+export async function deleteCustomerAction(id: string): Promise<DeleteResult> {
+  try {
+    const contextResult = await context();
+    if (!contextResult) return { status: "FORBIDDEN" };
+    return await customerDeletion(contextResult).deleteCustomer(contextResult.identity, contextResult.tenantContext, id);
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
+}
+
+export async function deleteCustomerNoteAction(noteId: string): Promise<DeleteResult> {
+  try {
+    const contextResult = await context();
+    if (!contextResult) return { status: "FORBIDDEN" };
+    return await customerDeletion(contextResult).deleteNote(contextResult.identity, contextResult.tenantContext, noteId);
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
 }

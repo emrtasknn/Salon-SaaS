@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { StatusToggle } from "../../_ui/status-toggle";
 import { field, statusNote } from "../../_ui/styles";
-import { setTenantStatusAction } from "./actions";
+import { DeleteButton, shouldRefreshAfterBlocked } from "../../_ui/delete-button";
+import { deleteTenantAction, setTenantStatusAction } from "./actions";
 
 type TenantRow = Readonly<{
   id: string;
@@ -116,6 +117,30 @@ export function TenantStatusList({ tenants }: { tenants: ReadonlyArray<TenantRow
                   pending={pendingId === tenant.id}
                 />
               </form>
+              {active ? null : (
+                <DeleteButton
+                  ariaLabel={`${tenant.name} salonunu sil`}
+                  title={`"${tenant.name}" salonu silinsin mi?`}
+                  description="Salon ve tüm kullanıcılarının erişimi kapatılır."
+                  confirmLabel="Salonu sil"
+                  requireText={tenant.slug}
+                  requireTextLabel={`Onaylamak için salon adresini yazın: ${tenant.slug}`}
+                  disabled={busy}
+                  run={(typed) => {
+                    const formData = new FormData();
+                    formData.set("tenantId", tenant.id);
+                    formData.set("confirmSlug", typed ?? "");
+                    return deleteTenantAction(formData);
+                  }}
+                  onBlocked={(result) => {
+                    if (shouldRefreshAfterBlocked(result)) router.refresh();
+                  }}
+                  onDeleted={() => {
+                    setMessage(`${tenant.name} silindi.`);
+                    router.refresh();
+                  }}
+                />
+              )}
             </li>
           );
         })}

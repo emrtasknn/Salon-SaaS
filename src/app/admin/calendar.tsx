@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import {
   createAdminAppointment,
+  deleteAdminAppointment,
   getAdminCreateOptions,
   listAdminAppointments,
   listAdminSlots,
@@ -30,6 +31,7 @@ import { DayAgenda, WeekAgenda } from "../_ui/agenda-list";
 import { dateInZone } from "../_ui/timeline-layout";
 import { formatDayLabel } from "../_ui/date-format";
 import { ConfirmButton } from "../_ui/confirm-button";
+import { AppointmentDeleteButton } from "../_ui/appointment-delete-button";
 import { appointmentStatusBadge, badgeBase, appointmentStatusLabel } from "../_ui/styles";
 import { AdminClosures } from "./closures";
 import type { ClosureListResult, LocalDateIso } from "../appointment-create-contract";
@@ -185,6 +187,12 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
         setFeedback("İşlem gerçekleştirilemedi.");
       }
     });
+  }
+
+  function afterDelete() {
+    setSelectedId(null);
+    setFeedback("Randevu silindi.");
+    refresh();
   }
 
   if (data.status === "UNAUTHORIZED") {
@@ -403,6 +411,16 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
             ) : (
               <p className="text-subhead text-ink-muted">Bu randevu için başka işlem yok.</p>
             )}
+            <AppointmentDeleteButton
+              actor="TENANT_ADMIN"
+              status={selected.status}
+              appointmentId={selected.id}
+              summary={`${selected.customerDisplayName} · ${selected.serviceName}`}
+              run={deleteAdminAppointment}
+              onDeleted={() => afterDelete()}
+              disabled={busy}
+              className="w-full sm:w-auto"
+            />
           </div>
         )}
       </AppointmentSheet>

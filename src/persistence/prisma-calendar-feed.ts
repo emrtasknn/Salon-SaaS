@@ -89,7 +89,8 @@ export function createPrismaCalendarFeedRepository(prisma: PrismaTenantClient): 
       const tenantId = tenantContext.tenantId;
       return withPrismaTenantContext(prisma, tenantContext, async (tx: FeedTx) => {
         const membership = await tx.tenantMembership.findFirst({ where: { tenantId, profileId }, select: { role: true } });
-        const staff = await tx.staff.findUnique({ where: { tenantId_profileId: { tenantId, profileId } }, select: { id: true, status: true } });
+        // An archived staff member counts as inactive: their feed and Google sync stop.
+        const staff = await tx.staff.findUnique({ where: { tenantId_profileId: { tenantId, profileId }, deletedAt: null }, select: { id: true, status: true } });
         return { role: membership?.role ?? null, staffId: staff?.id ?? null, staffActive: staff?.status === "ACTIVE" };
       });
     },
@@ -98,7 +99,8 @@ export function createPrismaCalendarFeedRepository(prisma: PrismaTenantClient): 
       const tenantId = tenantContext.tenantId;
       return withPrismaTenantContext(prisma, tenantContext, async (tx: FeedTx): Promise<FeedAppointment[]> => {
         const rows = await tx.appointment.findMany({
-          where: { tenantId, ...(staffId ? { staffId } : {}), status: { in: [...FEED_STATUSES] }, startAt: { gte: from, lt: to } },
+          // Archived (deleted) appointments leave the phone calendar and the Google mirror.
+          where: { tenantId, ...(staffId ? { staffId } : {}), status: { in: [...FEED_STATUSES] }, deletedAt: null, startAt: { gte: from, lt: to } },
           orderBy: { startAt: "asc" },
           take: MAX_FEED_EVENTS,
           select: { id: true, startAt: true, endAt: true, status: true, updatedAt: true, serviceId: true, staffId: true, customerProfileId: true },

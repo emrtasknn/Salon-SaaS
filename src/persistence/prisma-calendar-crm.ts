@@ -89,6 +89,7 @@ type Tx = PrismaTenantTransactionClient & {
           tenantId: string;
           id: string;
         };
+        deletedAt: null;
       };
     }): Promise<{
       id: string;
@@ -123,6 +124,7 @@ export function createPrismaCalendarCrmRepository(
         const profiles = await tx.profile.findMany({
           where: {
             tenantId: tenantContext.tenantId,
+            deletedAt: null,
             // Customers only: salon team members (any tenant membership or a staff
             // record) are not customers and must not appear in the CRM list.
             memberships: { none: {} },
@@ -163,6 +165,7 @@ export function createPrismaCalendarCrmRepository(
           where: {
             tenantId: tenantContext.tenantId,
             customerProfileId: { in: ids },
+            deletedAt: null,
           },
           orderBy: { startAt: "desc" },
         });
@@ -192,6 +195,7 @@ export function createPrismaCalendarCrmRepository(
           const appointments = await tx.appointment.findMany({
             where: {
               tenantId: tenantContext.tenantId,
+              deletedAt: null,
               startAt: { lt: range.endAt },
               endAt: { gt: range.startAt },
               ...(range.staffId ? { staffId: range.staffId } : {}),
@@ -254,6 +258,7 @@ export function createPrismaCalendarCrmRepository(
               tenantId: tenantContext.tenantId,
               id: customerProfileId,
             },
+            deletedAt: null,
           },
         });
 
@@ -264,6 +269,7 @@ export function createPrismaCalendarCrmRepository(
             where: {
               tenantId: tenantContext.tenantId,
               customerProfileId,
+              deletedAt: null,
             },
             orderBy: { startAt: "desc" },
             include: {
@@ -316,6 +322,7 @@ export function createPrismaCalendarCrmRepository(
               tenantId: tenantContext.tenantId,
               id: customerProfileId,
             },
+            deletedAt: null,
           },
         });
 

@@ -66,11 +66,11 @@ export type PrismaStaffTransaction = PrismaTenantTransactionClient & {
       };
     }): Promise<StaffRow>;
     updateMany(args: {
-      where: { tenantId: string; id: string };
+      where: { tenantId: string; id: string; deletedAt: null };
       data: { status: "ACTIVE" | "INACTIVE" };
     }): Promise<{ count: number }>;
     findMany(args: {
-      where: { tenantId: string };
+      where: { tenantId: string; deletedAt: null };
       select: {
         id: true;
         tenantId: true;
@@ -85,7 +85,7 @@ export type PrismaStaffTransaction = PrismaTenantTransactionClient & {
       };
     }): Promise<StaffRow[]>;
     findUnique(args: {
-      where: { tenantId_id: { tenantId: string; id: string } };
+      where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null };
     }): Promise<StaffIdentityRow | null>;
   };
 };
@@ -167,6 +167,7 @@ export function createPrismaStaffRepository(
             const staff = await tx.staff.findUnique({
               where: {
                 tenantId_id: { tenantId: tenantContext.tenantId, id: staffId },
+                deletedAt: null,
               },
             });
             if (!staff) return "not_found" as const;
@@ -199,7 +200,7 @@ export function createPrismaStaffRepository(
         tenantContext,
         async (tx: PrismaStaffTransaction) =>
           tx.staff.updateMany({
-            where: { tenantId: tenantContext.tenantId, id: staffId },
+            where: { tenantId: tenantContext.tenantId, id: staffId, deletedAt: null },
             data: { status },
           }),
       );
@@ -211,7 +212,7 @@ export function createPrismaStaffRepository(
         tenantContext,
         async (tx: PrismaStaffTransaction) =>
           tx.staff.findMany({
-            where: { tenantId: tenantContext.tenantId },
+            where: { tenantId: tenantContext.tenantId, deletedAt: null },
             select: {
               id: true,
               tenantId: true,
