@@ -12,16 +12,19 @@ export function SettingsScreen({
   home,
   pushBindingKey,
   tour,
+  calendarHref,
 }: {
   home: BreadcrumbStep;
   pushBindingKey?: string | null;
   tour?: TourId;
+  /** Page with the phone calendar subscription (admin and staff areas). */
+  calendarHref?: string;
 }) {
   return (
     <main className="min-h-screen bg-canvas text-ink">
       <PageHeader title="Ayarlar" breadcrumb={[home, { label: "Ayarlar" }]} />
       <div className="mx-auto w-full max-w-xl space-y-3 px-4 pb-10 pt-6 sm:px-6">
-        <SettingsList pushBindingKey={pushBindingKey} tour={tour && home.href ? { id: tour, href: home.href } : undefined} />
+        <SettingsList pushBindingKey={pushBindingKey} calendarHref={calendarHref} tour={tour && home.href ? { id: tour, href: home.href } : undefined} />
         <p className="px-4 text-footnote text-ink-muted">Görünüm ve titreşim yalnızca bu cihazda saklanır.</p>
       </div>
     </main>

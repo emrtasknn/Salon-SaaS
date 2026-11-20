@@ -6,9 +6,10 @@ import { localWallTimeToUtc } from "../domain/availability";
 import { readClosedDates, type ClosureDateReadTransaction } from "./prisma-booking-engine";
 import { staffServesService, type StaffServiceReadTransaction } from "./prisma-staff-services";
 import { combineServiceTimings } from "../domain/multi-service";
+import { readTrustedBusy, type ExternalBusyReadTransaction } from "./prisma-external-busy";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
-type Tx = PrismaTenantTransactionClient & ClosureDateReadTransaction & StaffServiceReadTransaction & {
+type Tx = PrismaTenantTransactionClient & ClosureDateReadTransaction & StaffServiceReadTransaction & ExternalBusyReadTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string; status: "ACTIVE" | "INACTIVE" } | null> };
   service: {
     findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
@@ -63,6 +64,8 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
           });
           // WP-08: closed local dates (this day, and the next one for slots ending after midnight).
           const closedDates = await readClosedDates(tx, tenantContext.tenantId, input.staffId, [input.dateIso, nextCalendarDate(input.dateIso)]);
+          // ADR-045 phase B: the staff member's connected Google calendar closes those times online.
+          const busyIntervals = await readTrustedBusy(tx, { tenantId: tenantContext.tenantId, staffId: input.staffId, from: dayStart, to: nextDayStart, now: new Date() });
 
           return {
             status: "ok" as const,
@@ -72,6 +75,7 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
             workingHours,
             appointments,
             closedDates,
+            busyIntervals,
             serviceActive: service.active,
             staffActive: staff.status === "ACTIVE",
           };

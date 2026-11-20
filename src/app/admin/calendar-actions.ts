@@ -1,6 +1,7 @@
 "use server";
 
 import { createCalendarCrm } from "../../application/calendar-crm";
+import { syncStaleCalendarsLater } from "../calendar-sync-runtime";
 import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
 import { createBookingEngine } from "../../application/booking-engine";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
@@ -92,6 +93,8 @@ export async function listAdminAppointments(startDate: string, endDate?: string,
   if (!context) return { status: "UNAUTHORIZED" as const };
   const range = parseCalendarRange(startDate, endDate);
   if (!range || (staffId !== undefined && typeof staffId !== "string")) return { status: "INVALID_INPUT" as const };
+  // ADR-045: keep connected Google calendars of this salon fresh (after the response).
+  syncStaleCalendarsLater(context.tenantContext);
   const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
   if (!tenant) return { status: "NOT_FOUND" as const };
   const startAt = localWallTimeToUtc(range.startDate, 0, tenant.timezone);

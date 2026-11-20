@@ -314,6 +314,7 @@ MVP v1 is reached only after the real-salon journey is usable and the critical s
 - calendar UX
 - customer UX
 - notification improvements
+- **Phone calendar integration (owner request 2026-11-19, ADR-045):** phase A private iCalendar subscription feed (Apple/Google Calendar, customer names allowed) in progress; phase B Google Calendar two-way (busy blocks reduce online availability) needs Google Cloud OAuth setup + architecture approval; phase C iCloud CalDAV only on demand.
 - configurable WhatsApp appointment reminders (business-configurable timing, rescheduling/cancellation handling, idempotency, and visible delivery status)
 - business-customizable WhatsApp message templates, dynamic placeholders, preview/testing, and Meta template approval/status lifecycle
 - SMS

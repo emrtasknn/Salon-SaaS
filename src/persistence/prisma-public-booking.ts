@@ -7,11 +7,12 @@ import { addDaysToDateIso, calculateAvailability, isSlotOnClosedDate, utcToLocal
 import { appointmentAccessTokenExpiry } from "../domain/appointment-access-token";
 import { readTenantStatusForShare, type TenantStatusQueryTransaction } from "./tenant-status-guard";
 import { readClosedDates, type ClosureDateReadTransaction } from "./prisma-booking-engine";
+import { readTrustedBusy, type ExternalBusyReadTransaction } from "./prisma-external-busy";
 import { staffServesService, type StaffServiceReadTransaction } from "./prisma-staff-services";
 import { combineServiceTimings } from "../domain/multi-service";
 import { CUSTOMER_NOTICE, WHATSAPP_OPTIN, customerNoticeHash, isLegalReady, whatsAppOptInHash } from "../domain/legal-notice";
 
-type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & ClosureDateReadTransaction & StaffServiceReadTransaction & {
+type Tx = PrismaTenantTransactionClient & TenantStatusQueryTransaction & ClosureDateReadTransaction & StaffServiceReadTransaction & ExternalBusyReadTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{
     id: string; timezone: string; name: string; contactPhone: string | null;
     legalName: string | null; legalAddress: string | null; kvkkContactEmail: string | null;
@@ -87,6 +88,8 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
           // WP-08: closure re-check AFTER the FOR SHARE tenant read, on this tenant-context tx (RLS).
           const closedDates = await readClosedDates(tx, tenantContext.tenantId, input.staffId, [local.dateIso, addDaysToDateIso(local.dateIso, 1)]);
           if (isSlotOnClosedDate({ startAt: input.startAt, endAt }, tenant.timezone, closedDates)) return "slot_unavailable";
+          // ADR-045 phase B: re-check the staff member's Google busy time inside this transaction.
+          const busyIntervals = await readTrustedBusy(tx, { tenantId: tenantContext.tenantId, staffId: input.staffId, from: input.startAt, to: endAt, now: new Date() });
           const slot = calculateAvailability({
             dateIso: local.dateIso,
             timeZone: tenant.timezone,
@@ -97,6 +100,7 @@ export function createPrismaPublicBookingRepository(prisma: PrismaTenantClient):
             bufferMinutes: timing.bufferMinutes,
             now: new Date(),
             closedDates,
+            busyIntervals,
           }).find((candidate) => candidate.startAt.getTime() === input.startAt.getTime());
           if (!slot) return "slot_unavailable";
           const conflicts = await tx.appointment.findMany({
