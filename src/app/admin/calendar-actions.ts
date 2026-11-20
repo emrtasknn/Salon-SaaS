@@ -1,6 +1,7 @@
 "use server";
 
 import { createCalendarCrm } from "../../application/calendar-crm";
+import { listTrustedBusyBlocks } from "../../persistence/prisma-external-busy";
 import { syncStaleCalendarsLater } from "../calendar-sync-runtime";
 import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
 import { createBookingEngine } from "../../application/booking-engine";
@@ -88,6 +89,28 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
  * defaults to `startDate` (one day); the span is capped at CALENDAR_RANGE_MAX_DAYS (a month grid).
  * Same tenant-scoped query and TENANT_ADMIN authorization for every range.
  */
+
+export type CalendarBusyView =
+  | Readonly<{ status: "ok"; busy: ReadonlyArray<{ id: string; staffId: string; startAt: string; endAt: string }> }>
+  | Readonly<{ status: "UNAUTHORIZED" | "INVALID_INPUT" | "NOT_FOUND" }>;
+
+function busyView(blocks: ReadonlyArray<{ id: string; staffId: string; startAt: Date; endAt: Date }>): CalendarBusyView {
+  return { status: "ok", busy: blocks.map((b) => ({ id: b.id, staffId: b.staffId, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() })) };
+}
+
+/** ADR-045: every staff member's busy time from connected phone calendars (display only). */
+export async function listAdminBusy(startDate: string, endDate?: string): Promise<CalendarBusyView> {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" };
+  const range = parseCalendarRange(startDate, endDate);
+  if (!range) return { status: "INVALID_INPUT" };
+  const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
+  if (!tenant) return { status: "NOT_FOUND" };
+  const from = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
+  const to = localWallTimeToUtc(range.endDate, 1439, tenant.timezone);
+  return busyView(await listTrustedBusyBlocks(context.prisma, context.tenantContext, { staffId: null, from, to, now: new Date() }));
+}
+
 export async function listAdminAppointments(startDate: string, endDate?: string, staffId?: string) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };

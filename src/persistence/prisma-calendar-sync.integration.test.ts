@@ -6,6 +6,7 @@ import { PrismaClient } from "../generated/prisma/client";
 import { encryptSecret } from "../infrastructure/calendar-token-crypto";
 import { createPrismaCalendarSyncRepository } from "./prisma-calendar-sync";
 import { createPrismaPublicAvailabilityRepository } from "./prisma-public-availability";
+import { listTrustedBusyBlocks } from "./prisma-external-busy";
 import type { PrismaTenantClient } from "./prisma-tenant-context";
 
 // ADR-045 phase B: RLS on CalendarConnection / ExternalBusyBlock / CalendarEventLink, one live
@@ -141,6 +142,10 @@ describeDatabase("Google calendar sync tables integration (ADR-045 phase B)", ()
     await repo().markSynced(ctx(a), connection.id, { now: new Date(), errorCode: null, status: "ACTIVE" });
     result = await read();
     expect(result.status === "ok" && result.busyIntervals?.map((i) => i.startAt.toISOString())).toEqual([busyStart.toISOString()]);
+    // Calendar screens: admin (all staff) and staff (own) see the block; another tenant does not.
+    const listed = await listTrustedBusyBlocks(client(), ctx(a), { staffId: null, from: new Date(0), to: new Date(8.64e15), now: new Date() });
+    expect(listed.map((b) => b.staffId)).toEqual([a.staffId]);
+    expect(await listTrustedBusyBlocks(client(), ctx(b), { staffId: null, from: new Date(0), to: new Date(8.64e15), now: new Date() })).toEqual([]);
     // Another tenant's staff sees nothing; revoking drops the blocks at once.
     expect(await repo().busyForStaff(ctx(b), { staffId: a.staffId, from: new Date(0), to: new Date(8.64e15), trustedSince: new Date(0) })).toEqual([]);
     await repo().revoke(ctx(a), connection.id, new Date());

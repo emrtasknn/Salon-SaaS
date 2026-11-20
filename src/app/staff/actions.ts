@@ -1,6 +1,7 @@
 "use server";
 
 import { createBookingEngine } from "../../application/booking-engine";
+import { listTrustedBusyBlocks } from "../../persistence/prisma-external-busy";
 import { createStaffAppointments } from "../../application/staff-appointments";
 import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
 import { createAppointmentDeletion } from "../../application/appointment-deletion";
@@ -140,6 +141,29 @@ export async function listStaffAppointments(startDate: string, endDate?: string)
   const startAt = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
   const endAt = localWallTimeToUtc(range.endDate, 1439, tenant.timezone);
   return staffAppointments(context.prisma, context.reader).list(context.identity, context.tenantContext, context.staffId, { startAt, endAt });
+}
+
+
+export type CalendarBusyView =
+  | Readonly<{ status: "ok"; busy: ReadonlyArray<{ id: string; staffId: string; startAt: string; endAt: string }> }>
+  | Readonly<{ status: "UNAUTHORIZED" | "INVALID_INPUT" | "NOT_FOUND" }>;
+
+function busyView(blocks: ReadonlyArray<{ id: string; staffId: string; startAt: Date; endAt: Date }>): CalendarBusyView {
+  return { status: "ok", busy: blocks.map((b) => ({ id: b.id, staffId: b.staffId, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() })) };
+}
+
+/** ADR-045: the signed-in staff member's busy time from their connected phone calendar (display only). */
+export async function listStaffBusy(startDate: string, endDate?: string): Promise<CalendarBusyView> {
+  const context = await getStaffContext();
+  if (!context) return { status: "UNAUTHORIZED" };
+  const range = parseCalendarRange(startDate, endDate);
+  if (!range) return { status: "INVALID_INPUT" };
+  const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
+  if (!tenant) return { status: "NOT_FOUND" };
+  const { localWallTimeToUtc } = await import("../../domain/availability");
+  const from = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
+  const to = localWallTimeToUtc(range.endDate, 1439, tenant.timezone);
+  return busyView(await listTrustedBusyBlocks(context.prisma, context.tenantContext, { staffId: context.staffId, from, to, now: new Date() }));
 }
 
 export async function decideStaffAppointment(

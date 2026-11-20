@@ -2,6 +2,8 @@
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import { AppointmentDeleteButton } from "../_ui/appointment-delete-button";
+import { listStaffBusy } from "./actions";
+import { busyItems, isBusyItemId } from "../_ui/calendar-busy";
 import { completeStaffAppointment, deleteStaffAppointment, createStaffAppointment, getStaffCreateOptions, listStaffAppointments, listStaffSlots, rescheduleStaffAppointment } from "./actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
 import { CreateAppointmentDialog, type CreateRequest } from "../create-appointment-dialog";
@@ -36,12 +38,15 @@ type Props = {
 /** The staff view is always the signed-in staff member's own day: a single column. */
 const SELF_COLUMN = [{ id: "self", label: "Randevularım" }] as const;
 const NO_CLOSURES: ReadonlySet<string> = new Set();
+const NO_BUSY = { status: "ok", busy: [] } as const;
 
 export function StaffCalendar({ initialDate, initialRange, initialData, bell, initialSelectedId = null }: Props) {
   const [date, setDate] = useState(initialDate);
   const [view, setView] = useCalendarView();
   // Own appointments only: the loader derives the staff member from the session.
   const { data, stale, busy: loading, refresh } = useCalendarData(listStaffAppointments, view, date, { ...initialRange, data: initialData });
+  // ADR-045: busy time from the connected phone calendar (grey "Dolu" blocks; loads after the page).
+  const { data: busyData } = useCalendarData(listStaffBusy, view, date, { startDate: "", endDate: "", data: NO_BUSY });
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
@@ -121,7 +126,8 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
   const loadError = data.status !== "ok" ? "Randevular yüklenemedi." : "";
   // Day and list show only the anchor date (data may still hold a wider range while reloading).
   const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
-  const select = (id: string, trigger: HTMLElement) => { sheetTrigger.current = trigger; setFeedback(""); setSelectedId(id); };
+  const busyBlocks = busyData.status === "ok" ? busyData.busy : [];
+  const select = (id: string, trigger: HTMLElement) => { if (isBusyItemId(id)) return; sheetTrigger.current = trigger; setFeedback(""); setSelectedId(id); };
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const customerOf = (a: (typeof appointments)[number]) => a.bookingContact?.displayName ?? a.customerName;
   const agendaItems = appointments.map((a) => ({ id: a.id, startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }));
@@ -148,14 +154,14 @@ export function StaffCalendar({ initialDate, initialRange, initialData, bell, in
         view === "week" ? <WeekView
           date={date}
           perStaffColors={false}
-          items={appointments.map((a) => ({ id: a.id, staffId: "self", staffName: "", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
+          items={[...appointments.map((a) => ({ id: a.id, staffId: "self", staffName: "", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName })), ...busyItems(busyBlocks, () => "self").map((b) => ({ ...b, staffId: "self", staffName: "" }))]}
           onSelect={select}
           onOpenDay={openDay}
         /> :
         view === "day" ? <DayTimeline
           date={date}
           rows={SELF_COLUMN}
-          items={dayAppointments.map((a) => move.preview({ id: a.id, rowId: "self", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName }))}
+          items={[...dayAppointments.map((a) => move.preview({ id: a.id, rowId: "self", startAt: a.startAt, endAt: a.endAt, status: a.status, customer: customerOf(a), service: a.serviceName })), ...busyItems(busyBlocks.filter((b) => dateInZone(b.startAt) === date), () => "self")]}
           onSelect={select}
           onCreateAt={(_rowId, minute) => setCreateRequest({ key: Date.now(), date, minute })}
           pendingId={move.pendingId}
