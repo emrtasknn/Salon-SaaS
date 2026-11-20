@@ -26,6 +26,10 @@ export const RATE_LIMIT_POLICIES = {
   // several devices can share a salon's IP.
   "feed.view": { limit: 120, windowSeconds: 600, scope: "ip" },
   "feed.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
+  // ADR-045 phase C RandevuN CalDAV account (src/app/dav-runtime.ts): a phone sync is a burst of
+  // PROPFIND/REPORT requests; failed sign-ins are capped hard.
+  "dav.request": { limit: 600, windowSeconds: 600, scope: "ip" },
+  "dav.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 export type RateLimitBucket = keyof typeof RATE_LIMIT_POLICIES;

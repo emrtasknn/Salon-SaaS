@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // ADR-045 phase C: CalDAV collections live at paths ending in "/" (/dav/u/<user>/cal/…/).
+  // The automatic slash-stripping redirect is off; src/proxy.ts keeps it for every other path.
+  skipTrailingSlashRedirect: true,
   logging: {
     serverFunctions: false,
   },

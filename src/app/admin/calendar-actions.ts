@@ -91,11 +91,11 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
  */
 
 export type CalendarBusyView =
-  | Readonly<{ status: "ok"; busy: ReadonlyArray<{ id: string; staffId: string; startAt: string; endAt: string }> }>
+  | Readonly<{ status: "ok"; busy: ReadonlyArray<{ id: string; staffId: string; startAt: string; endAt: string; title: string | null }> }>
   | Readonly<{ status: "UNAUTHORIZED" | "INVALID_INPUT" | "NOT_FOUND" }>;
 
-function busyView(blocks: ReadonlyArray<{ id: string; staffId: string; startAt: Date; endAt: Date }>): CalendarBusyView {
-  return { status: "ok", busy: blocks.map((b) => ({ id: b.id, staffId: b.staffId, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString() })) };
+function busyView(blocks: ReadonlyArray<{ id: string; staffId: string; startAt: Date; endAt: Date; title: string | null }>): CalendarBusyView {
+  return { status: "ok", busy: blocks.map((b) => ({ id: b.id, staffId: b.staffId, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString(), title: b.title })) };
 }
 
 /** ADR-045: every staff member's busy time from connected phone calendars (display only). */

@@ -5,7 +5,8 @@
 export const BUSY_STATUS = "EXTERNAL_BUSY";
 const BUSY_PREFIX = "busy:";
 
-export type BusyBlock = Readonly<{ id: string; staffId: string; startAt: string; endAt: string }>;
+/** `title`: the phone event's own title (RandevuN account); null for Google free/busy. */
+export type BusyBlock = Readonly<{ id: string; staffId: string; startAt: string; endAt: string; title?: string | null }>;
 
 export function isBusyItemId(id: string): boolean {
   return id.startsWith(BUSY_PREFIX);
@@ -19,7 +20,7 @@ export function busyItems(blocks: readonly BusyBlock[], rowIdOf: (block: BusyBlo
     startAt: block.startAt,
     endAt: block.endAt,
     status: BUSY_STATUS,
-    customer: "Dolu",
+    customer: block.title ? `Dolu · ${block.title}` : "Dolu",
     service: "Telefon takvimi",
   }));
 }

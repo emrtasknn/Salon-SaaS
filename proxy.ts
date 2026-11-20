@@ -1,8 +1,23 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
+import { handleDavRequest } from "./src/app/dav-runtime";
+import { isDavPath } from "./src/app/dav-path";
+import { withoutTrailingSlash } from "./src/app/trailing-slash";
 import { updateSupabaseSession } from "./src/infrastructure/auth/supabase-proxy";
 
 export async function proxy(request: NextRequest) {
+  // The raw path: request.nextUrl normalises trailing slashes away.
+  const pathname = new URL(request.url).pathname;
+  // ADR-045 phase C: the RandevuN CalDAV account. Answered here because Route Handlers only
+  // accept GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS and CalDAV needs PROPFIND and REPORT.
+  if (isDavPath(pathname)) return handleDavRequest(request);
+  // Next's default "/admin/" → "/admin" redirect, turned off in next.config.ts for CalDAV.
+  const stripped = withoutTrailingSlash(pathname);
+  if (stripped !== null) {
+    const url = new URL(request.url);
+    url.pathname = stripped;
+    return NextResponse.redirect(url, 308);
+  }
   return updateSupabaseSession(request);
 }
 
