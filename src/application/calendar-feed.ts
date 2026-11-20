@@ -41,8 +41,8 @@ export type FeedResult =
   | Readonly<{ status: "NOT_FOUND" }>
   | Readonly<{ status: "RATE_LIMITED" }>;
 
-/** lastUsedAt is written at most this often (a phone polls every few minutes). */
-const TOUCH_EVERY_MS = 60 * 60_000;
+/** lastUsedAt is written at most this often, so the settings page can show when a phone last synced. */
+const TOUCH_EVERY_MS = 5 * 60_000;
 
 export function holderMayUse(scope: CalendarFeedScope, holder: FeedHolder): boolean {
   if (scope === "TENANT_ALL") return holder.role === "TENANT_ADMIN" || holder.role === "SUPER_ADMIN";

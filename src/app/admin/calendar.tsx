@@ -6,6 +6,7 @@ import {
   deleteAdminAppointment,
   getAdminCreateOptions,
   listAdminAppointments,
+  listAdminBusy,
   listAdminSlots,
   rescheduleAdminAppointment,
   searchAdminCustomers,
@@ -24,6 +25,7 @@ import {
   useCalendarView,
 } from "../_ui/day-timeline";
 import { CalendarHeader, OverflowMenu } from "../_ui/calendar-header";
+import { busyItems, isBusyItemId } from "../_ui/calendar-busy";
 import { liveAppointmentDates } from "../_ui/calendar-marks";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
@@ -80,6 +82,8 @@ const actionVariant: Record<ActionKind, ButtonVariant> = {
   secondary: "secondary",
 };
 
+const NO_BUSY = { status: "ok", busy: [] } as const;
+
 const createVariant = {
   kind: "admin",
   loadOptions: getAdminCreateOptions,
@@ -107,6 +111,8 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
     ...initialRange,
     data: initialData,
   });
+  // ADR-045: busy time from connected phone calendars (grey "Dolu" blocks; loads after the page).
+  const { data: busyData } = useCalendarData(listAdminBusy, view, date, { startDate: "", endDate: "", data: NO_BUSY });
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
@@ -210,6 +216,11 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
   const loadError = data.status !== "ok" ? "Takvim yüklenemedi." : "";
   // Day and list show only the anchor date (data may still hold a wider range while reloading).
   const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
+  // Phone-calendar busy time, only in columns of staff who have appointments that day.
+  const busyBlocks = busyData.status === "ok" ? busyData.busy : [];
+  const dayStaff = new Set(dayAppointments.map((a) => a.staffId));
+  const dayBusy = busyBlocks.filter((b) => dateInZone(b.startAt) === date && dayStaff.has(b.staffId));
+  const staffNameOf = (staffId: string) => appointments.find((a) => a.staffId === staffId)?.staffDisplayName ?? "";
   const agendaItems = appointments.map((a) => ({
     id: a.id,
     startAt: a.startAt,
@@ -228,6 +239,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
   });
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const select = (id: string, trigger: HTMLElement) => {
+    if (isBusyItemId(id)) return; // phone-calendar busy time: display only
     sheetTrigger.current = trigger;
     setFeedback("");
     setSelectedId(id);
@@ -290,7 +302,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
           <WeekView
             date={date}
             perStaffColors
-            items={appointments.map((a) => ({
+            items={[...appointments.map((a) => ({
               id: a.id,
               staffId: a.staffId,
               staffName: a.staffDisplayName,
@@ -299,7 +311,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
               status: a.status,
               customer: a.bookingContact?.displayName ?? a.customerDisplayName,
               service: a.serviceName,
-            }))}
+            })), ...busyItems(busyBlocks, (b) => b.staffId).map((b) => ({ ...b, staffName: staffNameOf(b.staffId) }))]}
             onSelect={select}
             onOpenDay={openDay}
           />
@@ -318,7 +330,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
           <DayTimeline
             date={date}
             rows={staffRows(dayAppointments)}
-            items={dayAppointments.map((a) => move.preview({
+            items={[...dayAppointments.map((a) => move.preview({
               id: a.id,
               rowId: a.staffId,
               startAt: a.startAt,
@@ -326,7 +338,7 @@ export function AdminCalendar({ initialDate, initialRange, initialData, closures
               status: a.status,
               customer: a.bookingContact?.displayName ?? a.customerDisplayName,
               service: a.serviceName,
-            }))}
+            })), ...busyItems(dayBusy, (b) => b.staffId)]}
             onSelect={select}
             onCreateAt={(staffId, minute) => setCreateRequest({ key: Date.now(), date, staffId, minute })}
             pendingId={move.pendingId}

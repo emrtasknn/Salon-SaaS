@@ -46,6 +46,8 @@ export const appointmentStatusLabels: Record<string, string> = {
   REJECTED: "Reddedildi",
   CANCELLED: "İptal",
   COMPLETED: "Tamamlandı",
+  /** ADR-045: busy time from a connected phone calendar (not an appointment). */
+  EXTERNAL_BUSY: "Telefon takvimi",
 };
 
 const timeFormatter = new Intl.DateTimeFormat("tr-TR", {
@@ -365,6 +367,7 @@ const statusBarExtra: Record<string, string> = {
   COMPLETED: "border border-status-completed/30",
   REJECTED: "border border-status-rejected/30",
   CANCELLED: "border border-status-cancelled/30",
+  EXTERNAL_BUSY: "border border-dashed border-field-border",
 };
 
 /* ------------------------------------------------------------------------------------------ */

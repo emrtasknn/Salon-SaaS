@@ -51,6 +51,7 @@ export const appointmentStatusBadge: Record<string, string> = {
   REJECTED: "bg-status-rejected-bg text-status-rejected",
   CANCELLED: "bg-status-cancelled-bg text-status-cancelled",
   COMPLETED: "bg-status-completed-bg text-status-completed",
+  EXTERNAL_BUSY: "bg-surface-muted text-ink-muted",
 };
 
 export const badgeBase = "inline-flex items-center rounded-full px-2.5 py-1 text-footnote font-semibold";
