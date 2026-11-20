@@ -309,6 +309,9 @@ describe("RATE_LIMIT_POLICIES", () => {
       "booking.availability": { limit: 60, windowSeconds: 60, scope: "ip" },
       "status.view": { limit: 30, windowSeconds: 600, scope: "ip" },
       "status.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
+      // ADR-045 calendar feed (owner-approved 2026-11-19).
+      "feed.view": { limit: 120, windowSeconds: 600, scope: "ip" },
+      "feed.miss": { limit: 10, windowSeconds: 600, scope: "ip" },
     });
   });
 

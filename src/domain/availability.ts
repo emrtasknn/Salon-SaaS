@@ -169,6 +169,11 @@ export function calculateAvailability(input: {
   slotIntervalMinutes?: number;
   /** WP-08: closed local dates ("YYYY-MM-DD") in the tenant timezone. */
   closedDates?: ReadonlySet<string> | ReadonlyArray<string>;
+  /**
+   * ADR-045 phase B: times this staff member is busy in their connected external calendar.
+   * Passed only on the public (online) booking path; staff/admin creation ignores them.
+   */
+  busyIntervals?: ReadonlyArray<Readonly<{ startAt: Date; endAt: Date }>>;
 }): ReadonlyArray<AvailabilitySlot> {
   assertValidTimeZone(input.timeZone);
   const day = dateDayOfWeek(input.dateIso);
@@ -201,7 +206,8 @@ export function calculateAvailability(input: {
       a.status !== "CANCELLED" && a.status !== "REJECTED" &&
       startAt < a.endAt && endAt > a.startAt,
     );
-    if (!conflicts) slots.push(Object.freeze({ startAt, endAt }));
+    const busy = (input.busyIntervals ?? []).some((b) => startAt < b.endAt && endAt > b.startAt);
+    if (!conflicts && !busy) slots.push(Object.freeze({ startAt, endAt }));
   }
   return slots;
 }
