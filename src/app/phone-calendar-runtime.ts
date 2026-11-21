@@ -24,5 +24,5 @@ export async function issuePhoneCalendarAccount(member: NonNullable<Awaited<Retu
     passwordHash: hashPassword(password),
     now: new Date(),
   });
-  return { username, password, salonName: tenant.name };
+  return { username, password, salonName: tenant.name, memberKey: `${member.tenantContext.tenantId}:${member.profileId}` };
 }
