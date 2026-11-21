@@ -68,6 +68,18 @@ describe("routing and auth", () => {
     expect(anon.headers["WWW-Authenticate"]).toContain("Basic");
   });
 
+  it("answers an iOS PROPFIND on the well-known path directly instead of redirecting", async () => {
+    const { call } = setup();
+    const res = await call("PROPFIND", "/.well-known/caldav", {
+      body: "<A:propfind xmlns:A='DAV:'><A:prop><A:current-user-principal/><A:principal-URL/><A:resourcetype/></A:prop></A:propfind>",
+      depth: "0",
+    });
+    expect(res.status).toBe(207);
+    expect(res.body).toContain("<D:href>/.well-known/caldav</D:href>");
+    expect(res.body).toContain(`<D:current-user-principal><D:href>/dav/u/${USER}/</D:href>`);
+    expect((await call("PROPFIND", "/.well-known/caldav", { authorization: null })).status).toBe(401);
+  });
+
   it("rejects a wrong password, another account's path and a deactivated staff member", async () => {
     const { call, hit } = setup();
     expect((await call("PROPFIND", "/dav/", { authorization: auth(USER, "wrong") })).status).toBe(401);
