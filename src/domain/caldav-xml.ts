@@ -18,6 +18,7 @@ const PROP_PREFIX: Record<string, keyof typeof NS> = {
   "getcontenttype": "D",
   "current-user-principal": "D",
   "principal-URL": "D",
+  "principal-collection-set": "D",
   "owner": "D",
   "current-user-privilege-set": "D",
   "supported-report-set": "D",
@@ -67,6 +68,41 @@ export function requestedProps(xml: string): string[] {
   return names;
 }
 
+export type QualifiedName = Readonly<{ name: string; ns: string }>;
+
+/**
+ * Like requestedProps, with each property's namespace URI resolved from the xmlns declarations
+ * in the body (iOS declares them inline on each element). Missing properties must be answered in
+ * the namespace they were asked in, or strict clients treat the reply as malformed.
+ */
+export function requestedPropsQualified(xml: string): QualifiedName[] {
+  const body = stripDeclaration(xml);
+  const prefixes = new Map<string, string>();
+  let defaultNs = NS.D as string;
+  for (const m of body.matchAll(/xmlns:([A-Za-z0-9_-]+)="([^"]*)"/g)) if (!prefixes.has(m[1])) prefixes.set(m[1], m[2]);
+  const d = /xmlns="([^"]*)"/.exec(body);
+  if (d) defaultNs = d[1];
+  const m = /<(?:[A-Za-z0-9_-]+:)?prop(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z0-9_-]+:)?prop>/.exec(body);
+  if (!m) return [];
+  const out: QualifiedName[] = [];
+  let depth = 0;
+  for (const tag of m[1].matchAll(/<(\/?)(?:([A-Za-z0-9_-]+):)?([A-Za-z-]+)([^>]*?)(\/?)>/g)) {
+    const [, closing, prefix, name, attrs, selfClosing] = tag;
+    if (closing) {
+      depth--;
+      continue;
+    }
+    if (depth === 0 && !out.some((q) => q.name === name)) {
+      const inlineDefault = /xmlns="([^"]*)"/.exec(attrs)?.[1];
+      const inlinePrefixed = prefix ? new RegExp(`xmlns:${prefix}="([^"]*)"`).exec(attrs)?.[1] : undefined;
+      const ns = prefix ? inlinePrefixed ?? prefixes.get(prefix) ?? NS.D : inlineDefault ?? defaultNs;
+      out.push({ name, ns });
+    }
+    if (!selfClosing) depth++;
+  }
+  return out;
+}
+
 export function requestedHrefs(xml: string): string[] {
   return [...stripDeclaration(xml).matchAll(/<(?:[A-Za-z0-9_-]+:)?href(?:\s[^>]*)?>([^<]+)<\/(?:[A-Za-z0-9_-]+:)?href>/g)].map((m) =>
     m[1].trim().replace(/&amp;/g, "&"),
@@ -91,9 +127,18 @@ export type DavResponse = Readonly<{
   href: string;
   /** Inner XML of each found property (already escaped). */
   found: PropValues;
-  /** Asked-for properties this resource does not have. */
-  missing: readonly string[];
+  /** Asked-for properties this resource does not have (with their namespace when known). */
+  missing: ReadonlyArray<string | QualifiedName>;
 }>;
+
+const PREFIX_OF_NS = new Map(Object.entries(NS).map(([prefix, uri]) => [uri as string, prefix]));
+
+/** Empty element for a missing property, in the namespace it was asked in. */
+function missingTag(entry: string | QualifiedName): string {
+  if (typeof entry === "string") return propTag(entry, "");
+  const known = PREFIX_OF_NS.get(entry.ns);
+  return known ? `<${known}:${entry.name}/>` : `<X:${entry.name} xmlns:X="${escapeXml(entry.ns)}"/>`;
+}
 
 function propTag(name: string, inner: string): string {
   const prefix = PROP_PREFIX[name] ?? "D";
@@ -108,7 +153,7 @@ export function multistatus(responses: readonly DavResponse[]): string {
       ? `<D:propstat><D:prop>${found.map(([n, v]) => propTag(n, v)).join("")}</D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>`
       : "";
     const missing = r.missing.length
-      ? `<D:propstat><D:prop>${r.missing.map((n) => propTag(n, "")).join("")}</D:prop><D:status>HTTP/1.1 404 Not Found</D:status></D:propstat>`
+      ? `<D:propstat><D:prop>${r.missing.map(missingTag).join("")}</D:prop><D:status>HTTP/1.1 404 Not Found</D:status></D:propstat>`
       : "";
     return `<D:response><D:href>${escapeXml(r.href)}</D:href>${ok}${missing}</D:response>`;
   });
@@ -117,13 +162,17 @@ export function multistatus(responses: readonly DavResponse[]): string {
 }
 
 /** Picks the asked-for props out of everything a resource offers (all of them for allprop). */
-export function selectProps(available: PropValues, asked: readonly string[]): { found: PropValues; missing: string[] } {
+export function selectProps(
+  available: PropValues,
+  asked: ReadonlyArray<string | QualifiedName>,
+): { found: PropValues; missing: Array<string | QualifiedName> } {
   if (asked.length === 0) return { found: available, missing: [] };
   const found: Record<string, string> = {};
-  const missing: string[] = [];
-  for (const name of asked) {
+  const missing: Array<string | QualifiedName> = [];
+  for (const entry of asked) {
+    const name = typeof entry === "string" ? entry : entry.name;
     if (name in available) found[name] = available[name];
-    else missing.push(name);
+    else missing.push(entry);
   }
   return { found, missing };
 }
