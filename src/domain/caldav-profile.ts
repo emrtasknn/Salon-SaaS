@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { escapeXml } from "./caldav-xml";
 
 // ADR-045 phase C: an Apple configuration profile (.mobileconfig) with one CalDAV account
@@ -7,10 +7,21 @@ import { escapeXml } from "./caldav-xml";
 
 export const MOBILECONFIG_TYPE = "application/x-apple-aspen-config";
 
-export function buildCalDavProfile(input: { host: string; username: string; password: string; salonName: string }): string {
+/** A UUID-shaped id derived from a stable key, so the same member always gets the same one. */
+function stableUuid(key: string, salt: string): string {
+  const h = createHash("sha256").update(`${salt}:${key}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`.toUpperCase();
+}
+
+/**
+ * `memberKey` identifies the member (not the account): reinstalling then carries the same
+ * PayloadIdentifier, so iOS replaces the earlier RandevuN account instead of adding a second one
+ * that is stuck on a revoked password. It is hashed and never appears in the profile.
+ */
+export function buildCalDavProfile(input: { host: string; username: string; password: string; salonName: string; memberKey?: string }): string {
   const principal = `https://${input.host}/dav/u/${encodeURIComponent(input.username)}/`;
-  const accountUuid = randomUUID().toUpperCase();
-  const profileUuid = randomUUID().toUpperCase();
+  const accountUuid = input.memberKey ? stableUuid(input.memberKey, "caldav-account") : randomUUID().toUpperCase();
+  const profileUuid = input.memberKey ? stableUuid(input.memberKey, "caldav-profile") : randomUUID().toUpperCase();
   const s = (value: string) => `<string>${escapeXml(value)}</string>`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

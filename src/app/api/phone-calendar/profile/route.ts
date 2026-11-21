@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   if (!member) return new Response(null, { status: 401 });
   const issued = await issuePhoneCalendarAccount(member);
   if (!issued) return new Response(null, { status: 401 });
-  const profile = buildCalDavProfile({ host: url.host, username: issued.username, password: issued.password, salonName: issued.salonName });
+  const profile = buildCalDavProfile({ host: url.host, username: issued.username, password: issued.password, salonName: issued.salonName, memberKey: issued.memberKey });
   return new Response(profile, {
     status: 200,
     headers: {

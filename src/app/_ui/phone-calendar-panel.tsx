@@ -103,8 +103,9 @@ export function PhoneCalendarPanel() {
             </Button>
           </form>
           <p className="px-1 text-footnote text-ink-muted">
-            iPhone&apos;da Safari ile açın. İndirilen profili Ayarlar → &quot;Profil İndirildi&quot; bölümünden yükleyin. Sonra Ayarlar → Takvim →
-            Varsayılan Takvim → &quot;RandevuN&quot; seçin.
+            iPhone&apos;da Safari ile açın. İndirme tek başına yetmez: Ayarlar → &quot;Profil İndirildi&quot; → Yükle adımını tamamlayın. Sonra
+            Ayarlar → Takvim → Varsayılan Takvim → &quot;RandevuN&quot; seçin. Daha önce kurduğunuz ve &quot;bağlanamıyor&quot; diyen RandevuN hesaplarını
+            Ayarlar → Takvim → Hesaplar&apos;dan silin.
           </p>
           <Button type="button" variant="secondary" pending={busy} onClick={manual} className="w-full">
             Elle kurulum bilgilerini göster

@@ -6,7 +6,8 @@ import { withoutTrailingSlash } from "./src/app/trailing-slash";
 import { updateSupabaseSession } from "./src/infrastructure/auth/supabase-proxy";
 
 /** WebDAV methods no app page uses. */
-const DAV_ONLY_METHODS = new Set(["PROPFIND", "REPORT", "PROPPATCH"]);
+// OPTIONS too: calendar clients probe "/" for the DAV header before discovery.
+const DAV_ONLY_METHODS = new Set(["PROPFIND", "REPORT", "PROPPATCH", "OPTIONS"]);
 
 export async function proxy(request: NextRequest) {
   // The raw path: request.nextUrl normalises trailing slashes away.

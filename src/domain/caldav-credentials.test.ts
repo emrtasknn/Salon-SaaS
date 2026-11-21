@@ -32,4 +32,15 @@ describe("CalDAV credentials", () => {
     expect(profile).toContain("<string>a&lt;b</string>");
     expect(profile).toContain("A &amp; B");
   });
+  it("keeps the same payload identity for the same member, so a reinstall replaces the old account", () => {
+    const ids = (p: string) => [...p.matchAll(/<key>PayloadUUID<\/key><string>([^<]+)<\/string>/g)].map((m) => m[1]);
+    const base = { host: "app.example", username: "abcd2345.salon-a", password: "x", salonName: "A" };
+    const first = buildCalDavProfile({ ...base, memberKey: "t1:p1" });
+    const again = buildCalDavProfile({ ...base, username: "zzzz9999.salon-a", memberKey: "t1:p1" });
+    const other = buildCalDavProfile({ ...base, memberKey: "t1:p2" });
+    expect(ids(first)).toHaveLength(2);
+    expect(ids(again)).toEqual(ids(first));
+    expect(ids(other)).not.toEqual(ids(first));
+    expect(first).not.toContain("t1:p1");
+  });
 });
