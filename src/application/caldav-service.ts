@@ -13,6 +13,7 @@ import {
   multistatus,
   requestedHrefs,
   requestedProps,
+  requestedPropsQualified,
   requestedTimeRange,
   rootElement,
   selectProps,
@@ -204,11 +205,13 @@ export function createCalDavService(deps: {
       "principal-URL": `<D:href>${escapeXml(p.principal)}</D:href>`,
       "calendar-home-set": `<D:href>${escapeXml(p.home)}</D:href>`,
       "calendar-user-address-set": `<D:href>${escapeXml(p.principal)}</D:href>`,
+      "principal-collection-set": "<D:href>/dav/u/</D:href>",
+      "current-user-privilege-set": "<D:privilege><D:read/></D:privilege>",
     };
   }
 
   async function propfind(session: Session, route: Route, request: DavRequest): Promise<DavResult> {
-    const asked = requestedProps(request.body);
+    const asked = requestedPropsQualified(request.body);
     const depth = request.depth === "0" ? 0 : 1;
     const p = paths(session.account.username);
     const responses: DavResponse[] = [];
@@ -237,8 +240,8 @@ export function createCalDavService(deps: {
   async function report(session: Session, route: Route, request: DavRequest): Promise<DavResult> {
     if (route.kind !== "calendar") return result(403);
     const kind = rootElement(request.body);
-    const asked = requestedProps(request.body);
-    const withData = asked.length === 0 || asked.includes("calendar-data");
+    const asked = requestedPropsQualified(request.body);
+    const withData = asked.length === 0 || asked.some((q) => q.name === "calendar-data");
     const p = paths(session.account.username);
     const list = await items(session, request.now);
     let selected: Item[];

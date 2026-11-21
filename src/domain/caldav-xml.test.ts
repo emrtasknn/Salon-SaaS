@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { multistatus, requestedHrefs, requestedProps, requestedTimeRange, rootElement, selectProps } from "./caldav-xml";
+import { multistatus, requestedHrefs, requestedProps, requestedPropsQualified, requestedTimeRange, rootElement, selectProps } from "./caldav-xml";
 
 describe("CalDAV request parsing", () => {
   it("reads the root and only top-level props (iOS PROPFIND shape)", () => {
@@ -24,5 +24,28 @@ describe("CalDAV request parsing", () => {
     expect(xml).toContain("<CS:getctag>t</CS:getctag>");
     expect(xml).toContain("<D:owner/>");
     expect(xml).toContain("HTTP/1.1 404 Not Found");
+  });
+});
+
+describe("namespaces of asked properties (iOS declares xmlns inline)", () => {
+  const ios = `<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:"><A:prop><B:calendar-home-set xmlns:B="urn:ietf:params:xml:ns:caldav"/><B:calendar-user-address-set xmlns:B="urn:ietf:params:xml:ns:caldav"/><A:current-user-principal/><A:displayname/><C:dropbox-home-URL xmlns:C="http://calendarserver.org/ns/"/><C:email-address-set xmlns:C="http://calendarserver.org/ns/"/><C:notification-URL xmlns:C="http://calendarserver.org/ns/"/><A:principal-collection-set/><A:principal-URL/><A:resource-id/><B:schedule-inbox-URL xmlns:B="urn:ietf:params:xml:ns:caldav"/><B:schedule-outbox-URL xmlns:B="urn:ietf:params:xml:ns:caldav"/><A:supported-report-set/><X:custom xmlns:X="urn:example"/></A:prop></A:propfind>`;
+
+  it("resolves each property's namespace", () => {
+    const asked = requestedPropsQualified(ios);
+    expect(asked.find((q) => q.name === "calendar-home-set")?.ns).toBe("urn:ietf:params:xml:ns:caldav");
+    expect(asked.find((q) => q.name === "dropbox-home-URL")?.ns).toBe("http://calendarserver.org/ns/");
+    expect(asked.find((q) => q.name === "resource-id")?.ns).toBe("DAV:");
+    expect(asked.find((q) => q.name === "custom")?.ns).toBe("urn:example");
+    expect(asked).toHaveLength(14);
+  });
+
+  it("answers missing properties in the namespace they were asked in", () => {
+    const { found, missing } = selectProps({ "calendar-home-set": "<D:href>/h/</D:href>" }, requestedPropsQualified(ios));
+    const xml = multistatus([{ href: "/p/", found, missing }]);
+    expect(xml).toContain("<C:schedule-inbox-URL/>");
+    expect(xml).toContain("<CS:dropbox-home-URL/>");
+    expect(xml).toContain('<X:custom xmlns:X="urn:example"/>');
+    expect(xml).toContain("<C:calendar-home-set><D:href>/h/</D:href></C:calendar-home-set>");
   });
 });
