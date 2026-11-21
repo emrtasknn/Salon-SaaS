@@ -78,7 +78,7 @@ type Item = Readonly<{ name: string; etag: string; ics: string; readOnly: boolea
 
 /** Paths this server answers, relative to /dav. */
 type Route =
-  | { kind: "root" }
+  | { kind: "root"; href?: string }
   | { kind: "principal"; user: string }
   | { kind: "home"; user: string }
   | { kind: "calendar"; user: string }
@@ -218,7 +218,7 @@ export function createCalDavService(deps: {
     const add = (href: string, available: PropValues) => responses.push({ href, ...selectProps(available, asked) });
 
     if (route.kind === "root") {
-      add("/dav/", { ...principalProps(session, "RandevuN"), resourcetype: "<D:collection/>" });
+      add(route.href ?? "/dav/", { ...principalProps(session, "RandevuN"), resourcetype: "<D:collection/>" });
     } else if (route.kind === "principal") {
       add(p.principal, principalProps(session, "RandevuN"));
     } else if (route.kind === "home") {
@@ -299,8 +299,11 @@ export function createCalDavService(deps: {
   return {
     async handle(request: DavRequest): Promise<DavResult> {
       const method = request.method.toUpperCase();
-      if (request.pathname === "/.well-known/caldav") return result(301, null, { Location: "/dav/" });
-      const route = routeOf(request.pathname);
+      // RFC 6764 discovery. Browsers get the redirect; iOS sends an authenticated PROPFIND here and
+      // does not follow a redirect for it, so DAV methods are answered as the root collection.
+      const wellKnown = request.pathname.replace(/\/+$/, "") === "/.well-known/caldav";
+      if (wellKnown && (method === "GET" || method === "HEAD")) return result(301, null, { Location: "/dav/" });
+      const route: Route | null = wellKnown ? { kind: "root", href: "/.well-known/caldav" } : routeOf(request.pathname);
       if (!route) return result(404);
       if (method === "OPTIONS") return result(200);
 
