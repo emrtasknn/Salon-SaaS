@@ -151,3 +151,34 @@ describe("isCalendarEligible", () => {
     }
   });
 });
+
+describe("directions link in the event description", () => {
+  const DIRECTIONS = "https://www.google.com/maps/search/?api=1&query=Ba%C4%9Fdat%20Cad.%201";
+  const now = new Date("2026-11-10T09:00:00.000Z");
+
+  it("adds a 'Yol tarifi' line between the staff line and the status link", () => {
+    const event = appointmentCalendarEvent({ ...input, directionsUrl: DIRECTIONS });
+    expect(event.description).toBe(
+      `Personel: Ali\nYol tarifi: ${DIRECTIONS}\n${STATUS_URL}\nRandevunuzu bu bağlantıdan yönetebilirsiniz.`,
+    );
+    expect(event.location).toBe("Bağdat Cad. 1, Kadıköy; İstanbul");
+  });
+
+  it("keeps the description unchanged without a directions link", () => {
+    const expected = `Personel: Ali\n${STATUS_URL}\nRandevunuzu bu bağlantıdan yönetebilirsiniz.`;
+    expect(appointmentCalendarEvent(input).description).toBe(expected);
+    expect(appointmentCalendarEvent({ ...input, directionsUrl: null }).description).toBe(expected);
+    expect(appointmentCalendarEvent({ ...input, directionsUrl: "  " }).description).toBe(expected);
+  });
+
+  it("carries the link into the .ics DESCRIPTION (escaped) and the Google details", () => {
+    const withCommas = "https://www.google.com/maps/place/Salon/@41.0,29.0,17z";
+    const event = appointmentCalendarEvent({ ...input, directionsUrl: withCommas });
+    const lines = buildIcsCalendar(event, now).replace(/\r\n /g, "").split("\r\n");
+    expect(lines).toContain(
+      `DESCRIPTION:Personel: Ali\\nYol tarifi: https://www.google.com/maps/place/Salon/@41.0\\,29.0\\,17z\\n${STATUS_URL}\\nRandevunuzu bu bağlantıdan yönetebilirsiniz.`,
+    );
+    const details = new URL(buildGoogleCalendarUrl(event)).searchParams.get("details");
+    expect(details).toContain(`Yol tarifi: ${withCommas}`);
+  });
+});

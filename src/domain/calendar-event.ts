@@ -121,6 +121,8 @@ export type AppointmentCalendarInput = Readonly<{
   salonName: string;
   staffName: string;
   salonAddress: string | null;
+  /** Server-computed, allowlisted directions link (salonDirectionsUrl); shown as a tappable line in the description. */
+  directionsUrl?: string | null;
   startAtIso: string;
   endAtIso: string;
   status: "PENDING" | "CONFIRMED";
@@ -130,6 +132,7 @@ export type AppointmentCalendarInput = Readonly<{
 /** Maps the customer-visible appointment fields to a calendar event (no other personal data). */
 export function appointmentCalendarEvent(input: AppointmentCalendarInput): CalendarEvent {
   const address = input.salonAddress?.trim();
+  const directionsUrl = input.directionsUrl?.trim();
   return {
     uid: input.calendarUid,
     title: `${input.serviceName} — ${input.salonName}`,
@@ -138,6 +141,7 @@ export function appointmentCalendarEvent(input: AppointmentCalendarInput): Calen
     location: address ? address : null,
     description: [
       `Personel: ${input.staffName}`,
+      ...(directionsUrl ? [`Yol tarifi: ${directionsUrl}`] : []),
       input.statusUrl,
       "Randevunuzu bu bağlantıdan yönetebilirsiniz.",
     ].join("\n"),

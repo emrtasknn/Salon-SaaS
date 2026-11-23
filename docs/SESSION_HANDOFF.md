@@ -1,52 +1,28 @@
 # Session Handoff — Salon SaaS
 
 ## Date / Goal
-2026-11-16 — role-scoped archive ("soft") delete with confirmation dialog for tenant, staff, service, customer, customer note and appointment.
+2026-11-23 — Calendar event gets a tappable directions link; confirm how the pilot WhatsApp flow works today.
 
 ## State
-- Branch / commit: `claude/charming-sagan-cb78jh` @ see `git log` (plan base `a14277c`)
-- Working tree: clean
-- Environment touched: none (no database, no deploy; migration is a proposal, not applied)
+- Branch: `claude/amazing-ramanujan-rljbe8`, main merged in
+- Environment touched: none (no database, no deploy, no Meta call; `DATABASE_URL` unset)
 
 ## Done
-- Design: `docs/superpowers/specs/2026-11-16-delete-permissions-design.md` (owner approved)
-- Plan: `docs/superpowers/plans/2026-11-16-delete-permissions.md` (owner approved), Tasks 1–12 executed by role subagents with per-task review and one whole-branch review + fix wave
-
-## Changes
-| Area | Change |
-|---|---|
-| `prisma/schema.prisma`, `prisma/migrations/20261122100000_soft_delete_columns` | `deletedAt` on Tenant, Staff, Service, Profile, Appointment (additive, NOT applied) |
-| `src/domain/deletion.ts` | shared result type and appointment delete rule |
-| `src/application/*-deletion.ts`, `platform-tenant-status.ts` | delete use cases, authorization and blocking rules |
-| `src/persistence/prisma-*-deletion.ts`, `prisma-platform-tenants.ts` | transactional archive writes; read paths filter `deletedAt` |
-| `src/persistence/prisma-membership-reader.ts` | archived tenant → `not_found` (fail-closed read filter) |
-| `src/app/**/actions.ts` | seven delete actions; exact TENANT_ADMIN for tenant-scoped deletes |
-| `src/app/_ui/confirm-dialog.tsx`, `delete-button.tsx`, screens | confirm dialog and delete buttons |
-| `src/persistence/prisma-soft-delete.integration.test.ts` | integration suite (CI only) |
+- Customer "add to calendar" (.ics and Google link): the event description now has a `Yol tarifi: <link>` line (the existing allowlisted `directionsUrl`). LOCATION stays the address text. Unchanged when the salon has no address and no maps link.
+- Earlier (merged, #204 / WP-15): the configured WhatsApp sender is used only for the tenant that owns it. Staff, admins and customer get the CREATED message; the customer gets CONFIRMED / REJECTED. PENDING is the "waiting" state; no new status.
 
 ## Validation
 | Check | Command | Result |
 |---|---|---|
-| Lint | `npm run lint` | PASS (0 errors, 3 pre-existing warnings) |
-| Typecheck | `npm run typecheck` | PASS |
-| Unit tests | `npx vitest run --exclude '**/*.integration.test.ts'` (DATABASE_URL unset) | PASS (164 files, 1816 tests) |
-| Integration | CI | not run |
-| Build | `npm run build` | PASS |
-| Browser | — | not run (needs DB/auth; verify on staging) |
+| Unit tests | `npx vitest run --exclude "**/*.integration.test.ts"` | PASS (183 files, 1921 tests) |
+| Lint | `npm run lint` | PASS (3 existing warnings) |
+| Typecheck | `npm run typecheck` | 4 errors, all in `src/app/_ui/tour/product-tour.tsx`: `driver.js` is not installed in this container (`npm install` fails here); not touched by this change, CI installs it |
+| Visual / device | — | not checked on iPhone or Google Calendar |
 
-## Decisions
-- Archive instead of hard delete; no restore UI; admin accounts not deletable; staff access revoked by deleting the membership.
-- Working-hours screen has no confirm dialog (no delete trigger there; closing a day is a reversible edit).
-- Owner 2026-11-16: customer erasure also clears WhatsApp opt-in and its evidence (KVKK notice evidence kept); any PENDING/CONFIRMED appointment blocks staff/service/customer delete (spec amended).
-- Owner 2026-11-16: reusing an archived service's name renames the archived row to `<name> (silindi)` (no partial index: it would break the CI drift gate).
-
-## Open risks (owner decisions)
-- CI run 1 on PR #205: new soft-delete integration suite passed; 3 failures in `prisma-admin-self-staff.integration.test.ts` (its ad-hoc role lacked SELECT on Tenant, now granted in the test). `migration-gate` stays red until the owner applies the migration to staging + pilot and adds `pilot-migrated`.
-- `prisma-booking-engine.ts:200` accepts a stale erased-customer id; one-line filter in a protected file (not approved yet).
-- Deleted staff member's Supabase auth user remains (no access; email reuse may fail).
-- Staff delete button is shown on the admin's own row (server refuses).
-- Screens not browser-verified; check dialog focus/Escape/slug gate on staging.
-- `npm ci` fails with npm 10 against the lockfile in the cloud sandbox; npm 11 (CI's Node 24) was used without the lockfile.
+## Open risks
+- Links in calendar descriptions are expected to be tappable in Apple and Google Calendar; not verified on a device.
+- A one-word address ("İzmir") gives a weak directions link; the salon should set a full address or maps link.
+- Pilot WhatsApp: live integration row, Meta setup and sender number still pending (see `docs/tasks/WP-15.md`).
 
 ## Next task
-- PR #205: get `quality-gates` green; owner applies the migration (staging, then pilot) and labels `pilot-migrated`; verify the dialog on staging. Open owner item: booking-engine filter for a stale erased-customer id.
+- Owner: decide what "beklet" (hold) should mean for the pilot salon (see chat); then Meta setup for the pilot.
