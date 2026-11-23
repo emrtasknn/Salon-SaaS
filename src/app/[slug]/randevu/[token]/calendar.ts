@@ -30,6 +30,7 @@ export async function customerCalendarEvent(
     salonName: appointment.salonName,
     staffName: appointment.staffName,
     salonAddress: appointment.salonAddress,
+    directionsUrl: appointment.location?.directionsUrl ?? null,
     startAtIso: appointment.startAtIso,
     endAtIso: appointment.endAtIso,
     status,
