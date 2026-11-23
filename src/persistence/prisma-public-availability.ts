@@ -6,15 +6,16 @@ import { localWallTimeToUtc } from "../domain/availability";
 import { readClosedDates, type ClosureDateReadTransaction } from "./prisma-booking-engine";
 import { staffServesService, type StaffServiceReadTransaction } from "./prisma-staff-services";
 import { combineServiceTimings } from "../domain/multi-service";
+import { readTrustedBusy, type ExternalBusyReadTransaction } from "./prisma-external-busy";
 import { withPrismaTenantContext, type PrismaTenantClient, type PrismaTenantTransactionClient } from "./prisma-tenant-context";
 
-type Tx = PrismaTenantTransactionClient & ClosureDateReadTransaction & StaffServiceReadTransaction & {
+type Tx = PrismaTenantTransactionClient & ClosureDateReadTransaction & StaffServiceReadTransaction & ExternalBusyReadTransaction & {
   tenant: { findUnique(args: { where: { id: string } }): Promise<{ id: string; timezone: string; status: "ACTIVE" | "INACTIVE" } | null> };
   service: {
-    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
-    findMany(args: { where: { tenantId: string; id: { in: string[] } } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean } | null>;
+    findMany(args: { where: { tenantId: string; id: { in: string[] }; deletedAt: null } }): Promise<Array<{ id: string; durationMinutes: number; bufferMinutes: number; active: boolean }>>;
   };
-  staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
+  staff: { findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<{ id: string; status: "ACTIVE" | "INACTIVE" } | null> };
   workingHours: { findMany(args: { where: { tenantId: string }; orderBy: { dayOfWeek: "asc" } }): Promise<WorkingHoursRecord[]> };
   appointment: { findMany(args: { where: { tenantId: string; staffId: string; startAt: { lt: Date }; endAt: { gt: Date } } }): Promise<AppointmentRecord[]> };
 };
@@ -32,8 +33,8 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
         return await withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) => {
           const [tenant, service, staff, workingHours] = await Promise.all([
             tx.tenant.findUnique({ where: { id: tenantContext.tenantId } }),
-            tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId } } }),
-            tx.staff.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.staffId } } }),
+            tx.service.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.serviceId }, deletedAt: null } }),
+            tx.staff.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: input.staffId }, deletedAt: null } }),
             tx.workingHours.findMany({ where: { tenantId: tenantContext.tenantId }, orderBy: { dayOfWeek: "asc" } }),
           ]);
           if (!tenant || !service || !staff) return { status: "invalid_resource" as const };
@@ -43,7 +44,7 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
             if (!(await staffServesService(tx, tenantContext.tenantId, input.staffId, serviceId))) return { status: "invalid_resource" as const };
           }
           // Multi-service (owner decision 2026-11-06): every extra service must exist in this tenant and be active.
-          const extras = extraIds.length ? await tx.service.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: extraIds } } }) : [];
+          const extras = extraIds.length ? await tx.service.findMany({ where: { tenantId: tenantContext.tenantId, id: { in: extraIds }, deletedAt: null } }) : [];
           if (extras.length !== extraIds.length || extras.some((extra) => !extra.active)) return { status: "invalid_resource" as const };
           const ordered = [service, ...extraIds.map((id) => extras.find((extra) => extra.id === id)!)];
           const timing = combineServiceTimings(ordered);
@@ -63,6 +64,8 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
           });
           // WP-08: closed local dates (this day, and the next one for slots ending after midnight).
           const closedDates = await readClosedDates(tx, tenantContext.tenantId, input.staffId, [input.dateIso, nextCalendarDate(input.dateIso)]);
+          // ADR-045 phase B: the staff member's connected Google calendar closes those times online.
+          const busyIntervals = await readTrustedBusy(tx, { tenantId: tenantContext.tenantId, staffId: input.staffId, from: dayStart, to: nextDayStart, now: new Date() });
 
           return {
             status: "ok" as const,
@@ -72,6 +75,7 @@ export function createPrismaPublicAvailabilityRepository(prisma: PrismaTenantCli
             workingHours,
             appointments,
             closedDates,
+            busyIntervals,
             serviceActive: service.active,
             staffActive: staff.status === "ACTIVE",
           };

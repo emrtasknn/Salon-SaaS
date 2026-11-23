@@ -1,0 +1,109 @@
+/*
+ * driver.js popover in the app's look. Uses the theme tokens from globals.css, so light/dark
+ * (device or explicit data-theme) follow automatically. `.driver-popover.salon-tour` outranks
+ * the library's own `.driver-popover` rules.
+ */
+.driver-popover.salon-tour {
+  --driver-popover-font-family: var(--font-sans);
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  border-radius: var(--radius-card);
+  padding: 18px;
+  min-width: min(280px, calc(100vw - 32px));
+  max-width: min(340px, calc(100vw - 32px));
+  box-shadow: 0 0 0 1px var(--color-separator), 0 12px 32px rgb(0 0 0 / 0.25);
+}
+
+.driver-popover.salon-tour .driver-popover-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  padding-inline-end: 28px; /* room for the close button */
+}
+
+.driver-popover.salon-tour .driver-popover-description {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--color-ink-muted);
+}
+
+.driver-popover.salon-tour .driver-popover-close-btn {
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  color: var(--color-ink-muted);
+}
+
+.driver-popover.salon-tour .driver-popover-close-btn:hover,
+.driver-popover.salon-tour .driver-popover-close-btn:focus-visible {
+  color: var(--color-ink);
+}
+
+.driver-popover.salon-tour .driver-popover-progress-text {
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.driver-popover.salon-tour .driver-popover-footer-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-field-border);
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-shadow: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.driver-popover.salon-tour .driver-popover-footer-btn:hover {
+  background-color: var(--color-surface-muted);
+}
+
+.driver-popover.salon-tour .driver-popover-next-btn {
+  border-color: var(--color-action);
+  background-color: var(--color-action);
+  color: var(--color-on-action);
+}
+
+.driver-popover.salon-tour .driver-popover-next-btn:hover {
+  border-color: var(--color-action-hover);
+  background-color: var(--color-action-hover);
+}
+
+.driver-popover.salon-tour .driver-popover-footer-btn:focus-visible,
+.driver-popover.salon-tour .driver-popover-close-btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.driver-popover.salon-tour .driver-popover-navigation-btns button + button {
+  margin-inline-start: 8px;
+}
+
+/* Arrow takes the popover colour on its visible side (the library paints it white). */
+.driver-popover.salon-tour .driver-popover-arrow {
+  border-color: var(--color-surface);
+}
+.driver-popover.salon-tour .driver-popover-arrow-side-left {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-right-color: transparent;
+}
+.driver-popover.salon-tour .driver-popover-arrow-side-right {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+}
+.driver-popover.salon-tour .driver-popover-arrow-side-top {
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+.driver-popover.salon-tour .driver-popover-arrow-side-bottom {
+  border-top-color: transparent;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}

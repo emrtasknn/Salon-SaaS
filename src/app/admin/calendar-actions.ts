@@ -1,9 +1,14 @@
 "use server";
 
 import { createCalendarCrm } from "../../application/calendar-crm";
+import { listTrustedBusyBlocks } from "../../persistence/prisma-external-busy";
+import { syncStaleCalendarsLater } from "../calendar-sync-runtime";
 import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
 import { createBookingEngine } from "../../application/booking-engine";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
+import { createAppointmentDeletion } from "../../application/appointment-deletion";
+import type { DeleteResult } from "../../domain/deletion";
+import { createPrismaAppointmentDeletionRepository } from "../../persistence/prisma-appointment-deletion";
 import { createPrismaCalendarCrmRepository } from "../../persistence/prisma-calendar-crm";
 import { createPrismaBookingRepository } from "../../persistence/prisma-booking-engine";
 import { createPrismaInAppNotificationRepository } from "../../persistence/prisma-in-app-notifications";
@@ -28,7 +33,7 @@ import type {
 
 type AppointmentLookupTx = PrismaTenantTransactionClient & {
   appointment: {
-    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<AppointmentRecord | null>;
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<AppointmentRecord | null>;
   };
 };
 
@@ -84,11 +89,35 @@ function booking(prisma: ReturnType<typeof getPrisma>, reader: ReturnType<typeof
  * defaults to `startDate` (one day); the span is capped at CALENDAR_RANGE_MAX_DAYS (a month grid).
  * Same tenant-scoped query and TENANT_ADMIN authorization for every range.
  */
+
+export type CalendarBusyView =
+  | Readonly<{ status: "ok"; busy: ReadonlyArray<{ id: string; staffId: string; startAt: string; endAt: string; title: string | null }> }>
+  | Readonly<{ status: "UNAUTHORIZED" | "INVALID_INPUT" | "NOT_FOUND" }>;
+
+function busyView(blocks: ReadonlyArray<{ id: string; staffId: string; startAt: Date; endAt: Date; title: string | null }>): CalendarBusyView {
+  return { status: "ok", busy: blocks.map((b) => ({ id: b.id, staffId: b.staffId, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString(), title: b.title })) };
+}
+
+/** ADR-045: every staff member's busy time from connected phone calendars (display only). */
+export async function listAdminBusy(startDate: string, endDate?: string): Promise<CalendarBusyView> {
+  const context = await getAdminContext();
+  if (!context) return { status: "UNAUTHORIZED" };
+  const range = parseCalendarRange(startDate, endDate);
+  if (!range) return { status: "INVALID_INPUT" };
+  const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
+  if (!tenant) return { status: "NOT_FOUND" };
+  const from = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
+  const to = localWallTimeToUtc(range.endDate, 1439, tenant.timezone);
+  return busyView(await listTrustedBusyBlocks(context.prisma, context.tenantContext, { staffId: null, from, to, now: new Date() }));
+}
+
 export async function listAdminAppointments(startDate: string, endDate?: string, staffId?: string) {
   const context = await getAdminContext();
   if (!context) return { status: "UNAUTHORIZED" as const };
   const range = parseCalendarRange(startDate, endDate);
   if (!range || (staffId !== undefined && typeof staffId !== "string")) return { status: "INVALID_INPUT" as const };
+  // ADR-045: keep connected Google calendars of this salon fresh (after the response).
+  syncStaleCalendarsLater(context.tenantContext);
   const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
   if (!tenant) return { status: "NOT_FOUND" as const };
   const startAt = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
@@ -107,7 +136,7 @@ export async function transitionAdminAppointment(appointmentId: string, to: Appo
     context.prisma,
     context.tenantContext,
     async (tx: AppointmentLookupTx) => tx.appointment.findUnique({
-      where: { tenantId_id: { tenantId: context.tenantContext.tenantId, id: appointmentId } },
+      where: { tenantId_id: { tenantId: context.tenantContext.tenantId, id: appointmentId }, deletedAt: null },
     }),
   );
   if (!appointment) return { status: "NOT_FOUND" as const };
@@ -208,4 +237,29 @@ export async function rescheduleAdminAppointment(appointmentId: string, newStart
     context.prisma, createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext,
     appointmentId, newStartAtIso,
   );
+}
+
+/**
+ * Deletes (archives) an appointment as TENANT_ADMIN. Admin path only: the assigned-staff path
+ * always resolves false on this screen. Tenant comes from the trusted session context.
+ */
+export async function deleteAdminAppointment(appointmentId: string): Promise<DeleteResult> {
+  try {
+    const context = await getAdminContext();
+    if (!context) return { status: "FORBIDDEN" };
+    const { reader } = context;
+    return await createAppointmentDeletion({
+      repository: createPrismaAppointmentDeletionRepository(context.prisma),
+      authorizer: {
+        async authorizeAdmin(identity, tenantContext) {
+          const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
+          // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+          return result.authorization.status === "allowed" && result.authorization.role === "TENANT_ADMIN";
+        },
+        async authorizeAssignedStaff() { return false; },
+      },
+    }).delete(context.identity, context.tenantContext, appointmentId);
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
 }

@@ -82,12 +82,12 @@ describe("prisma in-app notification repository", () => {
     const result = await repository.read(tenant, { kind: "tenant" }, options);
 
     expect(appointment.count).toHaveBeenCalledTimes(1);
-    expect(appointment.count).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", status: "PENDING" } });
+    expect(appointment.count).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", deletedAt: null, status: "PENDING" } });
 
     expect(appointment.findMany).toHaveBeenCalledTimes(2);
     const tenantSelect = { ...baseSelect, customerProfile: { select: { displayName: true } } };
     expect(appointment.findMany).toHaveBeenNthCalledWith(1, {
-      where: { tenantId: "tenant-a", status: "PENDING" },
+      where: { tenantId: "tenant-a", deletedAt: null, status: "PENDING" },
       orderBy: { startAt: "asc" },
       take: 20,
       select: tenantSelect,
@@ -95,6 +95,7 @@ describe("prisma in-app notification repository", () => {
     expect(appointment.findMany).toHaveBeenNthCalledWith(2, {
       where: {
         tenantId: "tenant-a",
+        deletedAt: null,
         status: { in: ["CONFIRMED", "REJECTED", "CANCELLED", "COMPLETED"] },
         updatedAt: { gte: since },
       },
@@ -137,10 +138,10 @@ describe("prisma in-app notification repository", () => {
     const result = await repository.read(tenant, { kind: "staff", staffId: "staff-a" }, options);
 
     expect(appointment.count).toHaveBeenCalledWith({
-      where: { tenantId: "tenant-a", staffId: "staff-a", status: "PENDING" },
+      where: { tenantId: "tenant-a", staffId: "staff-a", deletedAt: null, status: "PENDING" },
     });
     expect(appointment.findMany).toHaveBeenNthCalledWith(1, {
-      where: { tenantId: "tenant-a", staffId: "staff-a", status: "PENDING" },
+      where: { tenantId: "tenant-a", staffId: "staff-a", deletedAt: null, status: "PENDING" },
       orderBy: { startAt: "asc" },
       take: 20,
       select: baseSelect,
@@ -149,6 +150,7 @@ describe("prisma in-app notification repository", () => {
       where: {
         tenantId: "tenant-a",
         staffId: "staff-a",
+        deletedAt: null,
         status: { in: ["CONFIRMED", "REJECTED", "CANCELLED", "COMPLETED"] },
         updatedAt: { gte: since },
       },

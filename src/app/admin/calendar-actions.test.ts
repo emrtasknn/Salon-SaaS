@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // WP-08 QA: admin create-appointment actions. Tenant from the session only; TENANT_ADMIN/SUPER_ADMIN
 // gate here, the engine re-checks via resolveCreateScope.
-const { readAuthenticatedTenantRequest, readMembership, runtime, prisma } = vi.hoisted(() => ({
+const { readAuthenticatedTenantRequest, readMembership, runtime, prisma, deletionRepository, appointmentFindUnique } = vi.hoisted(() => {
+  const appointmentFindUnique = vi.fn();
+  return {
+  appointmentFindUnique,
+  deletionRepository: { find: vi.fn(), archive: vi.fn() },
   readAuthenticatedTenantRequest: vi.fn(),
   readMembership: vi.fn(),
   runtime: {
@@ -11,8 +15,13 @@ const { readAuthenticatedTenantRequest, readMembership, runtime, prisma } = vi.h
     listSlotsOnBehalf: vi.fn(),
     readCreateOptions: vi.fn(),
   },
-  prisma: { marker: "prisma" },
-}));
+  prisma: {
+    marker: "prisma",
+    $transaction: vi.fn(async (operation: (tx: unknown) => Promise<unknown>) =>
+      operation({ $executeRaw: vi.fn(), appointment: { findUnique: appointmentFindUnique } })),
+  },
+  };
+});
 
 vi.mock("../../infrastructure/auth/supabase-server-client", () => ({ createNextSupabaseServerClient: vi.fn(async () => ({})) }));
 vi.mock("../../infrastructure/auth/supabase-server-env", () => ({ readSupabaseServerClientConfig: vi.fn(() => ({})) }));
@@ -22,8 +31,9 @@ vi.mock("../../infrastructure/prisma-runtime", () => ({ getPrisma: vi.fn(() => p
 vi.mock("../../persistence/prisma-membership-reader", () => ({ createPrismaMembershipReader: vi.fn(() => ({ readMembership })) }));
 vi.mock("../notification-runtime", () => ({ publishAppointmentNotification: vi.fn() }));
 vi.mock("../appointment-create-runtime", () => runtime);
+vi.mock("../../persistence/prisma-appointment-deletion", () => ({ createPrismaAppointmentDeletionRepository: vi.fn(() => deletionRepository) }));
 
-import { createAdminAppointment, getAdminCreateOptions, listAdminSlots } from "./calendar-actions";
+import { createAdminAppointment, deleteAdminAppointment, getAdminCreateOptions, listAdminSlots, transitionAdminAppointment } from "./calendar-actions";
 
 type Call = [unknown, unknown, unknown, unknown];
 const sessionTenant = { tenantId: "tenant-from-session" };
@@ -34,7 +44,7 @@ const input = {
 
 function authenticatedAs(role: string) {
   readAuthenticatedTenantRequest.mockResolvedValue({ state: "authenticated", identity: { state: "authenticated", subjectId: "user-1" }, tenantContext: sessionTenant });
-  readMembership.mockResolvedValue({ status: "found", membership: { profileId: "profile-1", role, tenantId: sessionTenant.tenantId } });
+  readMembership.mockResolvedValue({ status: "found", membership: { profileId: "profile-1", subjectId: "user-1", role, tenantId: sessionTenant.tenantId } });
 }
 
 beforeEach(() => {
@@ -80,5 +90,51 @@ describe("createAdminAppointment (WP-08)", () => {
     const [, , tenantContext, passed] = runtime.listSlotsOnBehalf.mock.calls[0] as unknown as Call;
     expect(tenantContext).toBe(sessionTenant);
     expect(passed).toEqual({ serviceId: "svc", staffId: "s2", date: "2026-11-09" });
+  });
+});
+
+describe("deleteAdminAppointment", () => {
+  const appointment = { id: "a1", tenantId: sessionTenant.tenantId, staffId: "s1", status: "CANCELLED" };
+
+  it("returns FORBIDDEN without a session and for non-admin roles, touching nothing", async () => {
+    readAuthenticatedTenantRequest.mockResolvedValue({ state: "unauthenticated" });
+    await expect(deleteAdminAppointment("a1")).resolves.toEqual({ status: "FORBIDDEN" });
+    authenticatedAs("STAFF");
+    await expect(deleteAdminAppointment("a1")).resolves.toEqual({ status: "FORBIDDEN" });
+    expect(deletionRepository.find).not.toHaveBeenCalled();
+    expect(deletionRepository.archive).not.toHaveBeenCalled();
+  });
+
+  it("refuses a SUPER_ADMIN membership (only TENANT_ADMIN may delete) and writes nothing", async () => {
+    authenticatedAs("SUPER_ADMIN");
+    deletionRepository.find.mockResolvedValue(appointment);
+    await expect(deleteAdminAppointment("a1")).resolves.toEqual({ status: "FORBIDDEN" });
+    expect(deletionRepository.archive).not.toHaveBeenCalled();
+  });
+
+  it("lets TENANT_ADMIN archive with the session tenant and the submitted id", async () => {
+    authenticatedAs("TENANT_ADMIN");
+    deletionRepository.find.mockResolvedValue(appointment);
+    deletionRepository.archive.mockResolvedValue("archived");
+    await expect(deleteAdminAppointment("a1")).resolves.toEqual({ status: "DELETED" });
+    expect(deletionRepository.find).toHaveBeenCalledWith(sessionTenant, "a1");
+    expect(deletionRepository.archive).toHaveBeenCalledWith(sessionTenant, "a1", expect.any(Date));
+  });
+
+  it("maps a thrown error to PERSISTENCE_FAILURE", async () => {
+    authenticatedAs("TENANT_ADMIN");
+    deletionRepository.find.mockRejectedValue(new Error("db"));
+    await expect(deleteAdminAppointment("a1")).resolves.toEqual({ status: "PERSISTENCE_FAILURE" });
+  });
+});
+
+describe("transitionAdminAppointment archived lookup", () => {
+  it("filters archived appointments out so they resolve to NOT_FOUND", async () => {
+    authenticatedAs("TENANT_ADMIN");
+    appointmentFindUnique.mockResolvedValue(null);
+    await expect(transitionAdminAppointment("a1", "CONFIRMED")).resolves.toEqual({ status: "NOT_FOUND" });
+    expect(appointmentFindUnique).toHaveBeenCalledWith({
+      where: { tenantId_id: { tenantId: sessionTenant.tenantId, id: "a1" }, deletedAt: null },
+    });
   });
 });

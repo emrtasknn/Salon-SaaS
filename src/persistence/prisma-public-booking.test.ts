@@ -24,6 +24,8 @@ function makeTransaction(overrides: Readonly<{
   tenantStatus?: string | null;
   closures?: string[];
   tenant?: Record<string, unknown>;
+  /** ADR-045 phase B: busy time from the staff member's connected Google calendar. */
+  busy?: Array<{ startAt: Date; endAt: Date }>;
 }> = {}) {
   const tenantStatus = overrides.tenantStatus !== undefined ? overrides.tenantStatus : "ACTIVE";
   return {
@@ -44,6 +46,8 @@ function makeTransaction(overrides: Readonly<{
     appointmentAccessToken: { create: vi.fn().mockResolvedValue({ id: "t" }) },
     appointmentContact: { create: vi.fn().mockResolvedValue({ id: "ac" }) },
     closureDate: { findMany: vi.fn().mockResolvedValue((overrides.closures ?? []).map((d) => ({ date: new Date(`${d}T00:00:00.000Z`) }))) },
+    externalBusyBlock: { findMany: vi.fn().mockResolvedValue(overrides.busy ?? []) },
+    phoneCalendarEvent: { findMany: vi.fn().mockResolvedValue([]) },
   };
 }
 
@@ -181,6 +185,18 @@ describe("public booking repository", () => {
 
     const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
     await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("slot_unavailable");
+    expect(transaction.appointment.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks booking when the staff member's connected Google calendar is busy (ADR-045 phase B)", async () => {
+    const transaction = makeTransaction({
+      busy: [{ startAt: new Date(validInput.startAt.getTime() + 30 * 60_000), endAt: new Date(validInput.startAt.getTime() + 45 * 60_000) }],
+    });
+    const repository = createPrismaPublicBookingRepository(makePrisma(transaction));
+    await expect(repository.create({ tenantId: "tenant-a" as never }, validInput)).resolves.toBe("slot_unavailable");
+    expect(transaction.externalBusyBlock.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ tenantId: "tenant-a", staffId: "staff-a", connection: expect.objectContaining({ status: "ACTIVE" }) }),
+    }));
     expect(transaction.appointment.create).not.toHaveBeenCalled();
   });
 

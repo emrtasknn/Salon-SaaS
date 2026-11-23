@@ -1,0 +1,31 @@
+import type { ApplicationIdentity } from "../domain/auth-identity";
+import type { TenantContext } from "../domain/tenant-context";
+import { isRecordId, type DeleteResult } from "../domain/deletion";
+
+export type ServiceDeletionRepository = Readonly<{
+  archive(tenantContext: TenantContext, input: Readonly<{ serviceId: string; now: Date }>): Promise<
+    "archived" | "not_found" | { status: "has_active_appointments"; count: number }
+  >;
+}>;
+
+export function createServiceDeletion(deps: Readonly<{
+  repository: ServiceDeletionRepository;
+  authorizer: { authorizeAdmin(identity: ApplicationIdentity, tenantContext: TenantContext): Promise<boolean> };
+  now?: () => Date;
+}>) {
+  return {
+    async delete(identity: ApplicationIdentity, tenantContext: TenantContext, serviceId: unknown): Promise<DeleteResult> {
+      if (identity.state !== "authenticated") return { status: "FORBIDDEN" };
+      try {
+        if (!(await deps.authorizer.authorizeAdmin(identity, tenantContext))) return { status: "FORBIDDEN" };
+        if (!isRecordId(serviceId)) return { status: "INVALID_INPUT" };
+        const result = await deps.repository.archive(tenantContext, { serviceId, now: deps.now?.() ?? new Date() });
+        if (result === "archived") return { status: "DELETED" };
+        if (result === "not_found") return { status: "NOT_FOUND" };
+        return { status: "HAS_ACTIVE_APPOINTMENTS", count: result.count };
+      } catch {
+        return { status: "PERSISTENCE_FAILURE" };
+      }
+    },
+  };
+}

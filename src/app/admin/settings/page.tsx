@@ -10,5 +10,5 @@ import { SettingsScreen } from "../../_ui/settings-screen";
 export default async function AdminSettingsPage() {
   const pushBindingKey = await readPushBindingKey();
   if (!pushBindingKey) redirect("/login");
-  return <SettingsScreen home={{ label: "Yönetim", href: "/admin", icon: House }} pushBindingKey={pushBindingKey} />;
+  return <SettingsScreen home={{ label: "Yönetim", href: "/admin", icon: House }} pushBindingKey={pushBindingKey} tour="admin" calendarHref="/admin/settings/takvim" />;
 }

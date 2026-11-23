@@ -19,6 +19,8 @@ export type PublicAvailabilityRepository = Readonly<{
         appointments: ReadonlyArray<AppointmentRecord>;
         /** WP-08: closed local dates; slots touching them are excluded. */
         closedDates?: ReadonlyArray<string>;
+        /** ADR-045 phase B: busy time from the staff member's connected Google calendar. */
+        busyIntervals?: ReadonlyArray<Readonly<{ startAt: Date; endAt: Date }>>;
         serviceActive: boolean;
         staffActive: boolean;
       }
@@ -77,6 +79,7 @@ export function createPublicAvailability(repository: PublicAvailabilityRepositor
           bufferMinutes: result.bufferMinutes,
           now: new Date(),
           closedDates: result.closedDates ?? [],
+          busyIntervals: result.busyIntervals ?? [],
         });
 
         return {

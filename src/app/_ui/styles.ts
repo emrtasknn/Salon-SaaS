@@ -34,7 +34,7 @@ export const checkboxClassName =
 
 /** Inline feedback card (BoardUI Notification look). For a toned card with an icon use <Notice>. */
 export const statusNote =
-  "rounded-card border border-separator bg-surface p-3.5 text-subhead text-ink shadow-raised";
+  "enter-fade rounded-card border border-separator bg-surface p-3.5 text-subhead text-ink shadow-raised";
 
 /** Turkish status labels (single source; always shown with the color, never color-only). */
 export const appointmentStatusLabel: Record<string, string> = {
@@ -51,6 +51,7 @@ export const appointmentStatusBadge: Record<string, string> = {
   REJECTED: "bg-status-rejected-bg text-status-rejected",
   CANCELLED: "bg-status-cancelled-bg text-status-cancelled",
   COMPLETED: "bg-status-completed-bg text-status-completed",
+  EXTERNAL_BUSY: "bg-surface-muted text-ink-muted",
 };
 
 export const badgeBase = "inline-flex items-center rounded-full px-2.5 py-1 text-footnote font-semibold";

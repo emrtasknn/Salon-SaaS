@@ -63,7 +63,7 @@ describe("prisma closure dates (WP-08)", () => {
       appointments: [{ id: "a1", startAt: impactRow.startAt, status: "PENDING", staffName: "Ali", customerName: "Ayse" }],
     });
     expect(tx.appointment.findMany.mock.calls[0][0].where).toEqual({
-      tenantId: "t", status: { in: ["PENDING", "CONFIRMED"] },
+      tenantId: "t", deletedAt: null, status: { in: ["PENDING", "CONFIRMED"] },
       startAt: { lt: new Date("2026-11-09T21:00:00.000Z") },
       endAt: { gt: new Date("2026-11-08T21:00:00.000Z") },
     });

@@ -18,6 +18,8 @@ function makeRepository(timeZone: string, tenantStatus: "ACTIVE" | "INACTIVE" = 
     staffService: { findMany: vi.fn().mockResolvedValue([]) },
     appointment: { findMany: appointmentFindMany },
     closureDate: { findMany: closureFindMany },
+    externalBusyBlock: { findMany: vi.fn().mockResolvedValue([]) },
+    phoneCalendarEvent: { findMany: vi.fn().mockResolvedValue([]) },
   };
   const prisma = { $transaction: vi.fn(async (callback: (value: unknown) => unknown) => callback(tx)) } as unknown as PrismaTenantClient;
   return { repository: createPrismaPublicAvailabilityRepository(prisma), appointmentFindMany, closureFindMany, tx };
@@ -102,7 +104,7 @@ describe("public availability multi-service (owner decision 2026-11-06)", () => 
 
     const result = await repository.read({ tenantId: "tenant-a" as never }, { serviceId: "service-a", staffId: "staff-a", dateIso: "2026-11-09", extraServiceIds: ["service-b"] });
 
-    expect(tx.service.findMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", id: { in: ["service-b"] } } });
+    expect(tx.service.findMany).toHaveBeenCalledWith({ where: { tenantId: "tenant-a", id: { in: ["service-b"] }, deletedAt: null } });
     expect(result).toMatchObject({ status: "ok", durationMinutes: 50, bufferMinutes: 10 });
   });
 

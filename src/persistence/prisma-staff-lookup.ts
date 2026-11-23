@@ -5,7 +5,7 @@ export type StaffLookupRecord = { id: string; tenantId: string; profileId: strin
 
 type StaffLookupTx = PrismaTenantTransactionClient & {
   staff: {
-    findUnique(args: { where: { tenantId_profileId: { tenantId: string; profileId: string } } }): Promise<StaffLookupRecord | null>;
+    findUnique(args: { where: { tenantId_profileId: { tenantId: string; profileId: string }; deletedAt: null } }): Promise<StaffLookupRecord | null>;
   };
 };
 
@@ -19,6 +19,6 @@ export function findStaffByProfileId(
   profileId: string,
 ): Promise<StaffLookupRecord | null> {
   return withPrismaTenantContext(prisma, tenantContext, async (tx: StaffLookupTx) =>
-    tx.staff.findUnique({ where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId } } }),
+    tx.staff.findUnique({ where: { tenantId_profileId: { tenantId: tenantContext.tenantId, profileId }, deletedAt: null } }),
   );
 }

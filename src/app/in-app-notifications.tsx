@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Bell } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { RingingIcon } from "@/components/ui/motion-icons";
 import { appointmentHref } from "./_ui/deep-link";
 import { appointmentStatusBadge, appointmentStatusDot, appointmentStatusLabel, badgeBase } from "./_ui/styles";
@@ -121,6 +122,7 @@ export function InAppNotifications({ initialData, reload, href, className, width
     setSeenCount(pendingCount);
   }
 
+  const reduceMotion = useReducedMotion();
   // WP4-R8: UNAUTHORIZED / INVALID_INPUT / PERSISTENCE_FAILURE → render nothing.
   if (data.status !== "ok") return null;
 
@@ -149,7 +151,18 @@ export function InAppNotifications({ initialData, reload, href, className, width
           className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-caption font-semibold text-on-action ring-2 ring-canvas"
         >{formatBadgeCount(count)}</span>}
       </button>
-      {open && <div id={panelId} role="region" aria-label="Bildirimler" className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-card border border-separator bg-surface p-2 text-ink shadow-raised">
+      <AnimatePresence>
+      {open && <motion.div
+        id={panelId}
+        role="region"
+        aria-label="Bildirimler"
+        // Grows out of the bell (top-right origin); closes faster than it opens.
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92, y: -4 }}
+        animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: reduceMotion ? 0.12 : 0.22, ease: [0.23, 1, 0.32, 1] } }}
+        exit={reduceMotion ? { opacity: 0, transition: { duration: 0.1 } } : { opacity: 0, scale: 0.96, y: -2, transition: { duration: 0.15, ease: [0.23, 1, 0.32, 1] } }}
+        style={{ transformOrigin: "top right" }}
+        className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-card border border-separator bg-surface p-2 text-ink shadow-raised"
+      >
         <section aria-labelledby={`${panelId}-pending`}>
           <h2 id={`${panelId}-pending`} className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Onay bekleyen ({count})</h2>
           {data.pending.length === 0
@@ -163,7 +176,8 @@ export function InAppNotifications({ initialData, reload, href, className, width
             ? <p className="px-3 py-2 text-sm text-ink-muted">Son 7 günde değişiklik yok.</p>
             : <ul>{data.recent.map((item) => <NotificationItem key={item.appointmentId} item={item} href={href} onNavigate={() => setOpen(false)} />)}</ul>}
         </section>
-      </div>}
+      </motion.div>}
+      </AnimatePresence>
     </div>
   </div>;
 }

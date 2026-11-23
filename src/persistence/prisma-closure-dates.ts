@@ -31,7 +31,7 @@ type Tx = PrismaTenantTransactionClient & {
   };
   appointment: {
     findMany(args: {
-      where: { tenantId: string; status: { in: Array<"PENDING" | "CONFIRMED"> }; startAt: { lt: Date }; endAt: { gt: Date } };
+      where: { tenantId: string; deletedAt: null; status: { in: Array<"PENDING" | "CONFIRMED"> }; startAt: { lt: Date }; endAt: { gt: Date } };
       orderBy: { startAt: "asc" };
       select: {
         id: true; startAt: true; status: true;
@@ -54,7 +54,7 @@ function toRecord(row: ClosureRow) {
 async function readImpact(tx: Tx, tenantId: string, dateIso: string, timezone: string): Promise<ClosureImpactAppointment[]> {
   const range = localDayUtcRange(dateIso, timezone);
   const rows = await tx.appointment.findMany({
-    where: { tenantId, status: { in: ["PENDING", "CONFIRMED"] }, startAt: { lt: range.endAt }, endAt: { gt: range.startAt } },
+    where: { tenantId, deletedAt: null, status: { in: ["PENDING", "CONFIRMED"] }, startAt: { lt: range.endAt }, endAt: { gt: range.startAt } },
     orderBy: { startAt: "asc" },
     select: {
       id: true, startAt: true, status: true,

@@ -1,9 +1,13 @@
 "use server";
 
 import { createBookingEngine } from "../../application/booking-engine";
+import { listTrustedBusyBlocks } from "../../persistence/prisma-external-busy";
 import { createStaffAppointments } from "../../application/staff-appointments";
 import { createInAppNotifications, toInAppNotificationView, type InAppNotificationView } from "../../application/in-app-notifications";
-import { authorizeStaffCompletion, authorizeStaffDecision } from "../../application/staff-appointment-authorization";
+import { createAppointmentDeletion } from "../../application/appointment-deletion";
+import { createPrismaAppointmentDeletionRepository } from "../../persistence/prisma-appointment-deletion";
+import type { DeleteResult } from "../../domain/deletion";
+import { authorizeStaffAppointmentDelete, authorizeStaffCompletion, authorizeStaffDecision } from "../../application/staff-appointment-authorization";
 import { enforceServerAuthorization } from "../../application/server-authorization-enforcement";
 import { readAuthenticatedTenantRequest } from "../../application/auth-request-boundary";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
@@ -19,6 +23,7 @@ import { createAuthenticatedIdentity } from "../../domain/auth-identity";
 import { isStaffWorkspaceRole } from "../../domain/staff-workspace";
 import type { AppointmentStatus } from "../../domain/appointment";
 import { parseCalendarRange } from "../_ui/timeline-layout";
+import { syncStaleCalendarsLater } from "../calendar-sync-runtime";
 import { createOnBehalf, createOnBehalfBookingEngine, listSlotsOnBehalf, readCreateOptions, rescheduleOnBehalf, type RescheduleView } from "../appointment-create-runtime";
 import type {
   CreateAppointmentResult, CreateOptionsView, LocalDateIso, SlotListResult, StaffCreateAppointmentInput,
@@ -128,12 +133,37 @@ export async function listStaffAppointments(startDate: string, endDate?: string)
   if (!context) return { status: "UNAUTHORIZED" as const };
   const range = parseCalendarRange(startDate, endDate);
   if (!range) return { status: "INVALID_INPUT" as const };
+  // ADR-045: keep connected Google calendars of this salon fresh (after the response).
+  syncStaleCalendarsLater(context.tenantContext);
   const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
   if (!tenant) return { status: "NOT_FOUND" as const };
   const { localWallTimeToUtc } = await import("../../domain/availability");
   const startAt = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
   const endAt = localWallTimeToUtc(range.endDate, 1439, tenant.timezone);
   return staffAppointments(context.prisma, context.reader).list(context.identity, context.tenantContext, context.staffId, { startAt, endAt });
+}
+
+
+export type CalendarBusyView =
+  | Readonly<{ status: "ok"; busy: ReadonlyArray<{ id: string; staffId: string; startAt: string; endAt: string; title: string | null }> }>
+  | Readonly<{ status: "UNAUTHORIZED" | "INVALID_INPUT" | "NOT_FOUND" }>;
+
+function busyView(blocks: ReadonlyArray<{ id: string; staffId: string; startAt: Date; endAt: Date; title: string | null }>): CalendarBusyView {
+  return { status: "ok", busy: blocks.map((b) => ({ id: b.id, staffId: b.staffId, startAt: b.startAt.toISOString(), endAt: b.endAt.toISOString(), title: b.title })) };
+}
+
+/** ADR-045: the signed-in staff member's busy time from their connected phone calendar (display only). */
+export async function listStaffBusy(startDate: string, endDate?: string): Promise<CalendarBusyView> {
+  const context = await getStaffContext();
+  if (!context) return { status: "UNAUTHORIZED" };
+  const range = parseCalendarRange(startDate, endDate);
+  if (!range) return { status: "INVALID_INPUT" };
+  const tenant = await context.prisma.tenant.findUnique({ where: { id: context.tenantContext.tenantId } });
+  if (!tenant) return { status: "NOT_FOUND" };
+  const { localWallTimeToUtc } = await import("../../domain/availability");
+  const from = localWallTimeToUtc(range.startDate, 0, tenant.timezone);
+  const to = localWallTimeToUtc(range.endDate, 1439, tenant.timezone);
+  return busyView(await listTrustedBusyBlocks(context.prisma, context.tenantContext, { staffId: context.staffId, from, to, now: new Date() }));
 }
 
 export async function decideStaffAppointment(
@@ -237,4 +267,31 @@ export async function rescheduleStaffAppointment(appointmentId: string, newStart
     context.prisma, createOnBehalfBookingEngine(context.prisma, context.reader), context.identity, context.tenantContext,
     appointmentId, newStartAtIso,
   );
+}
+
+/**
+ * Deletes (archives) an appointment: the assigned ACTIVE staff member (status rule applied by the
+ * service) or a TENANT_ADMIN. Tenant and identity come from the trusted session context.
+ */
+export async function deleteStaffAppointment(appointmentId: string): Promise<DeleteResult> {
+  try {
+    const context = await getStaffContext();
+    if (!context) return { status: "FORBIDDEN" };
+    const { prisma, reader } = context;
+    return await createAppointmentDeletion({
+      repository: createPrismaAppointmentDeletionRepository(prisma),
+      authorizer: {
+        async authorizeAdmin(identity, tenantContext) {
+          const result = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
+          // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+          return result.authorization.status === "allowed" && result.authorization.role === "TENANT_ADMIN";
+        },
+        async authorizeAssignedStaff(identity, tenantContext, appointment) {
+          return authorizeStaffAppointmentDelete(staffDecisionAuthorization(prisma, reader), identity, tenantContext, appointment);
+        },
+      },
+    }).delete(context.identity, context.tenantContext, appointmentId);
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
 }

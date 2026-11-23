@@ -11,6 +11,11 @@ import { enforceServerAuthorization } from "../../application/server-authorizati
 import { createStaffManager } from "../../application/staff-management";
 import { createWorkingHoursManager } from "../../application/working-hours-management";
 import { createPrismaMembershipReader } from "../../persistence/prisma-membership-reader";
+import { createStaffDeletion } from "../../application/staff-deletion";
+import { createServiceDeletion } from "../../application/service-deletion";
+import type { DeleteResult } from "../../domain/deletion";
+import { createPrismaStaffDeletionRepository } from "../../persistence/prisma-staff-deletion";
+import { createPrismaServiceDeletionRepository } from "../../persistence/prisma-service-deletion";
 import { createPrismaServiceRepository } from "../../persistence/prisma-service-management";
 import { createPrismaStaffRepository } from "../../persistence/prisma-staff-management";
 import { createPrismaWorkingHoursRepository } from "../../persistence/prisma-working-hours-management";
@@ -334,4 +339,46 @@ export async function setAdminServesAsStaffAction(enabled: boolean) {
     context.tenantContext,
     enabled,
   );
+}
+
+function adminAuthorizer(prisma: ReturnType<typeof getPrisma>) {
+  return {
+    async authorizeAdmin(
+      identity: Parameters<ReturnType<typeof createStaffDeletion>["delete"]>[0],
+      tenantContext: Parameters<ReturnType<typeof createStaffDeletion>["delete"]>[1],
+    ) {
+      const reader = createPrismaMembershipReader({ prisma });
+      const decision = await enforceServerAuthorization({ identity, tenantContext, requiredRole: "TENANT_ADMIN" }, reader);
+      // Delete permission matrix: exactly TENANT_ADMIN (SUPER_ADMIN is refused).
+      return decision.authorization.status === "allowed" && decision.authorization.role === "TENANT_ADMIN";
+    },
+  };
+}
+
+/** Archives a staff member (never self, never with future active appointments). Tenant from the session. */
+export async function deleteStaffAction(staffId: string): Promise<DeleteResult> {
+  try {
+    const context = await getAdminContext();
+    if (!context) return { status: "FORBIDDEN" };
+    return await createStaffDeletion({
+      repository: createPrismaStaffDeletionRepository(context.prisma),
+      authorizer: adminAuthorizer(context.prisma),
+    }).delete(context.identity, context.tenantContext, staffId);
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
+}
+
+/** Archives a service (blocked while it has future active appointments). Tenant from the session. */
+export async function deleteServiceAction(serviceId: string): Promise<DeleteResult> {
+  try {
+    const context = await getAdminContext();
+    if (!context) return { status: "FORBIDDEN" };
+    return await createServiceDeletion({
+      repository: createPrismaServiceDeletionRepository(context.prisma),
+      authorizer: adminAuthorizer(context.prisma),
+    }).delete(context.identity, context.tenantContext, serviceId);
+  } catch {
+    return { status: "PERSISTENCE_FAILURE" };
+  }
 }

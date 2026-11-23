@@ -21,7 +21,7 @@ type ListRow = AppointmentRecord & {
 type Tx = PrismaTenantTransactionClient & {
   appointment: {
     findMany(args: { where: Record<string, unknown>; orderBy: Record<string, unknown>; include: typeof listInclude }): Promise<ListRow[]>;
-    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string } } }): Promise<AppointmentRecord | null>;
+    findUnique(args: { where: { tenantId_id: { tenantId: string; id: string }; deletedAt: null } }): Promise<AppointmentRecord | null>;
   };
   staff: {
     findUnique(args: { where: { tenantId_profileId: { tenantId: string; profileId: string } } }): Promise<{ id: string; tenantId: string; profileId: string; status: "ACTIVE" | "INACTIVE" } | null>;
@@ -36,6 +36,7 @@ export function createPrismaStaffAppointmentsRepository(prisma: PrismaTenantClie
           where: {
             tenantId: tenantContext.tenantId,
             staffId,
+            deletedAt: null,
             startAt: { lt: range.endAt },
             endAt: { gt: range.startAt },
           },
@@ -53,7 +54,7 @@ export function createPrismaStaffAppointmentsRepository(prisma: PrismaTenantClie
     },
     async findById(tenantContext, appointmentId) {
       return withPrismaTenantContext(prisma, tenantContext, async (tx: Tx) =>
-        tx.appointment.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: appointmentId } } }),
+        tx.appointment.findUnique({ where: { tenantId_id: { tenantId: tenantContext.tenantId, id: appointmentId }, deletedAt: null } }),
       );
     },
   };

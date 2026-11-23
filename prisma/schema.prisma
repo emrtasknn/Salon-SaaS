@@ -27,6 +27,7 @@ model Tenant {
   mapsUrl       String? @db.VarChar(500)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   profiles     Profile[]
   staff        Staff[]
@@ -42,6 +43,12 @@ model Tenant {
   customerNotes CustomerNote[]
   appointmentAccessTokens AppointmentAccessToken[]
   pushSubscriptions PushSubscription[]
+  calendarFeedTokens CalendarFeedToken[]
+  calendarConnections CalendarConnection[]
+  phoneCalendarAccounts PhoneCalendarAccount[]
+  phoneCalendarEvents PhoneCalendarEvent[]
+  externalBusyBlocks ExternalBusyBlock[]
+  calendarEventLinks CalendarEventLink[]
   closureDates ClosureDate[]
   appointmentContacts AppointmentContact[]
 }
@@ -54,6 +61,7 @@ model Profile {
   phone       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   staff        Staff?
@@ -61,6 +69,9 @@ model Profile {
   appointments Appointment[] @relation("AppointmentCustomer")
   notes       CustomerNote[]
   pushSubscriptions PushSubscription[]
+  calendarFeedTokens CalendarFeedToken[]
+  calendarConnections CalendarConnection[]
+  phoneCalendarAccounts PhoneCalendarAccount[]
   closureDatesCreated ClosureDate[]
   appointmentContactOptInsRecorded AppointmentContact[] @relation("AppointmentContactOptInRecordedBy")
 
@@ -143,12 +154,15 @@ model Staff {
   status    StaffStatus @default(ACTIVE)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   profile      Profile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Staff_profile_tenant_fkey")
   appointments Appointment[]
   closureDates ClosureDate[]
   staffServices StaffService[]
+  externalBusyBlocks ExternalBusyBlock[]
+  phoneCalendarEvents PhoneCalendarEvent[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, profileId])
@@ -170,6 +184,7 @@ model Service {
   priceIsFrom    Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
 
   tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   category     ServiceCategory? @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Service_category_tenant_fkey")
@@ -433,6 +448,7 @@ model Appointment {
   endAt             DateTime
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
 
   tenant          Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   staff           Staff   @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "Appointment_staff_tenant_fkey")
@@ -443,10 +459,166 @@ model Appointment {
   contact         AppointmentContact?
   /// Multi-service booking (owner decision 2026-11-06): every service in order; absent = single service (serviceId).
   services        AppointmentService[]
+  calendarEventLinks CalendarEventLink[]
 
   @@unique([tenantId, id])
   @@index([tenantId, startAt])
   @@index([tenantId, staffId, startAt])
   @@index([tenantId, customerProfileId, startAt])
   @@index([tenantId, staffId, status, startAt])
+}
+// ADR-045 phase A: private iCalendar subscription feed per profile. Only the SHA-256 hash of the
+// token is stored. STAFF_SELF = the staff member's own appointments; TENANT_ALL = every staff
+// member's (TENANT_ADMIN only, re-checked on every fetch). RLS (ENABLE + FORCE, 4 tenant policies)
+// and the hash CHECK live in migration 20261120100000_calendar_feed_token.
+enum CalendarFeedScope {
+  STAFF_SELF
+  TENANT_ALL
+}
+
+model CalendarFeedToken {
+  id         String            @id @default(cuid())
+  tenantId   String
+  profileId  String
+  scope      CalendarFeedScope
+  tokenHash  String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime          @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  profile Profile @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "CalendarFeedToken_profile_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, tokenHash])
+  @@index([tenantId, profileId, scope, revokedAt])
+}
+
+// ADR-045 phase B: Google Calendar two-way sync, per profile, opt-in. The refresh token is stored
+// encrypted (AES-256-GCM, key in env CALENDAR_TOKEN_KEY). Outbound: appointments are written to
+// a calendar the app creates ("RandevuN"). Inbound: free/busy of the chosen calendars becomes
+// ExternalBusyBlock rows for the connected staff member, which close those times to online
+// booking only (owner decision 2026-11-19). RLS and CHECKs in migration 20261121100000.
+enum CalendarProvider {
+  GOOGLE
+}
+
+enum CalendarConnectionStatus {
+  ACTIVE
+  ERROR
+  REVOKED
+}
+
+model CalendarConnection {
+  id                String                   @id @default(cuid())
+  tenantId          String
+  profileId         String
+  provider          CalendarProvider
+  status            CalendarConnectionStatus @default(ACTIVE)
+  accountEmail      String?                  @db.VarChar(254)
+  refreshTokenEnc   String
+  calendarId        String                   @db.VarChar(1024)
+  busyCalendarIds   String[]                 @default(["primary"])
+  lastSyncAt        DateTime?
+  lastErrorCode     String?                  @db.VarChar(64)
+  revokedAt         DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  profile     Profile             @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "CalendarConnection_profile_tenant_fkey")
+  busyBlocks  ExternalBusyBlock[]
+  eventLinks  CalendarEventLink[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, profileId, provider, status])
+}
+
+model ExternalBusyBlock {
+  id           String   @id @default(cuid())
+  tenantId     String
+  staffId      String
+  connectionId String
+  startAt      DateTime
+  endAt        DateTime
+  createdAt    DateTime @default(now())
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staff      Staff              @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "ExternalBusyBlock_staff_tenant_fkey")
+  connection CalendarConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade, onUpdate: Cascade, map: "ExternalBusyBlock_connection_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, staffId, startAt])
+  @@index([tenantId, connectionId])
+}
+
+model CalendarEventLink {
+  id              String   @id @default(cuid())
+  tenantId        String
+  connectionId    String
+  appointmentId   String
+  externalEventId String   @db.VarChar(1024)
+  syncedUpdatedAt DateTime
+  createdAt       DateTime @default(now())
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  connection  CalendarConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade, onUpdate: Cascade, map: "CalendarEventLink_connection_tenant_fkey")
+  appointment Appointment        @relation(fields: [tenantId, appointmentId], references: [tenantId, id], onDelete: Cascade, onUpdate: Cascade, map: "CalendarEventLink_appointment_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, connectionId, appointmentId])
+}
+
+// ADR-045 phase C (owner decision 2026-11-20): the app serves its own CalDAV calendar account
+// ("RandevuN") that a user adds in iPhone Settings → Calendar → Accounts. App appointments
+// appear in it; events the user creates in it come back as PhoneCalendarEvent and act as busy
+// time (online booking + calendar display, with their title). No Apple credential is stored:
+// the password is generated by the app and kept only as an scrypt hash.
+// RLS (ENABLE + FORCE, 4 tenant policies) and CHECKs live in migration 20261123100000.
+model PhoneCalendarAccount {
+  id           String    @id @default(cuid())
+  tenantId     String
+  profileId    String
+  username     String    @db.VarChar(120)
+  passwordHash String
+  lastSeenAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  profile Profile              @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "PhoneCalendarAccount_profile_tenant_fkey")
+  events  PhoneCalendarEvent[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, username])
+  @@index([tenantId, profileId, revokedAt])
+}
+
+model PhoneCalendarEvent {
+  id        String    @id @default(cuid())
+  tenantId  String
+  accountId String
+  /// Staff member whose time this blocks; null for an admin without a staff row (display only).
+  staffId   String?
+  /// Resource name in the CalDAV collection (e.g. "<uuid>.ics").
+  href      String    @db.VarChar(255)
+  uid       String    @db.VarChar(255)
+  etag      String    @db.VarChar(80)
+  ics       String
+  title     String?   @db.VarChar(200)
+  startAt   DateTime
+  endAt     DateTime
+  /// False for all-day or "free" (TRANSP:TRANSPARENT) events: shown, but they never close slots.
+  blocksTime Boolean  @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  account PhoneCalendarAccount @relation(fields: [tenantId, accountId], references: [tenantId, id], onDelete: Cascade, onUpdate: Cascade, map: "PhoneCalendarEvent_account_tenant_fkey")
+  staff   Staff?               @relation(fields: [tenantId, staffId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "PhoneCalendarEvent_staff_tenant_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, accountId, href])
+  @@index([tenantId, staffId, startAt])
+  @@index([tenantId, accountId, updatedAt])
 }

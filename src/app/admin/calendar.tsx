@@ -3,41 +3,42 @@
 import { useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import {
   createAdminAppointment,
+  deleteAdminAppointment,
   getAdminCreateOptions,
   listAdminAppointments,
+  listAdminBusy,
   listAdminSlots,
   rescheduleAdminAppointment,
   searchAdminCustomers,
   transitionAdminAppointment,
 } from "./calendar-actions";
 import { MoveStepButtons, useAppointmentMove } from "../_ui/appointment-move";
-import { CreateAppointmentDialog } from "../create-appointment-dialog";
+import { CreateAppointmentDialog, type CreateRequest } from "../create-appointment-dialog";
 import { BookingContactSummary } from "../booking-contact-summary";
 import {
   AppointmentSheet,
-  DateStepper,
   DayTimeline,
   DetailList,
-  formatPeriod,
   formatTimeRange,
   useMinuteClock,
   useCalendarData,
   useCalendarView,
-  ViewSwitch,
 } from "../_ui/day-timeline";
+import { CalendarHeader, OverflowMenu } from "../_ui/calendar-header";
+import { busyItems, isBusyItemId } from "../_ui/calendar-busy";
+import { liveAppointmentDates } from "../_ui/calendar-marks";
 import { WeekView } from "../_ui/week-view";
 import { MonthView } from "../_ui/month-view";
-import { dateInZone, TIMELINE_TIME_ZONE } from "../_ui/timeline-layout";
+import { DayAgenda, WeekAgenda } from "../_ui/agenda-list";
+import { dateInZone } from "../_ui/timeline-layout";
 import { formatDayLabel } from "../_ui/date-format";
 import { ConfirmButton } from "../_ui/confirm-button";
+import { AppointmentDeleteButton } from "../_ui/appointment-delete-button";
 import { appointmentStatusBadge, badgeBase, appointmentStatusLabel } from "../_ui/styles";
-import { DateField } from "../_ui/date-field";
-import { PageHeader } from "../_ui/page-header";
 import { AdminClosures } from "./closures";
 import type { ClosureListResult, LocalDateIso } from "../appointment-create-contract";
 import { Button, type ButtonVariant } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
-import { RotateCw } from "lucide-react";
 
 type AdminTransitionTarget = "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 type ActionKind = "primary" | "destructive" | "secondary";
@@ -81,6 +82,8 @@ const actionVariant: Record<ActionKind, ButtonVariant> = {
   secondary: "secondary",
 };
 
+const NO_BUSY = { status: "ok", busy: [] } as const;
+
 const createVariant = {
   kind: "admin",
   loadOptions: getAdminCreateOptions,
@@ -91,6 +94,8 @@ const createVariant = {
 
 type Props = {
   initialDate: string;
+  /** Inclusive range `initialData` covers (the server loads the anchor's week). */
+  initialRange: Readonly<{ startDate: string; endDate: string }>;
   initialData: Awaited<ReturnType<typeof listAdminAppointments>>;
   closures: Readonly<{ initialData: ClosureListResult; range: Readonly<{ from: LocalDateIso; to: LocalDateIso }> }>;
   /** Notification bell, rendered in the fixed top layer. */
@@ -99,20 +104,15 @@ type Props = {
   initialSelectedId?: string | null;
 };
 
-const timeFormatter = new Intl.DateTimeFormat("tr-TR", {
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: TIMELINE_TIME_ZONE,
-});
-
-export function AdminCalendar({ initialDate, initialData, closures, bell, initialSelectedId = null }: Props) {
+export function AdminCalendar({ initialDate, initialRange, initialData, closures, bell, initialSelectedId = null }: Props) {
   const [date, setDate] = useState(initialDate);
   const [view, setView] = useCalendarView();
   const { data, stale, busy: loading, refresh } = useCalendarData(listAdminAppointments, view, date, {
-    startDate: initialDate,
-    endDate: initialDate,
+    ...initialRange,
     data: initialData,
   });
+  // ADR-045: busy time from connected phone calendars (grey "Dolu" blocks; loads after the page).
+  const { data: busyData } = useCalendarData(listAdminBusy, view, date, { startDate: "", endDate: "", data: NO_BUSY });
   const [acting, startTransition] = useTransition();
   const busy = loading || acting;
   const [feedback, setFeedback] = useState("");
@@ -128,7 +128,8 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   });
   const [closureData, setClosureData] = useState(closures.initialData);
   const sheetTrigger = useRef<HTMLElement | null>(null);
-  const closuresTrigger = useRef<HTMLButtonElement | null>(null);
+  const [createRequest, setCreateRequest] = useState<CreateRequest | null>(null);
+  const closuresReturnFocus = useRef<HTMLElement | null>(null);
 
   const closedDates = useMemo(
     () => new Set(closureData.status === "OK" ? closureData.closures.map((closure) => closure.date) : []),
@@ -194,6 +195,12 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
     });
   }
 
+  function afterDelete() {
+    setSelectedId(null);
+    setFeedback("Randevu silindi.");
+    refresh();
+  }
+
   if (data.status === "UNAUTHORIZED") {
     return (
       <main className="mx-auto max-w-5xl p-6">
@@ -209,6 +216,20 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   const loadError = data.status !== "ok" ? "Takvim yüklenemedi." : "";
   // Day and list show only the anchor date (data may still hold a wider range while reloading).
   const dayAppointments = appointments.filter((a) => dateInZone(a.startAt) === date);
+  // Phone-calendar busy time, only in columns of staff who have appointments that day.
+  const busyBlocks = busyData.status === "ok" ? busyData.busy : [];
+  const dayStaff = new Set(dayAppointments.map((a) => a.staffId));
+  const dayBusy = busyBlocks.filter((b) => dateInZone(b.startAt) === date && dayStaff.has(b.staffId));
+  const staffNameOf = (staffId: string) => appointments.find((a) => a.staffId === staffId)?.staffDisplayName ?? "";
+  const agendaItems = appointments.map((a) => ({
+    id: a.id,
+    startAt: a.startAt,
+    endAt: a.endAt,
+    status: a.status,
+    customer: a.bookingContact?.displayName ?? a.customerDisplayName,
+    service: a.serviceName,
+    staffName: a.staffDisplayName,
+  }));
   const movableOf = (a: (typeof appointments)[number]) => ({
     id: a.id,
     startAt: a.startAt,
@@ -218,6 +239,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
   });
   const selected = selectedId ? appointments.find((a) => a.id === selectedId) ?? null : null;
   const select = (id: string, trigger: HTMLElement) => {
+    if (isBusyItemId(id)) return; // phone-calendar busy time: display only
     sheetTrigger.current = trigger;
     setFeedback("");
     setSelectedId(id);
@@ -225,51 +247,36 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
 
   return (
     <main className="min-h-screen bg-canvas">
-      <PageHeader
+      <CalendarHeader
         title="Randevu takvimi"
-        eyebrow={<span aria-live="polite">{formatPeriod(view, date)}</span>}
+        view={view}
+        onViewChange={(next) => {
+          setSelectedId(null);
+          setView(next);
+        }}
+        date={date}
+        onDateChange={changeDate}
+        marked={liveAppointmentDates(appointments)}
+        disabled={busy}
+        busy={loading}
         accessory={bell}
-        widthClassName="max-w-5xl"
-      >
-        <ViewSwitch
-          view={view}
-          onChange={(next) => {
-            setSelectedId(null);
-            setView(next);
-          }}
-        />
-        <DateStepper date={date} view={view} onChange={changeDate} disabled={busy}>
-          <DateField value={date} onChange={changeDate} disabled={busy} />
-        </DateStepper>
-      </PageHeader>
-      <div className="mx-auto max-w-5xl p-4 sm:p-6">
-        <div className="mb-4 flex flex-wrap gap-2">
-          <CreateAppointmentDialog
-            variant={createVariant}
-            initialDate={date}
-            onCreated={onCreated}
+        menu={
+          <OverflowMenu
+            actions={[
+              {
+                label: "Kapalı günler",
+                onSelect: () => {
+                  closuresReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                  setClosuresOpen(true);
+                },
+              },
+              { label: loading ? "Yükleniyor…" : "Yenile", onSelect: refresh, disabled: busy },
+            ]}
           />
-          <Button
-            ref={closuresTrigger}
-            type="button"
-            onClick={() => setClosuresOpen(true)}
-            variant="secondary"
-          >
-            Kapalı günler
-          </Button>
-          <Button
-            type="button"
-            onClick={() => refresh()}
-            disabled={busy}
-            variant="secondary"
-            leadingIcon={RotateCw}
-            aria-label={loading ? "Yükleniyor" : "Yenile"}
-            className="ml-auto px-3 sm:px-4"
-          >
-            <span className="sr-only sm:not-sr-only">{loading ? "Yükleniyor…" : "Yenile"}</span>
-          </Button>
-        </div>
-
+        }
+      />
+      <CreateAppointmentDialog variant={createVariant} initialDate={date} onCreated={onCreated} trigger="fab" request={createRequest} />
+      <div className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6">
         {(feedback || loadError) && (
           <p
             role="status"
@@ -281,12 +288,21 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
 
         <div aria-busy={stale} className={stale ? "opacity-60 transition-opacity duration-150" : undefined}>
         {view === "month" ? (
-          <MonthView date={date} items={appointments} closedDates={closedDates} onOpenDay={openDay} />
+          <>
+            <MonthView date={date} selected={date} items={appointments} closedDates={closedDates} onOpenDay={changeDate} />
+            <DayAgenda
+              date={date}
+              items={agendaItems}
+              onSelect={select}
+              onOpenDay={openDay}
+              emptyText={closedDates.has(date) ? "Bu gün kapalı gün olarak işaretli." : "Bu gün için randevu yok."}
+            />
+          </>
         ) : view === "week" ? (
           <WeekView
             date={date}
             perStaffColors
-            items={appointments.map((a) => ({
+            items={[...appointments.map((a) => ({
               id: a.id,
               staffId: a.staffId,
               staffName: a.staffDisplayName,
@@ -295,19 +311,26 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
               status: a.status,
               customer: a.bookingContact?.displayName ?? a.customerDisplayName,
               service: a.serviceName,
-            }))}
+            })), ...busyItems(busyBlocks, (b) => b.staffId).map((b) => ({ ...b, staffName: staffNameOf(b.staffId) }))]}
             onSelect={select}
             onOpenDay={openDay}
           />
+        ) : view === "list" ? (
+          <WeekAgenda date={date} items={agendaItems} onSelect={select} />
         ) : dayAppointments.length === 0 ? (
-          <div className="inset-group p-8 text-center text-body text-ink-muted">
+          <div className="inset-group flex flex-col items-center gap-3 p-8 text-center text-body text-ink-muted">
             {closedDates.has(date) ? "Bu gün kapalı gün olarak işaretli. Randevu yok." : "Bu gün için randevu yok."}
+            {!closedDates.has(date) ? (
+              <Button type="button" variant="secondary" onClick={() => setCreateRequest({ key: Date.now(), date })}>
+                Bu güne randevu ekle
+              </Button>
+            ) : null}
           </div>
-        ) : view === "day" ? (
+        ) : (
           <DayTimeline
             date={date}
             rows={staffRows(dayAppointments)}
-            items={dayAppointments.map((a) => move.preview({
+            items={[...dayAppointments.map((a) => move.preview({
               id: a.id,
               rowId: a.staffId,
               startAt: a.startAt,
@@ -315,86 +338,15 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
               status: a.status,
               customer: a.bookingContact?.displayName ?? a.customerDisplayName,
               service: a.serviceName,
-            }))}
+            })), ...busyItems(dayBusy, (b) => b.staffId)]}
             onSelect={select}
+            onCreateAt={(staffId, minute) => setCreateRequest({ key: Date.now(), date, staffId, minute })}
             pendingId={move.pendingId}
             onMove={(id, deltaMinutes) => {
               const a = dayAppointments.find((candidate) => candidate.id === id);
               if (a) move.propose(movableOf(a), deltaMinutes);
             }}
           />
-        ) : (
-          <div className="space-y-3">
-            {dayAppointments.map((appointment) => (
-              <article
-                key={appointment.id}
-                className="rounded-xl border bg-surface p-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">
-                      {timeFormatter.format(new Date(appointment.startAt))}–
-                      {timeFormatter.format(new Date(appointment.endAt))}
-                    </p>
-
-                    <p className="mt-2 text-sm text-ink-muted">
-                      <span className="font-medium">Personel:</span>{" "}
-                      {appointment.staffDisplayName}
-                    </p>
-
-                    <p className="text-sm text-ink-muted">
-                      <span className="font-medium">Müşteri:</span>{" "}
-                      {appointment.customerDisplayName}
-                    </p>
-
-                    <p className="text-sm text-ink-muted">
-                      <span className="font-medium">Hizmet:</span>{" "}
-                      {appointment.serviceName}
-                    </p>
-
-                    <BookingContactSummary
-                      contact={appointment.bookingContact}
-                      profile={{ displayName: appointment.customerDisplayName }}
-                    />
-                  </div>
-
-                  <span className="rounded-full border px-2 py-1 text-xs">
-                    {appointmentStatusLabel[appointment.status] ?? appointment.status}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {availableActions(appointment, nowMs).map((action) => {
-                    const ask = confirmCopy[action.to];
-                    return ask ? (
-                      <ConfirmButton
-                        key={action.to}
-                        label={action.label}
-                        question={ask.question}
-                        detail={CONFIRM_DETAIL}
-                        confirmLabel={ask.confirmLabel}
-                        size="small"
-                        variant={actionVariant[action.kind]}
-                        disabled={busy}
-                        onConfirm={() => transition(appointment.id, action.to)}
-                      />
-                    ) : (
-                      <Button
-                        key={action.to}
-                        type="button"
-                        size="small"
-                        variant={actionVariant[action.kind]}
-                        disabled={busy}
-                        onClick={() => transition(appointment.id, action.to)}
-                      >
-                        {action.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </article>
-            ))}
-          </div>
         )}
         </div>
       </div>
@@ -471,6 +423,16 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
             ) : (
               <p className="text-subhead text-ink-muted">Bu randevu için başka işlem yok.</p>
             )}
+            <AppointmentDeleteButton
+              actor="TENANT_ADMIN"
+              status={selected.status}
+              appointmentId={selected.id}
+              summary={`${selected.customerDisplayName} · ${selected.serviceName}`}
+              run={deleteAdminAppointment}
+              onDeleted={() => afterDelete()}
+              disabled={busy}
+              className="w-full sm:w-auto"
+            />
           </div>
         )}
       </AppointmentSheet>
@@ -483,7 +445,7 @@ export function AdminCalendar({ initialDate, initialData, closures, bell, initia
         title="Kapalı günler"
         onClose={() => {
           setClosuresOpen(false);
-          closuresTrigger.current?.focus();
+          closuresReturnFocus.current?.focus();
         }}
       >
         <AdminClosures

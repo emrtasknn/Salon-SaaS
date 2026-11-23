@@ -2,7 +2,7 @@
 // (buckets: status.view IP 30/10 min, status.miss IP 10/10 min).
 import type { RateLimitCheck, RateLimitDecision } from "./rate-limit";
 
-export type StatusLinkRateLimitBucket = "status.view" | "status.miss";
+export type StatusLinkRateLimitBucket = "status.view" | "status.miss" | "feed.view" | "feed.miss" | "dav.request" | "dav.miss";
 
 export type StatusLinkRateLimiter = Readonly<{
   hit(bucket: StatusLinkRateLimitBucket): Promise<"allowed" | "limited">;

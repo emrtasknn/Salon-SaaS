@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { CalendarDays } from "lucide-react";
+import { House } from "lucide-react";
 import { redirect } from "next/navigation";
 import { readPushBindingKey } from "../../_ui/push-binding-key";
 import { SettingsScreen } from "../../_ui/settings-screen";
@@ -10,5 +10,5 @@ import { SettingsScreen } from "../../_ui/settings-screen";
 export default async function StaffSettingsPage() {
   const pushBindingKey = await readPushBindingKey();
   if (!pushBindingKey) redirect("/login");
-  return <SettingsScreen home={{ label: "Takvim", href: "/staff", icon: CalendarDays }} pushBindingKey={pushBindingKey} />;
+  return <SettingsScreen home={{ label: "Özet", href: "/staff", icon: House }} pushBindingKey={pushBindingKey} tour="staff" calendarHref="/staff/settings/takvim" />;
 }

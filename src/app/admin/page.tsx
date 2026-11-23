@@ -23,6 +23,7 @@ import { greetingName } from "../_ui/display-name";
 import { pendingSummaryText } from "./dashboard-summary";
 import { setupSteps } from "./setup-steps";
 import { Check } from "lucide-react";
+import { ProductTour } from "../_ui/tour/product-tour";
 
 /**
  * Navigation only: the login form sends every tenant user to /admin, so staff
@@ -129,7 +130,7 @@ export default async function AdminPage() {
         {/* Opt-in banner and hints only; the on/off switch is in Ayarlar. Still refreshes the subscription on open. */}
         {pushBindingKey ? <PushPermission bindingKey={pushBindingKey} className="w-full" layout="banner-only" /> : null}
         {remaining > 0 && (
-          <section aria-labelledby="setup-title">
+          <section aria-labelledby="setup-title" data-tour="setup">
             <h2 id="setup-title" className="group-label">Kurulum · {remaining} adım kaldı</h2>
             <p className="px-4 pb-2 text-subhead text-ink-muted">Bu adımlar bitince müşterileriniz online randevu alabilir.</p>
             <ol className="inset-group">
@@ -159,7 +160,7 @@ export default async function AdminPage() {
           </section>
         )}
 
-        <section aria-labelledby="today-title">
+        <section aria-labelledby="today-title" data-tour="today">
           <h2 id="today-title" className="group-label">Bugün</h2>
           <Link
             href="/admin/calendar"
@@ -184,7 +185,7 @@ export default async function AdminPage() {
           </Link>
         </section>
 
-        <section aria-labelledby="salon-settings-title">
+        <section aria-labelledby="salon-settings-title" data-tour="business">
           <h2 id="salon-settings-title" className="group-label">İşletme</h2>
           <ul className="inset-group">
             <SettingsRow href="/admin/staff" label="Personel" detail={staffCount === null ? undefined : `${staffCount} aktif`} />
@@ -199,11 +200,12 @@ export default async function AdminPage() {
           </ul>
         </section>
 
-        <section aria-labelledby="account-title">
+        <section aria-labelledby="account-title" data-tour="account">
           <h2 id="account-title" className="group-label">Hesap</h2>
           <AccountRows settingsHref="/admin/settings" />
         </section>
       </div>
+      <ProductTour tour="admin" />
     </main>
   );
 }

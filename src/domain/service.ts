@@ -28,6 +28,35 @@ export function normalizeServiceName(value: unknown): string {
   return normalized;
 }
 
+export const ARCHIVED_SERVICE_NAME_MAX_ATTEMPTS = 50;
+
+/**
+ * Candidate names for an archived service whose name is being reused, in
+ * preference order: "X (silindi)", "X (silindi 2)", ... up to 50. The base name
+ * (never the suffix) is truncated so each candidate fits the name limit.
+ */
+export function archivedServiceNameCandidates(
+  name: string,
+  maxLength: number = SERVICE_NAME_MAX_LENGTH,
+): string[] {
+  const candidates: string[] = [];
+  for (let attempt = 1; attempt <= ARCHIVED_SERVICE_NAME_MAX_ATTEMPTS; attempt += 1) {
+    const suffix = attempt === 1 ? " (silindi)" : ` (silindi ${attempt})`;
+    const base = name.slice(0, Math.max(0, maxLength - suffix.length)).trimEnd();
+    candidates.push(`${base}${suffix}`);
+  }
+  return candidates;
+}
+
+/** First free archived-name candidate, or null when all 50 are taken. */
+export function chooseArchivedServiceName(
+  name: string,
+  takenNames: ReadonlySet<string>,
+  maxLength: number = SERVICE_NAME_MAX_LENGTH,
+): string | null {
+  return archivedServiceNameCandidates(name, maxLength).find((candidate) => !takenNames.has(candidate)) ?? null;
+}
+
 export function createServiceDurationMinutes(value: unknown): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > SERVICE_DURATION_MAX_MINUTES) {
     throw new TypeError("Service duration is invalid");

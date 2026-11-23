@@ -41,6 +41,19 @@ export async function authorizeStaffCompletion(
   return isAssignedActiveStaff(dependencies, identity, tenantContext, appointment);
 }
 
+/**
+ * Delete permission: the assigned ACTIVE staff member, any status. The status rule
+ * (cancel first, no COMPLETED for staff) is `appointmentDeleteRule`, applied by the service.
+ */
+export async function authorizeStaffAppointmentDelete(
+  dependencies: StaffDecisionAuthorizationDependencies,
+  identity: ApplicationIdentity,
+  tenantContext: TenantContext,
+  appointment: AppointmentRecord,
+): Promise<boolean> {
+  return isAssignedActiveStaff(dependencies, identity, tenantContext, appointment);
+}
+
 async function isAssignedActiveStaff(
   dependencies: StaffDecisionAuthorizationDependencies,
   identity: ApplicationIdentity,

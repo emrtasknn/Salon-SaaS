@@ -47,7 +47,7 @@ describe("prisma appointment access token repository", () => {
     const details = await createPrismaAppointmentAccessTokenRepository(makePrisma(transaction)).findDetailsByTokenHash(TENANT, HASH, NOW);
     expect(tenantGucValue(transaction)).toBe("tenant-a");
     expect(transaction.appointmentAccessToken.findFirst).toHaveBeenCalledWith({ where: usableTokenWhere, select: { appointmentId: true } });
-    expect(transaction.appointment.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { tenantId_id: { tenantId: "tenant-a", id: "appt-a" } } }));
+    expect(transaction.appointment.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { tenantId_id: { tenantId: "tenant-a", id: "appt-a" }, deletedAt: null } }));
     expect(transaction.service.findUnique.mock.calls[0][0].where).toEqual({ tenantId_id: { tenantId: "tenant-a", id: "svc-a" } });
     expect(transaction.staff.findUnique.mock.calls[0][0].where).toEqual({ tenantId_id: { tenantId: "tenant-a", id: "staff-a" } });
     expect(transaction.profile.findUnique.mock.calls[0][0].where).toEqual({ tenantId_id: { tenantId: "tenant-a", id: "profile-a" } });

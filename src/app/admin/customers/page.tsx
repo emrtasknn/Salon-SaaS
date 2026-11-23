@@ -9,6 +9,7 @@ import { appointmentStatusBadge, appointmentStatusLabel, badgeBase, field } from
 import { formatAppointmentDateTime } from "../../_ui/date-format";
 import { CustomerList, customerContact } from "./customer-list";
 import { CustomerNoteForm } from "./note-form";
+import { DeleteCustomerButton, DeleteNoteButton } from "./customer-delete-buttons";
 
 export default async function CustomerPage({
   searchParams,
@@ -77,7 +78,10 @@ export default async function CustomerPage({
               {result.customer.notes.length ? (
                 <ul className="space-y-2">
                   {result.customer.notes.map((note) => (
-                    <li key={note.id} className="rounded-control bg-surface-muted p-3 text-subhead text-ink [overflow-wrap:anywhere]">{note.body}</li>
+                    <li key={note.id} className="flex items-start gap-2 rounded-control bg-surface-muted p-3 text-subhead text-ink">
+                      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{note.body}</span>
+                      <DeleteNoteButton noteId={note.id} />
+                    </li>
                   ))}
                 </ul>
               ) : (
@@ -85,6 +89,11 @@ export default async function CustomerPage({
               )}
               <CustomerNoteForm customerId={result.customer.id} />
             </div>
+          </section>
+
+          <section aria-labelledby="delete-title" className="flex justify-end">
+            <h2 id="delete-title" className="sr-only">Müşteriyi sil</h2>
+            <DeleteCustomerButton customerId={result.customer.id} name={result.customer.displayName} />
           </section>
         </div>
       </main>

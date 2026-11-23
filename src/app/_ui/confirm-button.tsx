@@ -68,7 +68,7 @@ export function ConfirmButton({
     <div
       role="group"
       aria-labelledby={questionId}
-      className="w-full basis-full rounded-control border border-destructive/30 bg-status-rejected-bg/40 p-3"
+      className="enter-fade w-full basis-full rounded-control border border-destructive/30 bg-status-rejected-bg/40 p-3"
     >
       <p id={questionId} className="text-subhead font-semibold text-ink">{question}</p>
       {detail ? <p className="mt-0.5 text-footnote text-ink-muted">{detail}</p> : null}

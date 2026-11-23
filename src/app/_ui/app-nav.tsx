@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { CalendarCheck, CalendarDays, LayoutGrid, Users } from "lucide-react";
+import { CalendarCheck, CalendarDays, House, LayoutGrid, Users } from "lucide-react";
 
 import { haptic } from "@/lib/haptics";
+import { navTourTarget } from "./tour/tour-steps";
 import { lensIndex, lensOffset, shownNavHref, type NavIcon, type NavItem, type PendingNav } from "./nav-items";
 
 const icons: Record<NavIcon, ComponentType<{ className?: string; "aria-hidden"?: boolean; strokeWidth?: number }>> = {
@@ -14,7 +15,23 @@ const icons: Record<NavIcon, ComponentType<{ className?: string; "aria-hidden"?:
   calendar: CalendarDays,
   customers: Users,
   appointments: CalendarCheck,
+  home: House,
 };
+
+/**
+ * Tab icon; pulses while its link is still loading the next page (useLinkStatus must be rendered
+ * inside the <Link>). Presentation only.
+ */
+function TabIcon({ icon: Icon, strong }: { icon: (typeof icons)[NavIcon]; strong: boolean }) {
+  const { pending } = useLinkStatus();
+  return (
+    <Icon
+      className={`size-[22px] shrink-0 ${pending ? "tab-pending" : ""}`}
+      aria-hidden
+      strokeWidth={strong ? 2.25 : 2}
+    />
+  );
+}
 
 /** Finger travel before a press on the tab bar counts as a drag rather than a tap. */
 const DRAG_THRESHOLD_PX = 6;
@@ -116,6 +133,7 @@ export function AppNavShell({
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                  data-tour={navTourTarget(item.href)}
                     aria-current={current ? "page" : undefined}
                     className={`focus-ring tap-target inline-flex items-center justify-center rounded-[10px] px-4 text-subhead font-semibold transition-colors ${
                       current ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"
@@ -165,6 +183,7 @@ export function AppNavShell({
               <li key={item.href} className="min-w-0 flex-1">
                 <Link
                   href={item.href}
+                  data-tour={navTourTarget(item.href)}
                   draggable={false}
                   aria-current={current ? "page" : undefined}
                   onClick={(event) => {
@@ -188,7 +207,7 @@ export function AppNavShell({
                     animate={{ scale: lifted && highlighted && !reduceMotion ? 1.14 : 1 }}
                     transition={reduceMotion ? { duration: 0 } : spring}
                   >
-                    <Icon className="size-[22px] shrink-0" aria-hidden strokeWidth={highlighted ? 2.25 : 2} />
+                    <TabIcon icon={Icon} strong={highlighted} />
                     <span className="max-w-full truncate">{item.label}</span>
                   </motion.span>
                 </Link>
